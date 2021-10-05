@@ -8,7 +8,8 @@
             [clojure.spec.alpha :as s]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
-            [clojure.string :as cs])
+            [clojure.string :as cs]
+            [byte-streams :as bs])
   (:import
    [java.io IOException InputStream ByteArrayOutputStream File]
    [org.apache.commons.fileupload
@@ -52,7 +53,6 @@
            ::tempfile]))
 
 (s/def ::attachments (s/every ::attachment))
-
 
 (s/fdef parse-head
   :args (s/cat :stream #(instance? MultipartStream %))
@@ -138,6 +138,7 @@
           (throw (ex-info "Read Error"
                           {:type ::read-error}
                           ex)))))))
+
 (s/fdef parse-response
   :args (s/cat :response map?)
   :ret (s/keys :req-un [::body]))
@@ -149,16 +150,73 @@
     :as resp}]
   (assoc resp :body (parse-multipart-body body content-type-str)))
 
+(defmethod client/coerce-response-body :multipart/mixed
+  [_ resp]
+  (parse-response resp))
+
+
+(s/fdef post-body
+  :args (s/cat :boundary string?
+               :statements (s/every ::xs/statement)
+               :attachments ::attachments)
+  :ret #(instance? InputStream %))
+
+(def crlf "\r\n")
+
+(defn post-body
+  "Return an input stream with the POST multipart body"
+  [boundary
+   statements
+   attachments]
+  (let [content-type (format "multipart/mixed; boundary=%s" boundary)]
+    (bs/to-input-stream
+     (concat
+      (cons
+       (str "--"
+            boundary
+            crlf
+            "Content-Type:application/json"
+            crlf
+            crlf
+            (json/generate-string statements))
+       (mapcat
+        (fn [{:keys [sha2 contentType tempfile]}]
+          [(str crlf
+                "--"
+                boundary
+                crlf
+                (format "Content-Type:%s" contentType)
+                crlf
+                "Content-Transfer-Encoding:binary"
+                crlf
+                (format "X-Experience-API-Hash:%s" sha2)
+                crlf
+                crlf)
+           tempfile])
+        attachments))
+      [(str crlf
+            "--"
+            boundary
+            "--")]))))
+
 (comment
-  (-> (parse-response
-       (client/request
-        {:url "http://localhost:8080/xapi/statements?attachments=true"
-         :headers {"x-experience-api-version" "1.0.3"}
-         :method :get
-         :as :stream
-         }))
-      :body
-      :attachments)
+
+  (def boundary ;; TODO: Dynamic
+    "105423a5219f5a63362a375ba7a64a8f234da19c7d01e56800c3c64b26bb2fa0")
+
+
+  (let [{{{:strs [statements]}
+          :statement-result
+          :keys [attachments]} :body} (client/request
+                                     {:url "http://localhost:8080/xapi/statements"
+                                      :query-params {:attachments true
+                                                     :ascending true
+                                                     }
+                                      :headers {"x-experience-api-version" "1.0.3"}
+                                      :method :get
+                                      :as :multipart/mixed
+                                      })]
+    (print (bs/to-string (post-body boundary statements attachments))))
 
 
 
