@@ -51,21 +51,14 @@
            :attachment/contentType
            ::tempfile]))
 
-
 (s/def ::attachments (s/every ::attachment))
 
-(s/def ::multipart-result
-  (s/keys :req-un
-          [:xapi.statements.GET.response/statement-result
-           ::attachments]))
 
-(s/fdef parse-multipart-body
-  :args (s/cat :input-stream #(instance? InputStream %)
-               ;; contents of the Content-Type header
-               :content-type-str string?)
-  :ret ::multipart-result)
+(s/fdef parse-head
+  :args (s/cat :stream #(instance? MultipartStream %))
+  :ret :xapi.statements.GET.response/statement-result)
 
-(defn- parse-head
+(defn parse-head
   "Parse out the head of the stream, a statement result object"
   [^MultipartStream stream]
   (let [_statement-headers (.readHeaders stream)
@@ -76,7 +69,11 @@
     (with-open [r (io/reader (.toByteArray result-baos))]
       (json/parse-stream r))))
 
-(defn- parse-tail
+(s/fdef parse-tail
+  :args (s/cat :stream #(instance? MultipartStream %))
+  :ret ::attachments)
+
+(defn parse-tail
   "Parse any available attachments in the stream"
   [^MultipartStream stream]
   (loop [acc []]
@@ -101,6 +98,17 @@
           (throw (ex-info "Invalid xAPI Part"
                           {:type ::invalid-xapi-part}))))
       acc)))
+
+(s/def ::multipart-result
+  (s/keys :req-un
+          [:xapi.statements.GET.response/statement-result
+           ::attachments]))
+
+(s/fdef parse-multipart-body
+  :args (s/cat :input-stream #(instance? InputStream %)
+               ;; contents of the Content-Type header
+               :content-type-str string?)
+  :ret ::multipart-result)
 
 (defn parse-multipart-body
   "Return a statement result and any attachments found"
@@ -144,8 +152,7 @@
         (parse-multipart-body
          body
          content-type-str))
-      :attachments
-      count)
+      )
 
 
 
