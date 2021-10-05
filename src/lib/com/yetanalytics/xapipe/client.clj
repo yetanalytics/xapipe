@@ -99,7 +99,7 @@
                           {:type ::invalid-xapi-part}))))
       acc)))
 
-(s/def ::multipart-result
+(s/def ::body
   (s/keys :req-un
           [:xapi.statements.GET.response/statement-result
            ::attachments]))
@@ -108,7 +108,7 @@
   :args (s/cat :input-stream #(instance? InputStream %)
                ;; contents of the Content-Type header
                :content-type-str string?)
-  :ret ::multipart-result)
+  :ret ::body)
 
 (defn parse-multipart-body
   "Return a statement result and any attachments found"
@@ -138,21 +138,27 @@
           (throw (ex-info "Read Error"
                           {:type ::read-error}
                           ex)))))))
+(s/fdef parse-response
+  :args (s/cat :response map?)
+  :ret (s/keys :req-un [::body]))
+
+(defn parse-response
+  "Parse + close a multipart body"
+  [{:keys [body]
+    {content-type-str "Content-Type"} :headers
+    :as resp}]
+  (assoc resp :body (parse-multipart-body body content-type-str)))
 
 (comment
-
-  (-> (let [{:keys [body]
-             {content-type-str "Content-Type"} :headers
-             :as resp} (client/request
-                        {:url "http://localhost:8080/xapi/statements?attachments=true"
-                         :headers {"x-experience-api-version" "1.0.3"}
-                         :method :get
-                         :as :stream
-                         })]
-        (parse-multipart-body
-         body
-         content-type-str))
-      )
+  (-> (parse-response
+       (client/request
+        {:url "http://localhost:8080/xapi/statements?attachments=true"
+         :headers {"x-experience-api-version" "1.0.3"}
+         :method :get
+         :as :stream
+         }))
+      :body
+      :attachments)
 
 
 
