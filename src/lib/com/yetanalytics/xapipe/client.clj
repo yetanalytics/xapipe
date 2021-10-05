@@ -168,42 +168,41 @@
   [boundary
    statements
    attachments]
-  (let [content-type (format "multipart/mixed; boundary=%s" boundary)]
-    (bs/to-input-stream
-     (concat
-      (cons
-       (str "--"
-            boundary
-            crlf
-            "Content-Type:application/json"
-            crlf
-            crlf
-            (json/generate-string statements))
-       (mapcat
-        (fn [{:keys [sha2 contentType tempfile]}]
-          [(str crlf
-                "--"
-                boundary
-                crlf
-                (format "Content-Type:%s" contentType)
-                crlf
-                "Content-Transfer-Encoding:binary"
-                crlf
-                (format "X-Experience-API-Hash:%s" sha2)
-                crlf
-                crlf)
-           tempfile])
-        attachments))
-      [(str crlf
-            "--"
-            boundary
-            "--")]))))
+  (bs/to-input-stream
+   (concat
+    (cons
+     (str "--"
+          boundary
+          crlf
+          "Content-Type:application/json"
+          crlf
+          crlf
+          (json/generate-string statements))
+     (mapcat
+      (fn [{:keys [sha2 contentType tempfile]}]
+        [(str crlf
+              "--"
+              boundary
+              crlf
+              (format "Content-Type:%s" contentType)
+              crlf
+              "Content-Transfer-Encoding:binary"
+              crlf
+              (format "X-Experience-API-Hash:%s" sha2)
+              crlf
+              crlf)
+         tempfile])
+      attachments))
+    [(str crlf
+          "--"
+          boundary
+          "--")])))
 
 (comment
 
   (def boundary ;; TODO: Dynamic
     "105423a5219f5a63362a375ba7a64a8f234da19c7d01e56800c3c64b26bb2fa0")
-
+  (def content-type (format "multipart/mixed; boundary=%s" boundary))
 
   (let [{{{:strs [statements]}
           :statement-result
