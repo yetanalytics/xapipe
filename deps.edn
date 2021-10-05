@@ -1,0 +1,30 @@
+{:paths ["src/lib" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.3"}
+        clj-http/clj-http {:mvn/version "3.12.3"}
+        cheshire/cheshire {:mvn/version "5.10.0"}
+        com.taoensso/carmine {:mvn/version "3.1.0"}
+        commons-fileupload/commons-fileupload {:mvn/version "1.4"}
+        com.yetanalytics/xapi-schema {:git/url "https://github.com/yetanalytics/xapi-schema.git"
+                                      :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"}
+        ;; hk-multipart-mixed/hk-multipart-mixed {:mvn/version "2.3.0"}
+        ;; TODO: replace with master when PR is merged:
+        ;; https://github.com/http-kit/http-kit/pull/451
+        ;; http-kit/http-kit {:mvn/version "2.5.3"}
+        }
+ :aliases
+ {:run-m {:main-opts ["-m" "com.yetanalytics.xapipe"]}
+  :run-x {:ns-default com.yetanalytics.xapipe
+          :exec-fn greet
+          :exec-args {:name "Clojure"}}
+  :test {:extra-paths ["src/test"]
+         :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}
+                      io.github.cognitect-labs/test-runner
+                      {:git/url "https://github.com/cognitect-labs/test-runner"
+                       :sha "62ef1de18e076903374306060ac0e8a752e57c86"}}
+         :exec-fn cognitect.test-runner.api/test}
+  :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
+            :exec-fn hf.depstar/uberjar
+            :exec-args {:aot true
+                        :jar "xapipe.jar"
+                        :main-class "com.yetanalytics.xapipe"
+                        :sync-pom true}}}}
