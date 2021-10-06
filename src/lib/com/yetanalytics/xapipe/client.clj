@@ -346,8 +346,54 @@
                fn1)))
     ret))
 
-(comment
+(s/fdef get-chan
+  :args (s/cat :config ::request-config
+               :kwargs
+               (s/keys* :opt-un [::more
+                                 ::since
+                                 ::limit]))
+  :ret any?)
 
+(defn get-chan
+  "Returns a channel that will return responses from an LRS forever or until it
+  returns an error and closes. Items as specified in async-request."
+  [lrs-config
+   & req-kwargs]
+  (let [out-chan (a/chan)]
+    (a/go-loop [req (apply
+                     get-request
+                     lrs-config
+                     req-kwargs)
+                batch-idx 0]
+      (let [[tag resp :as ret] (a/<!
+                                (async-request
+                                 req))]
+        (case tag
+          :response
+          (do
+            (a/>! out-chan ret)
+            (if-let [more (some-> resp
+                                  (get-in [:body
+                                           :statement-result
+                                           "more"])
+                                  not-empty)]
+              (recur (get-request
+                      lrs-config
+                      :more more)
+                     (inc batch-idx))
+              (do
+                ;; TODO: Poll. Right now it closes
+                (a/close! out-chan))))
+          :exception
+          (do (a/>! out-chan ret)
+              (a/close! out-chan)))))
+    out-chan))
+
+(comment
+  (count
+   (a/<!! (a/into [] (get-chan
+                     {:url-base "http://localhost:8080"
+                      :xapi-prefix "/xapi"}))))
 
   (-> (client/request
        (get-request
