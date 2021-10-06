@@ -346,8 +346,13 @@
                fn1)))
     ret))
 
+(s/def ::poll-interval
+  nat-int?)
+
 (s/fdef get-chan
   :args (s/cat :config ::request-config
+               :poll-interval ::poll-interval
+               :stop-chan any?
                :kwargs
                (s/keys* :opt-un [::more
                                  ::since
@@ -356,44 +361,85 @@
 
 (defn get-chan
   "Returns a channel that will return responses from an LRS forever or until it
-  returns an error and closes. Items as specified in async-request."
-  [lrs-config
+  returns an error and closes or recieves a signal on stop-chan.."
+  [config
+   poll-interval
+   stop-chan
    & req-kwargs]
   (let [out-chan (a/chan)]
     (a/go-loop [req (apply
                      get-request
-                     lrs-config
+                     config
                      req-kwargs)
-                batch-idx 0]
-      (let [[tag resp :as ret] (a/<!
-                                (async-request
-                                 req))]
-        (case tag
-          :response
+                since (some-> req
+                              :query-params
+                              :since)]
+      (let [req-chan (async-request
+                      req)
+            [v p] (a/alts! [req-chan stop-chan])]
+        (if (identical? p stop-chan)
           (do
-            (a/>! out-chan ret)
-            (if-let [more (some-> resp
-                                  (get-in [:body
-                                           :statement-result
-                                           "more"])
-                                  not-empty)]
-              (recur (get-request
-                      lrs-config
-                      :more more)
-                     (inc batch-idx))
-              (do
-                ;; TODO: Poll. Right now it closes
-                (a/close! out-chan))))
-          :exception
-          (do (a/>! out-chan ret)
-              (a/close! out-chan)))))
+            ;; finish pending req and bail
+            (a/<! req-chan)
+            (a/close! out-chan))
+          (let [[tag resp :as ret] v]
+            (case tag
+              :response
+              (let [{{{:strs [statements more]} :statement-result} :body} resp]
+                (if (not-empty statements)
+                  (let [last-stored (-> statements
+                                        peek
+                                        (get "stored"))]
+                    ;; put on the (unbuffered) channel. Will park
+                    (a/>! out-chan
+                          (assoc-in ret [1 ::last-stored] last-stored))
+                    (recur
+                     ;; A more link gives us am automatic way to continue
+                     (if (not-empty more)
+                       (get-request
+                        config
+                        :more more)
+                       (get-request
+                        config
+                        :since last-stored))
+                     ;; update
+                     last-stored))
+                  ;; With no statements we're polling.
+                  ;; Wait for the specified time
+                  (do
+                    (a/<! (a/timeout poll-interval))
+                    (recur
+                     (cond
+                       (not-empty more) (get-request
+                                         config
+                                         :more more)
+                       since            (get-request
+                                         config
+                                         :since since)
+                       :else            (apply
+                                         get-request
+                                         config
+                                         req-kwargs))
+                     since))))
+              :exception
+              (do (a/>! out-chan ret)
+                  (a/close! out-chan)))))))
     out-chan))
 
 (comment
-  (count
-   (a/<!! (a/into [] (get-chan
-                     {:url-base "http://localhost:8080"
-                      :xapi-prefix "/xapi"}))))
+
+  (def stop-chan (a/promise-chan))
+
+  (def gchan
+    (get-chan
+     {:url-base "http://localhost:8080"
+      :xapi-prefix "/xapi"}
+     1000
+     stop-chan))
+
+  (first (a/<!! gchan)) ;; will block when out of statements!
+
+  (a/>!! stop-chan :foo)
 
   (-> (client/request
        (get-request
