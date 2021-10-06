@@ -9,7 +9,8 @@
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
             [clojure.string :as cs]
-            [byte-streams :as bs])
+            [byte-streams :as bs]
+            [clojure.core.async :as a])
   (:import
    [java.io IOException InputStream ByteArrayOutputStream File]
    [org.apache.commons.fileupload
@@ -153,7 +154,6 @@
 (defmethod client/coerce-response-body :multipart/mixed
   [_ resp]
   (parse-response resp))
-
 
 (s/fdef post-body
   :args (s/cat :boundary string?
@@ -299,6 +299,41 @@
                (not-empty password))
         (assoc :basic-auth [username password]))))
 
+(defn async-request
+  "Perform an async http request, returning a promise channel with tuple
+  of either:
+
+  [:response <resp>]
+  or
+  [:exception <ex>]
+
+  Only status 200 responses will be returned, all others will be wrapped in an
+  ex-info."
+  [request]
+  (let [ret (a/promise-chan)
+        fn1 (fn [open?]
+              (when open? (a/close! ret)))]
+    (client/request
+     (assoc request :async? true)
+     (fn [{:keys [status]
+           :as resp}]
+       (a/put! ret
+               (if (= status 200)
+                 [:response resp]
+                 [:exception
+                  (ex-info "Non-200 Request Status"
+                           {:type ::request-fail
+                            :response resp})])
+               fn1))
+     (fn [exception]
+       (a/put! ret
+               [:exception
+                (ex-info "Unhandled LRS request exception"
+                         {:type ::unhandled-request-exception}
+                         exception)]
+               fn1)))
+    ret))
+
 (comment
 
   (def boundary ;; TODO: Dynamic
@@ -312,6 +347,15 @@
        )
       :body
       :attachments
+      )
+
+  (-> (async-request
+       (get-request
+        {:url-base "http://localhost:8080"
+         :xapi-prefix "/xapi"})
+       )
+      a/<!!
+      first
       )
 
   ;; simple test with get and post of 1 batch
@@ -331,7 +375,7 @@
                     req-config
                     boundary
                     statements
-                    attachments))]
+                    attachments) )]
     (clojure.pprint/pprint post-resp))
 
 
