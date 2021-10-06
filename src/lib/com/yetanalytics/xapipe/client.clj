@@ -277,10 +277,15 @@
 
 (s/fdef post-request
   :args (s/cat :config ::request-config
-               :boundary string?
                :statements (s/every ::xs/statement)
                :attachments (s/every ::attachment))
   :ret map?)
+
+;; https://stackoverflow.com/a/67545577/3532563
+(defn- gen-boundary
+  "Generate a multipart boundary"
+  []
+  (apply str (repeatedly 64 #(rand-nth "abcdefghijklmnopqrstuvwxyz0123456789"))))
 
 (defn post-request
   [{:keys [url-base
@@ -288,23 +293,23 @@
            username
            password]
     :or {xapi-prefix "/xapi"}}
-   boundary
    statements
    attachments]
-  (-> post-request-base
-      (merge
-       {:url (format "%s%s/statements"
-                     url-base
-                     xapi-prefix)
-        :body (post-body boundary statements attachments)})
+  (let [boundary (gen-boundary)]
+    (-> post-request-base
+        (merge
+         {:url (format "%s%s/statements"
+                       url-base
+                       xapi-prefix)
+          :body (post-body boundary statements attachments)})
 
-      (assoc-in [:headers "content-type"]
-                (format "multipart/mixed; boundary=%s" boundary))
-      (cond->
-          ;; support basic auth if provided
-          (and (not-empty username)
-               (not-empty password))
-        (assoc :basic-auth [username password]))))
+        (assoc-in [:headers "content-type"]
+                  (format "multipart/mixed; boundary=%s" boundary))
+        (cond->
+            ;; support basic auth if provided
+            (and (not-empty username)
+                 (not-empty password))
+          (assoc :basic-auth [username password])))))
 
 (defn async-request
   "Perform an async http request, returning a promise channel with tuple
@@ -343,9 +348,6 @@
 
 (comment
 
-  (def boundary ;; TODO: Dynamic
-    "105423a5219f5a63362a375ba7a64a8f234da19c7d01e56800c3c64b26bb2fa0")
-  (def content-type (format "multipart/mixed; boundary=%s" boundary))
 
   (-> (client/request
        (get-request
@@ -380,7 +382,6 @@
         post-resp (client/request
                    (post-request
                     req-config
-                    boundary
                     statements
                     attachments) )]
     (clojure.pprint/pprint post-resp))
