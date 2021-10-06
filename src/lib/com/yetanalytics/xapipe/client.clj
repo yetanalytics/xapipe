@@ -224,11 +224,13 @@
 
 (s/def ::more string?) ;; more link
 (s/def ::since ::xs/timestamp) ;; since arg
+(s/def ::limit pos-int?)
 
 (s/fdef get-request
   :args (s/cat :config ::request-config
                :kwargs (s/keys* :opt-un [::more
-                                         ::since]))
+                                         ::since
+                                         ::limit]))
   :ret map?)
 
 (defn get-request
@@ -239,7 +241,8 @@
            password]
     :or {xapi-prefix "/xapi"}}
    & {?since :since
-      ?more  :more}]
+      ?more  :more
+      ?limit :limit}]
   (let [more? (not-empty ?more)]
     (cond-> (merge
              get-request-base
@@ -261,7 +264,11 @@
 
       (and (not more?)
            ?since)
-      (assoc-in [:query-params :since] ?since))))
+      (assoc-in [:query-params :since] ?since)
+
+      (and (not more?)
+           ?limit)
+      (assoc-in [:query-params :limit] ?limit))))
 
 (def post-request-base
   {:headers {"x-experience-api-version" "1.0.3"}
