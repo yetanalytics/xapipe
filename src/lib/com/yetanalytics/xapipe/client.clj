@@ -204,18 +204,41 @@
     "105423a5219f5a63362a375ba7a64a8f234da19c7d01e56800c3c64b26bb2fa0")
   (def content-type (format "multipart/mixed; boundary=%s" boundary))
 
-  (let [{{{:strs [statements]}
+  (-> (client/request
+       {:url "http://localhost:8080/xapi/statements"
+        :query-params {:attachments true
+                       :ascending true
+                       :limit 1
+                       :since "2021-10-05T15:09:27.672932000Z"}
+        :headers {"x-experience-api-version" "1.0.3"}
+        :method :get
+        :as :multipart/mixed})
+      :body
+      :attachments
+      count)
+
+  ;; simple test with get and post of 1 batch
+  (let [;; Get
+        {{{:strs [statements]}
           :statement-result
-          :keys [attachments]} :body} (client/request
-                                     {:url "http://localhost:8080/xapi/statements"
-                                      :query-params {:attachments true
-                                                     :ascending true
-                                                     }
-                                      :headers {"x-experience-api-version" "1.0.3"}
-                                      :method :get
-                                      :as :multipart/mixed
-                                      })]
-    (print (bs/to-string (post-body boundary statements attachments))))
+          :keys [attachments]} :body
+         :as get-result} (client/request
+                          {:url "http://localhost:8080/xapi/statements"
+                           :query-params {:attachments true
+                                          :ascending true}
+                           :headers {"x-experience-api-version" "1.0.3"}
+                           :method :get
+                           :as :multipart/mixed})
+
+        ;; Post
+        post-resp (client/request
+                   {:method :post
+                    :url "http://localhost:8081/xapi/statements"
+                    :headers {"x-experience-api-version" "1.0.3"
+                              "content-type" (format "multipart/mixed; boundary=%s" boundary)}
+                    :body (post-body boundary statements attachments)
+                    :as :json})]
+    (clojure.pprint/pprint post-resp))
 
 
 
