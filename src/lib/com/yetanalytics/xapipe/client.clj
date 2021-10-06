@@ -198,6 +198,107 @@
           boundary
           "--")])))
 
+(s/def ::url-base
+  string?)
+
+(s/def ::xapi-prefix ;; with leading slash like /xapi
+  (s/nilable string?))
+
+;; basic auth support
+(s/def ::username string?)
+(s/def ::password string?)
+
+(s/def ::request-config
+  (s/keys
+   :req-un [::url-base]
+   :opt-un [::xapi-prefix
+            ::username
+            ::password]))
+
+(def get-request-base
+  {:headers {"x-experience-api-version" "1.0.3"}
+   :method :get
+   :as :multipart/mixed
+   :query-params {:ascending true
+                  :attachments true}})
+
+(s/def ::more string?) ;; more link
+(s/def ::since ::xs/timestamp) ;; since arg
+
+(s/fdef get-request
+  :args (s/cat :config ::request-config
+               :kwargs (s/keys* :opt-un [::more
+                                         ::since]))
+  :ret map?)
+
+(defn get-request
+  "Form a /statements GET request"
+  [{:keys [url-base
+           xapi-prefix
+           username
+           password]
+    :or {xapi-prefix "/xapi"}}
+   & {?since :since
+      ?more  :more}]
+  (let [more? (not-empty ?more)]
+    (cond-> (merge
+             get-request-base
+             {:url
+              (if more?
+                (format "%s%s"
+                        url-base
+                        ?more)
+                (format "%s%s/statements"
+                        url-base
+                        xapi-prefix))})
+      ;; support basic auth if provided
+      (and (not-empty username)
+           (not-empty password))
+      (assoc :basic-auth [username password])
+      ;; query params will be included in the more link
+      more?
+      (dissoc :query-params)
+
+      (and (not more?)
+           ?since)
+      (assoc-in [:query-params :since] ?since))))
+
+(def post-request-base
+  {:headers {"x-experience-api-version" "1.0.3"}
+   :method :post
+   :as :json})
+
+(s/fdef post-request
+  :args (s/cat :config ::request-config
+               :boundary string?
+               :statements (s/every ::xs/statement)
+               :attachments (s/every ::attachment))
+  :ret map?)
+
+(defn post-request
+  [{:keys [url-base
+           xapi-prefix
+           username
+           password]
+    :or {xapi-prefix "/xapi"}}
+   boundary
+   statements
+   attachments]
+  (-> post-request-base
+      (merge
+       {:url (format "%s%s/statements"
+                     url-base
+                     xapi-prefix)
+        :body (post-body boundary statements attachments)})
+
+      (assoc-in [:headers "content-type"]
+                (format "multipart/mixed; boundary=%s" boundary))
+      (cond->
+          ;; support basic auth if provided
+          (and (not-empty username)
+               (not-empty password))
+        (assoc :basic-auth [username password]))))
+
 (comment
 
   (def boundary ;; TODO: Dynamic
@@ -205,39 +306,32 @@
   (def content-type (format "multipart/mixed; boundary=%s" boundary))
 
   (-> (client/request
-       {:url "http://localhost:8080/xapi/statements"
-        :query-params {:attachments true
-                       :ascending true
-                       :limit 1
-                       :since "2021-10-05T15:09:27.672932000Z"}
-        :headers {"x-experience-api-version" "1.0.3"}
-        :method :get
-        :as :multipart/mixed})
+       (get-request
+        {:url-base "http://localhost:8080"
+         :xapi-prefix "/xapi"})
+       )
       :body
       :attachments
-      count)
+      )
 
   ;; simple test with get and post of 1 batch
-  (let [;; Get
+  (let [req-config {:url-base "http://localhost:8080"
+                    :xapi-prefix "/xapi"}
+        ;; Get
         {{{:strs [statements]}
           :statement-result
           :keys [attachments]} :body
          :as get-result} (client/request
-                          {:url "http://localhost:8080/xapi/statements"
-                           :query-params {:attachments true
-                                          :ascending true}
-                           :headers {"x-experience-api-version" "1.0.3"}
-                           :method :get
-                           :as :multipart/mixed})
+                          (get-request
+                           req-config))
 
         ;; Post
         post-resp (client/request
-                   {:method :post
-                    :url "http://localhost:8081/xapi/statements"
-                    :headers {"x-experience-api-version" "1.0.3"
-                              "content-type" (format "multipart/mixed; boundary=%s" boundary)}
-                    :body (post-body boundary statements attachments)
-                    :as :json})]
+                   (post-request
+                    req-config
+                    boundary
+                    statements
+                    attachments))]
     (clojure.pprint/pprint post-resp))
 
 
