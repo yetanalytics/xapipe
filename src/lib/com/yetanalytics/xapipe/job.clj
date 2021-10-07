@@ -138,12 +138,13 @@
 (defn update-cursor
   "Attempt to update the since cursor on the job"
   [job new-cursor]
-  (let [{{:keys [status]} :state
-         :as              job-after} (set-status job)]
+  (let [job-after (set-status job)]
     (if (not= job job-after)
-      (update-in job [:state :cursor] (comp
-                                       t/normalize-stamp
-                                       t/latest-stamp) new-cursor)
+      (update-in job-after
+                 [:state :cursor]
+                 (comp
+                  t/normalize-stamp
+                  t/latest-stamp) new-cursor)
       job)))
 
 (comment
