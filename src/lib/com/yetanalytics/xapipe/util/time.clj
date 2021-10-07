@@ -13,6 +13,11 @@
   ^Instant [^String timestamp]
   (Instant/parse timestamp))
 
+;; TODO: also naive, replace
+(defn normalize-stamp
+  ^String [^String timestamp]
+  (.toString (parse-inst timestamp)))
+
 (s/fdef stamp-cmp
   :args (s/cat :a string?
                :b string?)
