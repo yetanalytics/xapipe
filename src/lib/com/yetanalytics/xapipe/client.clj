@@ -9,6 +9,7 @@
             [xapi-schema.spec.resources :as xsr]
             [xapipe.util.time :as t]))
 
+;; TODO: remove last-stored emission if it doesn't get used
 ;; TODO: Pick and enable actual loggings
 (defn- debug
   "DEV logging"
@@ -290,6 +291,22 @@
                   (a/close! out-chan)))))))
     out-chan))
 
+(s/def ::get-response
+  (s/keys :req-un [::last-stored ::multipart/body]))
+
+(s/def ::get-success
+  (s/tuple :response
+           ::get-response))
+
+(s/def ::get-exception
+  (s/tuple :exception
+           #(instance? Exception %)))
+
+(s/def ::get-ret
+  (s/or :response
+        ::get-success
+        :exception
+        ::get-exception))
 (comment
 
   (do
@@ -315,8 +332,20 @@
          :xapi-prefix "/xapi"}
         {})
        )
-      :headers
+      com.yetanalytics.xapipe.xapi/response->statements
+      (->> (mapcat :attachments))
       )
+
+  (def resp (client/request
+       (get-request
+        {:url-base    "http://localhost:8080"
+         :xapi-prefix "/xapi"}
+        {})
+       )
+
+    )
+
+
 
   (-> (async-request
        (get-request
