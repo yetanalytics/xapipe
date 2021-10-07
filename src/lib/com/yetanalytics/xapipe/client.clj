@@ -2,201 +2,17 @@
   "LRS Client"
   (:require #_[org.httpkit.client :as client]
             [clj-http.client :as client]
-            [clj-http.util :as util]
+            [clojure.core.async :as a]
             [clojure.java.io :as io]
-            [cheshire.core :as json]
             [clojure.spec.alpha :as s]
+            [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]
-            [xapi-schema.spec.resources :as xsr]
-            [clojure.string :as cs]
-            [byte-streams :as bs]
-            [clojure.core.async :as a])
-  (:import
-   [java.io IOException InputStream ByteArrayOutputStream File]
-   [org.apache.commons.fileupload
-    MultipartStream
-    MultipartStream$MalformedStreamException]))
+            [xapi-schema.spec.resources :as xsr]))
 
-#_(set! *warn-on-reflection* true)
-
-(s/def ::tempfile
-  #(instance? File %))
-
-(s/fdef create-tempfile!
-  :args (s/cat :sha2 string?)
-  :ret ::tempfile)
-
-(defn create-tempfile!
-  "Create a unique but identifiable tempfile"
-  [sha2]
-  (File/createTempFile
-   "xapipe_attachment_"
-   (format "_%s" sha2)))
-
-(s/fdef parse-headers
-  :args (s/cat :headers string?)
-  :ret (s/map-of string? string?))
-
-(defn parse-headers
-  "Parse a part's headers and return a map suitable for use in an attachment"
-  [headers]
-  (-> headers
-      cs/split-lines
-      (->>
-       (into {}
-             (map #(cs/split % #":" 2))))))
-
-;; an Attachment is the xapi properties + a temp file
-(s/def ::attachment
-  (s/keys :req-un
-          [:attachment/sha2
-           :attachment/contentType
-           ::tempfile]))
-
-(s/def ::attachments (s/every ::attachment))
-
-(s/fdef parse-head
-  :args (s/cat :stream #(instance? MultipartStream %))
-  :ret :xapi.statements.GET.response/statement-result)
-
-(defn parse-head
-  "Parse out the head of the stream, a statement result object"
-  [^MultipartStream stream]
-  (let [_statement-headers (.readHeaders stream)
-        result-baos (new ByteArrayOutputStream)]
-    ;; write the body to the output stream
-    (.readBodyData stream result-baos)
-    ;; Return the statement result always
-    (with-open [r (io/reader (.toByteArray result-baos))]
-      (json/parse-stream r))))
-
-(s/fdef parse-tail
-  :args (s/cat :stream #(instance? MultipartStream %))
-  :ret ::attachments)
-
-(defn parse-tail
-  "Parse any available attachments in the stream"
-  [^MultipartStream stream]
-  (loop [acc []]
-    (if (.readBoundary stream)
-      (let [{part-ctype "Content-Type"
-             part-sha2  "X-Experience-API-Hash"}
-            (-> stream
-                .readHeaders
-                parse-headers)]
-        ;; xAPI Multipart Parts must have these
-        (if (and part-ctype
-                 part-sha2)
-          (let [tempfile (create-tempfile! part-sha2)]
-            ;; Write body to a tempfile
-            (with-open [os (io/output-stream tempfile)]
-              (.readBodyData stream os))
-            (recur
-             (conj acc
-                   {:sha2 part-sha2
-                    :contentType part-ctype
-                    :tempfile tempfile})))
-          (throw (ex-info "Invalid xAPI Part"
-                          {:type ::invalid-xapi-part}))))
-      acc)))
-
-(s/def ::body
-  (s/keys :req-un
-          [:xapi.statements.GET.response/statement-result
-           ::attachments]))
-
-(s/fdef parse-multipart-body
-  :args (s/cat :input-stream #(instance? InputStream %)
-               ;; contents of the Content-Type header
-               :content-type-str string?)
-  :ret ::body)
-
-(defn parse-multipart-body
-  "Return a statement result and any attachments found"
-  [^InputStream input-stream
-   ^String content-type-str]
-  (let [{:keys [content-type]
-         {^String boundary-str :boundary
-          :keys [^String charset]
-          :or {charset "UTF-8"}} :content-type-params} (util/parse-content-type
-                                                        content-type-str)
-        boundary (.getBytes boundary-str charset)]
-    (with-open [input input-stream]
-      (try
-        (let [multipart-stream (new MultipartStream input-stream boundary)]
-          (if (.skipPreamble multipart-stream)
-            ;; The first bit should be statements
-            {:statement-result (parse-head multipart-stream)
-             ;; If there are attachments, find and coerce them
-             :attachments (parse-tail multipart-stream)}
-            (throw (ex-info "Empty Stream"
-                            {:type ::empty-stream}))))
-        (catch MultipartStream$MalformedStreamException ex
-          (throw (ex-info "Malformed Stream"
-                          {:type ::malformed-stream}
-                          ex)))
-        (catch IOException ex
-          (throw (ex-info "Read Error"
-                          {:type ::read-error}
-                          ex)))))))
-
-(s/fdef parse-response
-  :args (s/cat :response map?)
-  :ret (s/keys :req-un [::body]))
-
-(defn parse-response
-  "Parse + close a multipart body"
-  [{:keys [body]
-    {content-type-str "Content-Type"} :headers
-    :as resp}]
-  (assoc resp :body (parse-multipart-body body content-type-str)))
-
+;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
   [_ resp]
-  (parse-response resp))
-
-(s/fdef post-body
-  :args (s/cat :boundary string?
-               :statements (s/every ::xs/statement)
-               :attachments ::attachments)
-  :ret #(instance? InputStream %))
-
-(def crlf "\r\n")
-
-(defn post-body
-  "Return an input stream with the POST multipart body"
-  [boundary
-   statements
-   attachments]
-  (bs/to-input-stream
-   (concat
-    (cons
-     (str "--"
-          boundary
-          crlf
-          "Content-Type:application/json"
-          crlf
-          crlf
-          (json/generate-string statements))
-     (mapcat
-      (fn [{:keys [sha2 contentType tempfile]}]
-        [(str crlf
-              "--"
-              boundary
-              crlf
-              (format "Content-Type:%s" contentType)
-              crlf
-              "Content-Transfer-Encoding:binary"
-              crlf
-              (format "X-Experience-API-Hash:%s" sha2)
-              crlf
-              crlf)
-         tempfile])
-      attachments))
-    [(str crlf
-          "--"
-          boundary
-          "--")])))
+  (multipart/parse-response resp))
 
 (s/def ::url-base
   string?)
@@ -216,10 +32,10 @@
             ::password]))
 
 (def get-request-base
-  {:headers {"x-experience-api-version" "1.0.3"}
-   :method :get
-   :as :multipart/mixed
-   :query-params {:ascending true
+  {:headers      {"x-experience-api-version" "1.0.3"}
+   :method       :get
+   :as           :multipart/mixed
+   :query-params {:ascending   true
                   :attachments true}})
 
 (s/def ::more string?) ;; more link
@@ -239,7 +55,7 @@
            xapi-prefix
            username
            password]
-    :or {xapi-prefix "/xapi"}}
+    :or   {xapi-prefix "/xapi"}}
    & {?since :since
       ?more  :more
       ?limit :limit}]
@@ -272,36 +88,30 @@
 
 (def post-request-base
   {:headers {"x-experience-api-version" "1.0.3"}
-   :method :post
-   :as :json})
+   :method  :post
+   :as      :json})
 
 (s/fdef post-request
   :args (s/cat :config ::request-config
                :statements (s/every ::xs/statement)
-               :attachments (s/every ::attachment))
+               :attachments (s/every ::multipart/attachment))
   :ret map?)
-
-;; https://stackoverflow.com/a/67545577/3532563
-(defn- gen-boundary
-  "Generate a multipart boundary"
-  []
-  (apply str (repeatedly 64 #(rand-nth "abcdefghijklmnopqrstuvwxyz0123456789"))))
 
 (defn post-request
   [{:keys [url-base
            xapi-prefix
            username
            password]
-    :or {xapi-prefix "/xapi"}}
+    :or   {xapi-prefix "/xapi"}}
    statements
    attachments]
-  (let [boundary (gen-boundary)]
+  (let [boundary (multipart/gen-boundary)]
     (-> post-request-base
         (merge
-         {:url (format "%s%s/statements"
-                       url-base
-                       xapi-prefix)
-          :body (post-body boundary statements attachments)})
+         {:url  (format "%s%s/statements"
+                        url-base
+                        xapi-prefix)
+          :body (multipart/post-body boundary statements attachments)})
 
         (assoc-in [:headers "content-type"]
                   (format "multipart/mixed; boundary=%s" boundary))
@@ -328,13 +138,13 @@
     (client/request
      (assoc request :async? true)
      (fn [{:keys [status]
-           :as resp}]
+           :as   resp}]
        (a/put! ret
                (if (= status 200)
                  [:response resp]
                  [:exception
                   (ex-info "Non-200 Request Status"
-                           {:type ::request-fail
+                           {:type     ::request-fail
                             :response resp})])
                fn1))
      (fn [exception]
@@ -376,7 +186,7 @@
                               :since)]
       (let [req-chan (async-request
                       req)
-            [v p] (a/alts! [req-chan stop-chan])]
+            [v p]    (a/alts! [req-chan stop-chan])]
         (if (identical? p stop-chan)
           (do
             ;; finish pending req and bail
@@ -432,7 +242,7 @@
 
   (def gchan
     (get-chan
-     {:url-base "http://localhost:8080"
+     {:url-base    "http://localhost:8080"
       :xapi-prefix "/xapi"}
      1000
      stop-chan))
@@ -443,7 +253,7 @@
 
   (-> (client/request
        (get-request
-        {:url-base "http://localhost:8080"
+        {:url-base    "http://localhost:8080"
          :xapi-prefix "/xapi"})
        )
       :body
@@ -452,7 +262,7 @@
 
   (-> (async-request
        (get-request
-        {:url-base "http://localhost:8080"
+        {:url-base    "http://localhost:8080"
          :xapi-prefix "/xapi"})
        )
       a/<!!
@@ -460,15 +270,15 @@
       )
 
   ;; simple test with get and post of 1 batch
-  (let [req-config {:url-base "http://localhost:8080"
-                    :xapi-prefix "/xapi"}
+  (let [req-config                         {:url-base    "http://localhost:8080"
+                                            :xapi-prefix "/xapi"}
         ;; Get
         {{{:strs [statements]}
           :statement-result
           :keys [attachments]} :body
-         :as get-result} (client/request
-                          (get-request
-                           req-config))
+         :as                   get-result} (client/request
+                                            (get-request
+                                             req-config))
 
         ;; Post
         post-resp (client/request
