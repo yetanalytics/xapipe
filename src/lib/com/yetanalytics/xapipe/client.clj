@@ -84,8 +84,6 @@
                   :attachments true}})
 
 (s/def ::more string?) ;; more link
-#_(s/def ::since ::xs/timestamp) ;; since arg
-#_(s/def ::limit pos-int?)
 
 (s/fdef get-request
   :args (s/cat :config ::request-config
