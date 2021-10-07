@@ -27,3 +27,11 @@
   [a b]
   (compare (parse-inst a)
            (parse-inst b)))
+
+(s/fdef latest-stamp
+  :args (s/cat :a string?
+               :b string?)
+  :ret string?)
+
+(defn latest-stamp [a b]
+  (last (sort stamp-cmp a b)))

@@ -21,8 +21,34 @@
 (s/def ::target
   (s/keys :req-un [::errors]))
 
+(s/def ::status
+  #{:init ;; not started
+    :running ;; in progress
+    :complete ;; all desired data transferred
+    :error ;; stopped with errors
+    :paused ;; manual stop/pause
+    })
+
+(def valid-status-transitions
+  #{[:init :running] ;; start
+    [:init :error] ;; can't start
+    [:init :complete] ;; no data
+
+    [:running :complete] ;; until reached/exit
+    [:running :error] ;; runtime error
+    [:running :paused] ;; user pause
+    [:running :running] ;; cursor update
+
+    [:paused :running] ;; resume
+
+    [:error :running] ;; if errors clear
+    [:error :paused] ;; same
+    [:error :error] ;; more/less errors
+    })
+
 (def state-spec
   (s/keys :req-un [::source
                    ::target
                    ::errors
-                   ::cursor]))
+                   ::cursor
+                   ::status]))
