@@ -7,7 +7,7 @@
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
-            [xapipe.util.time :as t]))
+            [com.yetanalytics.xapipe.util.time :as t]))
 
 ;; TODO: remove last-stored emission if it doesn't get used
 ;; TODO: Pick and enable actual loggings

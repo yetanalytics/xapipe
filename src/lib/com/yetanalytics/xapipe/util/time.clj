@@ -1,4 +1,4 @@
-(ns xapipe.util.time
+(ns com.yetanalytics.xapipe.util.time
   "Time(stamp) utilities"
   (:require [clojure.spec.alpha :as s]
             [xapi-schema.spec :as xs])
@@ -34,4 +34,4 @@
   :ret string?)
 
 (defn latest-stamp [a b]
-  (last (sort stamp-cmp a b)))
+  (last (sort stamp-cmp [a b])))

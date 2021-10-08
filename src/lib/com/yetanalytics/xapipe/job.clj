@@ -4,7 +4,7 @@
             [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
-            [xapipe.util.time :as t]
+            [com.yetanalytics.xapipe.util.time :as t]
             [xapi-schema.spec :as xs]))
 
 (s/def ::config config/config-spec)
@@ -92,7 +92,8 @@
        (case error-type
          :job    [:state :errors]
          :source [:state :source :errors]
-         :taget  [:state :target :errors]))
+         :target  [:state :target :errors])
+       conj error)
       (assoc-in [:state :status] :errors)))
 
 ;; State status
@@ -128,7 +129,7 @@
                   [:error :paused]} [status new-status])
      (not= [[] [] []] (get-errors job)))  job
 
-    :else (assoc-in [:state :status] new-status)))
+    :else (assoc-in job [:state :status] new-status)))
 
 (s/fdef update-cursor
   :args (s/cat :job job-spec
@@ -138,7 +139,7 @@
 (defn update-cursor
   "Attempt to update the since cursor on the job"
   [job new-cursor]
-  (let [job-after (set-status job)]
+  (let [job-after (set-status job :running)]
     (if (not= job job-after)
       (update-in job-after
                  [:state :cursor]
@@ -161,6 +162,24 @@
                         :batch-size     50})
              )
 
-
+  (set-status
+   {:id "foo",
+    :config
+    {:source
+     {:request-config
+      {:url-base "http://localhost:8080", :xapi-prefix "/xapi"},
+      :get-params {:limit 50},
+      :poll-interval 1000,
+      :batch-size 50},
+     :target
+     {:request-config
+      {:url-base "http://localhost:8081", :xapi-prefix "/xapi"},
+      :batch-size 50}},
+    :state
+    {:status :init,
+     :cursor "1970-01-01T00:00:00Z",
+     :source {:errors []},
+     :target {:errors []},
+     :errors []}} :running)
 
   )
