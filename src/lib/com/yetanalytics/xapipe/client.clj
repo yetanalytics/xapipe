@@ -185,7 +185,8 @@
      (fn [exception]
        (a/put! ret
                [:exception
-                (ex-info "Unhandled LRS request exception"
+                (ex-info (format "Unhandled LRS request exception: %"
+                                 (ex-message exception))
                          {:type ::unhandled-request-exception}
                          exception)]
                fn1)))

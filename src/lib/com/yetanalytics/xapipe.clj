@@ -21,6 +21,7 @@
   [id
    {init-source-config :source
     init-target-config :target}]
+
   (let [{{status-before :status} :state
          :as                     job-before}
         (get
@@ -46,16 +47,20 @@
       ;; set up channels and start
       (let [stop-chan (a/chan)
             stop-fn   #(do (a/>!! stop-chan true)
-                           (get @job-state id))
-            {{{:keys [poll-interval
+                           (get
+                            (swap! job-state update id
+                                   job/update-job nil [] :paused)
+                            id))
+            {{{:keys          [poll-interval
                       get-params]
                get-req-config :request-config
-               :as   source-config} :source
+               :as            source-config}             :source
               {target-batch-size :batch-size
-               post-req-config :request-config
-               :as               target-config}   :target} :config
-             :as      started-job}
-            (get (swap! job-state update id job/set-status :running) id)]
+               post-req-config   :request-config
+               :as               target-config} :target} :config
+             :as                                           started-job}
+            (get (swap! job-state update id
+                        job/update-job nil [] :running) id)]
         (if (= :running (job/get-status started-job))
           (let [get-chan       (client/get-chan
                                 (a/chan) ;; TODO: buffer
@@ -75,13 +80,15 @@
                   (do (a/>! statement-chan x)
                       (recur))
                   :exception
-                  (swap! job-state
-                         update id job/add-error :source {:message (ex-message x)}))
+                  (swap! job-state update id
+                         job/update-job nil [{:message (ex-message x)
+                                              :type    :source}]))
                 (a/close! statement-chan)))
             ;; Handle posts
             (a/go-loop []
-              (if-let [batch   (a/<! statement-chan)]
-                (let [[tag x] (a/<! (client/async-request
+              (if-let [batch (a/<! statement-chan)]
+                (let [_       (println "DEBUG batch size " (count batch))
+                      [tag x] (a/<! (client/async-request
                                      (client/post-request
                                       post-req-config
                                       (mapv :statement batch)
@@ -89,25 +96,20 @@
                   (case tag
                     :response
                     (let [cursor (-> batch last :statement (get "stored"))]
-                      (swap! job-state
-                             update
-                             id
-                             job/update-cursor
-                             cursor)
+                      (swap! job-state update id
+                             job/update-job cursor [])
                       (recur))
                     :exception
-                    (swap! job-state
-                           update
-                           id
-                           job/add-error :target {:message (ex-message x)})))
+                    (swap! job-state update id
+                           job/update-job nil [{:message (ex-message x)
+                                                :type    :target}])))
                 ;; On completion, try to write
-                (swap! job-state update id job/set-status :completed))))
+                (swap! job-state update id
+                       job/update-job nil [] :complete))))
           (throw (ex-info "Could not start job"
                           {:type ::cannot-start-unknown
                            :job  started-job})))
-        stop-fn)))
-
-  )
+        stop-fn))))
 
 
 (comment
@@ -127,29 +129,6 @@
                                 :xapi-prefix "/xapi"}
                :batch-size     50}}))
   (stop-fn)
-
-  (job/set-status {"78228fb1-6fe8-4deb-8ee8-75584d2e4b7c"
-                   {:id "78228fb1-6fe8-4deb-8ee8-75584d2e4b7c",
-                    :config
-                    {:source
-                     {:request-config
-                      {:url-base "http://localhost:8080", :xapi-prefix "/xapi"},
-                      :get-params {:limit 50},
-                      :poll-interval 1000,
-                      :batch-size 50},
-                     :target
-                     {:request-config
-                      {:url-base "http://localhost:8081", :xapi-prefix "/xapi"},
-                      :batch-size 50}},
-                    :state
-                    {:status :init,
-                     :cursor "1970-01-01T00:00:00Z",
-                     :source {:errors []},
-                     :target {:errors []},
-                     :errors []}}}
-                  :running)
-
-
 
   )
 

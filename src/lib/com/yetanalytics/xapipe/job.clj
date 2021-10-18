@@ -48,56 +48,9 @@
     :target {:errors []}
     :errors []}})
 
-;; Check for errors
-
-(s/fdef errors?
-  :args (s/cat :job job-spec)
-  :ret boolean?)
-
-(defn errors?
-  "Check if a job has any errors"
-  [{{job-errors              :errors
-     {source-errors :errors} :source
-     {target-errors :errors} :target} :state}]
-  (some? (not-empty (concat job-errors source-errors target-errors))))
-
-;; Summarize errors
-
-(s/fdef get-errors
-  :args (s/cat :job job-spec)
-  :ret (s/tuple ::state/errors
-                ::state/errors
-                ::state/errors))
-
-(defn get-errors
-  "Get all errors for [:job :source :target]"
-  [{{job-errors              :errors
-     {source-errors :errors} :source
-     {target-errors :errors} :target} :state}]
-  [job-errors
-   source-errors
-   target-errors])
-
-(s/fdef add-error
-  :args (s/cat :job job-spec
-               :error-type #{:job :source :target}
-               :error ::errors/error)
-  :ret job-spec)
-
-(defn add-error
-  "Add an error to the job"
-  [job error-type error]
-  (-> job
-      (update-in
-       (case error-type
-         :job    [:state :errors]
-         :source [:state :source :errors]
-         :target  [:state :target :errors])
-       conj error)
-      (assoc-in [:state :status] :errors)))
+;; Job-level state
 
 ;; State status
-
 (s/fdef get-status
   :args (s/cat :job job-spec)
   :ret ::state/status)
@@ -107,46 +60,42 @@
   [job]
   (get-in job [:state :status]))
 
-(s/fdef set-status
-  :args (s/cat :job job-spec
-               :new-status #{:running ;; in progress
-                             :complete ;; complete
-                             :paused ;; manual stop/pause
-                             })
-  :ret job-spec)
+(s/fdef errors?
+  :args (s/cat :job job-spec)
+  :ret boolean?)
 
-(defn set-status
-  "Attempt to set the desired status, only on valid transitions"
-  [{{:keys [status]} :state
-    :as              job} new-status]
-  (cond
-    ;; Don't modify state for an invalid transition
-    (not (contains? state/valid-status-transitions
-                    [status new-status])) job
-    ;; Ensure errors are cleared before allowing state change
-    (and
-     (contains? #{[:error :running]
-                  [:error :paused]} [status new-status])
-     (not= [[] [] []] (get-errors job)))  job
+(defn errors?
+  "Check if a job has any errors"
+  [{:keys [state]}]
+  (state/errors? state))
 
-    :else (assoc-in job [:state :status] new-status)))
+(s/fdef update-job
+  :args (s/cat
+         :job job-spec
+         :cursor (s/nilable ::state/cursor)
+         :errors ::state/errors
+         :command (s/? #{:complete :paused})))
 
-(s/fdef update-cursor
-  :args (s/cat :job job-spec
-               :new-cursor ::xs/timestamp)
-  :ret job-spec)
-
-(defn update-cursor
-  "Attempt to update the since cursor on the job"
-  [job new-cursor]
-  (let [job-after (set-status job :running)]
-    (if (not= job job-after)
-      (update-in job-after
-                 [:state :cursor]
-                 (comp
-                  t/normalize-stamp
-                  t/latest-stamp) new-cursor)
-      job)))
+(defn update-job
+  "Attempt to update the job with the given cursor, errors,
+  completion/pause status"
+  [{:keys [state] :as job}
+   ?cursor
+   errors
+   & [?command]]
+  (assoc
+   job
+   :state
+   (-> state
+       ;; Update the cursor or set an error
+       (cond->
+           ?cursor (state/update-cursor ?cursor))
+       ;; Add any passed-in errors
+       (state/add-errors errors)
+       ;; attempt to set desired command state or :running
+       ;; will not happen with errors
+       (state/set-status
+        (or ?command :running)))))
 
 (comment
 
@@ -162,15 +111,15 @@
                         :batch-size     50})
              )
 
-  (set-status
+  (update-job
    {:id "foo",
     :config
     {:source
      {:request-config
       {:url-base "http://localhost:8080", :xapi-prefix "/xapi"},
-      :get-params {:limit 50},
+      :get-params    {:limit 50},
       :poll-interval 1000,
-      :batch-size 50},
+      :batch-size    50},
      :target
      {:request-config
       {:url-base "http://localhost:8081", :xapi-prefix "/xapi"},
@@ -180,6 +129,10 @@
      :cursor "1970-01-01T00:00:00Z",
      :source {:errors []},
      :target {:errors []},
-     :errors []}} :running)
+     :errors []}}
+   "1980-01-01T00:00:00Z"
+   [#_{:type :job
+       :msg  "Oh No!"}]
+   :complete)
 
   )

@@ -3,6 +3,8 @@
             [xapi-schema.spec :as xs]))
 
 (s/def ::message string?)
-(s/def ::error (s/keys :req-un [::message]))
+(s/def ::type #{:job :source :target})
+(s/def ::error (s/keys :req-un [::message
+                                ::type]))
 
 (def errors-spec (s/every ::error))
