@@ -1,39 +1,40 @@
 (ns com.yetanalytics.xapipe
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.core.async :as a]
+            [clojure.spec.alpha :as s]
             [com.yetanalytics.xapipe.client :as client]
-            [clojure.core.async :as a]
+            [com.yetanalytics.xapipe.event :as event]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.store :as store]
+            [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.xapi :as xapi]))
 
 (s/def ::job
   job/job-spec)
 
-;; Dev Job state, just an atom we write to for now
-(defonce job-state
-  (atom {}))
+(s/def ::event
+  event/event-spec)
 
 (s/fdef run-job
-  :args (s/cat :id ::job/id :config ::job/config)
-  :ret (s/fspec :args (s/cat) :ret ::job)) ;; stop-fn
+  :args (s/cat :store #(satisfies? store/XapipeStore %)
+               :id ::job/id
+               :init-config ::job/config)
+  :ret (s/fspec :args (s/cat) :ret ::job))
+
+(s/fdef run-job
+  :args (s/cat :store #(satisfies? store/XapipeStore %)
+               :id ::job/id
+               :init-config ::job/config)
+  :ret (s/fspec :args (s/cat) :ret ::job))
 
 (defn run-job
   "Run a job, returning a function that will stop/pause it."
-  [id
-   {init-source-config :source
-    init-target-config :target}]
-
-  (let [{{status-before :status} :state
+  [store
+   id
+   init-config]
+  (let [{{status-before :status
+          cursor-before :cursor} :state
          :as                     job-before}
-        (get
-         (swap! job-state
-                (fn [s]
-                  (if (get s id)
-                    s
-                    (assoc s id (job/init-job
-                                 id
-                                 init-source-config
-                                 init-target-config)))))
-         id)]
+        (store/init-job store id init-config)]
     (case status-before
       :running  (throw (ex-info "Job already running!"
                                 {:type ::already-running
@@ -45,79 +46,99 @@
                                 {:type ::cannot-start-completed
                                  :job  job-before}))
       ;; set up channels and start
-      (let [stop-chan (a/chan)
-            stop-fn   #(do (a/>!! stop-chan true)
-                           (get
-                            (swap! job-state update id
-                                   job/update-job nil [] :paused)
-                            id))
-            {{{:keys          [poll-interval
-                      get-params]
+      (let [stop-chan (a/promise-chan)
+            stop-fn   #(a/put! stop-chan true)
+            {{{:keys [poll-interval]
+               {?query-since :since
+                :as get-params} :get-params
                get-req-config :request-config
-               :as            source-config}             :source
-              {target-batch-size :batch-size
+               :as            source-config} :source
+              {;; target-batch-size :batch-size
                post-req-config   :request-config
-               :as               target-config} :target} :config
-             :as                                           started-job}
-            (get (swap! job-state update id
-                        job/update-job nil [] :running) id)]
-        (if (= :running (job/get-status started-job))
-          (let [get-chan       (client/get-chan
-                                (a/chan) ;; TODO: buffer
-                                stop-chan
-                                get-req-config
-                                get-params
-                                poll-interval)
-                statement-chan (a/chan (:limit get-params)
-                                       (comp
-                                        (mapcat xapi/response->statements)
-                                        (partition-all target-batch-size)))]
-            ;; Handle gets
-            (a/go-loop []
-              (if-let [[tag x] (a/<! get-chan)]
-                (case tag
-                  :response
-                  (do (a/>! statement-chan x)
+               :as               target-config} :target} :config} job-before
+            ;; Derive a since point for the query
+            get-since (if ?query-since
+                        (t/latest-stamp cursor-before
+                                        ?query-since)
+                        cursor-before)
+            get-chan (client/get-chan
+                      (a/chan
+                       100 ;; TODO: configurable buffer
+                       (map event/get->event))
+                      stop-chan
+                      get-req-config
+                      (assoc get-params :since get-since)
+                      poll-interval)]
+        ;; Set as running
+        (store/update-job store id nil [] nil)
+        ;; Post loop
+        (a/go-loop []
+          (println "post loop run")
+          (if-let [{:keys [statements
+                           errors
+                           cursor]
+                    :as event} (a/<! get-chan)]
+            (do (println (format "batch cursor %s" cursor))
+              (if (empty? errors)
+                (if (not-empty statements)
+                  ;; If we have statements, we'll attempt POST
+
+                  ;; DEBUG: the post code below seems to work fine for several
+                  ;; batches but then parks on put
+
+                  (do (println (format "POSTing %d statements and %d attachments"
+                                       (count statements)
+                                       (count (mapcat :attachments statements))))
+                      (store/update-job store id cursor [] nil)
                       (recur))
-                  :exception
-                  (swap! job-state update id
-                         job/update-job nil [{:message (ex-message x)
-                                              :type    :source}]))
-                (a/close! statement-chan)))
-            ;; Handle posts
-            (a/go-loop []
-              (if-let [batch (a/<! statement-chan)]
-                (let [_       (println "DEBUG batch size " (count batch))
-                      [tag x] (a/<! (client/async-request
-                                     (client/post-request
+                  #_(let [_ (println (format "POSTing %d statements"
+                                           (count statements)))
+                        post-request (client/post-request
                                       post-req-config
-                                      (mapv :statement batch)
-                                      (into [] (mapcat :attachments batch)))))]
-                  (case tag
-                    :response
-                    (let [cursor (-> batch last :statement (get "stored"))]
-                      (swap! job-state update id
-                             job/update-job cursor [])
-                      (recur))
-                    :exception
-                    (swap! job-state update id
-                           job/update-job nil [{:message (ex-message x)
-                                                :type    :target}])))
-                ;; On completion, try to write
-                (swap! job-state update id
-                       job/update-job nil [] :complete))))
-          (throw (ex-info "Could not start job"
-                          {:type ::cannot-start-unknown
-                           :job  started-job})))
+                                      (mapv :statement statements)
+                                      (into [] (mapcat :attachments statements)))
+                        [tag x] (a/<! (client/async-request post-request))]
+                    (case tag
+                      ;; On success, update the cursor and keep listening
+                      :response
+                      (do (store/update-job store id cursor [] nil)
+                          (recur))
+                      ;; If the post fails, log the error and stop
+                      :exception
+                      (store/update-job
+                       store id nil
+                       [{:message (ex-message x)
+                         :type    :target}]
+                       nil)))
+                  ;; On an empty batch, Update cursor only
+                  ;; keep listening
+                  (do
+                    (store/update-job store id cursor [] nil)
+                    (recur)))
+                ;; Stop with errors
+                (do (println (format "Stopping with %d error(s)!"
+                                     (count errors)))
+                    (store/update-job store id nil errors nil))))
+            ;; Attempt to determine if this is complete or if the stop-chan has
+            ;; been called!
+            (store/update-job store id nil [] (if (a/poll! stop-chan)
+                                                :paused
+                                                :complete))))
+        ;; Return the stop function
         stop-fn))))
 
 
 (comment
-  (reset! job-state {})
-  (clojure.pprint/pprint @job-state)
 
+  (require '[com.yetanalytics.xapipe.store.impl.memory :as mem])
+
+  (def store (mem/new-store))
+
+  (def job-id (str (java.util.UUID/randomUUID)))
+  job-id
   (def stop-fn
-    (run-job (str (java.util.UUID/randomUUID))
+    (run-job store
+             job-id
              {:source
               {:request-config {:url-base    "http://localhost:8080"
                                 :xapi-prefix "/xapi"}
@@ -128,8 +149,28 @@
               {:request-config {:url-base    "http://localhost:8081"
                                 :xapi-prefix "/xapi"}
                :batch-size     50}}))
-  (stop-fn)
 
+
+  (clojure.pprint/pprint (stop-fn))
+  (clojure.pprint/pprint (store/get-job store job-id))
+
+  ;; Last stored time
+  "2021-10-18T16:22:09.866071000Z"
+
+
+  (let [stop-chan (a/promise-chan)]
+    (a/<!!
+     (a/into []
+             (a/take 10
+                     (client/get-chan
+                      (a/chan
+                       1 ;; TODO: configurable buffer
+                       (map event/get->event))
+                      stop-chan
+                      {:url-base    "http://localhost:8080"
+                       :xapi-prefix "/xapi"}
+                      {}
+                      1000)))))
   )
 
 ;; TODO: delete boiler

@@ -14,7 +14,7 @@
 (defn- debug
   "DEV logging"
   [& args]
-  (apply println "DEBUG: " args))
+  nil #_(apply println "DEBUG: " args))
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
