@@ -24,7 +24,11 @@
             ;; We have a record
             (recur (conj buf v))
             ;; A is closed, we should close B
-            (a/close! b)))))))
+            (do
+              ;; But only after draining anything in the buffer
+              (when (not-empty buf)
+                (a/>! b buf))
+              (a/close! b))))))))
 
 (comment
   (do
