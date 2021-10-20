@@ -167,11 +167,11 @@
   Only status 200 responses will be returned, all others will be wrapped in an
   ex-info."
   [request]
-  (let [ret (a/promise-chan)
-        fn1 (fn [open?]
-              (when open? (a/close! ret)))]
+  (let [ret (a/promise-chan)]
     (client/request
-     (assoc request :async? true)
+     (assoc request
+            :async true
+            :async? true) ;; docs mention this but it is probably not needed
      (fn [{:keys [status]
            :as   resp}]
        (a/put! ret
@@ -180,16 +180,14 @@
                  [:exception
                   (ex-info "Non-200 Request Status"
                            {:type     ::request-fail
-                            :response resp})])
-               fn1))
+                            :response resp})])))
      (fn [exception]
        (a/put! ret
                [:exception
-                (ex-info (format "Unhandled LRS request exception: %"
+                (ex-info (format "LRS Exception: %s"
                                  (ex-message exception))
-                         {:type ::unhandled-request-exception}
-                         exception)]
-               fn1)))
+                         {:type ::request-exception}
+                         exception)])))
     ret))
 
 (s/def ::poll-interval
@@ -359,8 +357,12 @@
       )
 
   ;; simple test with get and post of 1 batch
+  ;; This one currently fails because of a statement sig issue
   (let [req-config                         {:url-base    "http://localhost:8080"
                                             :xapi-prefix "/xapi"}
+        params {:since "2021-10-18T16:21:39.596607000Z"
+                :until "2021-10-18T16:21:44.416340000Z"
+                :limit 50}
         ;; Get
         {{{:strs [statements]}
           :statement-result
@@ -368,16 +370,14 @@
          :as                   get-result} (client/request
                                             (get-request
                                              req-config
-                                             {}))
+                                             params))
 
         ;; Post
-        post-resp (client/request
-                   (post-request
-                    req-config
-                    statements
-                    attachments) )]
-    (clojure.pprint/pprint post-resp))
-
-
+        c (async-request
+           (post-request
+            req-config
+            statements
+            attachments))]
+    (clojure.pprint/pprint (a/<!! c)))
 
   )
