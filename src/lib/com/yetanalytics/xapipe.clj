@@ -101,49 +101,55 @@
           (println "post loop run")
           (let [[v p] (a/alts! [stop-chan batch-chan])]
             (if (= p stop-chan)
-              (let [{:keys [status
+              (let [_ (println "stop called...")
+                    {:keys [status
                             error]} v]
                 ;; A stop is called!
                 (case status
-                  :paused (store/update-job store id nil [] :paused)
-                  :error (store/update-job store id nil [error] nil)))
+                  :paused
+                  (do
+                    (println "Pausing.")
+                    (store/update-job store id nil [] :paused))
+                  :error
+                  (do
+                    (println (format "Stopping with error: %s" (:message error)))
+                    (store/update-job store id nil [error] nil))))
               (if-some [batch v]
                 (let [statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
+                      _ (println (format "Cursor: %s" cursor))
                       attachments (mapcat :attachments batch)
 
                       _ (println (format "POSTing %d statements and %d attachments"
                                          (count statements)
                                          (count attachments)))
                       ;; Form a post request
-                      #_#_#_#_
+
                       post-request (client/post-request
                                     post-req-config
                                     statements
                                     attachments)
                       [tag x] (a/<! (client/async-request post-request))]
-                  (store/update-job store id cursor [] nil)
-                  (recur)
-                  #_(case tag
+                  (case tag
                     ;; On success, update the cursor and keep listening
                     :response
                     (do (store/update-job store id cursor [] nil)
                         (recur))
-                    ;; If the post fails, log the error and stop
+                    ;; If the post fails, Send the error to the stop channel and
+                    ;; recur to write and then bail
                     :exception
-                    (store/update-job
-                     store id nil
-                     [{:message (ex-message x)
-                       :type    :target}]
-                     nil)))
+                    (do
+                      (println (format "POST exception: %s" (ex-message x)))
+                      (a/>! stop-chan {:status :error
+                                       :error {:message (ex-message x)
+                                               :type    :target}})
+                      (recur))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
-                (if-let [{:keys [status
-                                 error]} (a/poll! stop-chan)]
-                  (case status
-                    :paused (store/update-job store id nil [] :paused)
-                    :error (store/update-job store id nil [error] nil))
-                  ;; Otherwise we'll assume it's actually done
+                (if (a/poll! stop-chan)
+                  ;; If so, recur to exit with that
+                  (recur)
+                  ;; Otherwise we are complete!
                   (store/update-job store id nil [] :complete))))))
         ;; Return the stop function
         stop-fn))))
@@ -163,7 +169,7 @@
              {:source
               {:request-config {:url-base    "http://localhost:8080"
                                 :xapi-prefix "/xapi"}
-               :get-params     {}
+               :get-params     {:until "2021-10-18T16:22:09.866071000Z"}
                :poll-interval  1000
                :batch-size     50}
               :target
@@ -177,55 +183,6 @@
 
   ;; Last stored time
   "2021-10-18T16:22:09.866071000Z"
-  (* 9 50)
-
-  (let [stop-chan (a/promise-chan)]
-    (-> (a/chan
-         1 ;; TODO: configurable buffer
-         (comp
-          (map (fn [[tag x]]
-                 (case tag
-                   :response x
-                   :exception (throw x))))
-          (mapcat xapi/response->statements)
-          (partition-all 50))
-         (fn [ex]
-           (a/put! stop-chan {:status :error
-                              :error {:message (ex-message ex)
-                                      :type :source}})
-           nil))
-
-        (client/get-chan
-         stop-chan
-         {:url-base    "http://localhost:8080"
-          :xapi-prefix "/xapi"}
-         {}
-         1000)
-
-        (->>
-         (a/take 9)
-         (a/into []))
-
-        a/<!!
-
-        (->>
-         (map count)))) ;; => (50 50 50 50 50 50 50 50 50)
-
-  (let [xf-chan (a/chan 1 (partition-all 50))]
-    ;; Put 453 numbers on and close
-    (a/go-loop [n 0]
-      (when (> 453 n)
-        (a/>! xf-chan n)
-        (recur (inc n))))
-
-    (-> xf-chan
-        (->>
-         (a/take 10)
-         (a/into []))
-        a/<!!
-        (->>
-         (map count)))
-    ) ;; hangs
   )
 
 
