@@ -184,10 +184,7 @@
      (fn [exception]
        (a/put! ret
                [:exception
-                (ex-info (format "LRS Exception: %s"
-                                 (ex-message exception))
-                         {:type ::request-exception}
-                         exception)])))
+                exception])))
     ret))
 
 (s/def ::poll-interval
