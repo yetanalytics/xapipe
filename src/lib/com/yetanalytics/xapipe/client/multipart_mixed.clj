@@ -50,6 +50,25 @@
 
 (s/def ::attachments (s/every ::attachment))
 
+(s/fdef clean-tempfiles!
+  :args (s/cat :attachments ::attachments))
+
+(defn clean-tempfiles!
+  "Delete all tempfiles in a series of attachments"
+  [attachments]
+  (doseq [{:keys [^File tempfile]} attachments]
+    (.delete tempfile)))
+
+(s/fdef unique-by-sha
+  :args (s/cat :attachments ::attachments)
+  :ret ::attachments)
+
+(defn unique-by-sha
+  [attachments]
+  (->> attachments
+      (group-by :sha2)
+      vals
+      (mapv first)))
 
 (s/fdef parse-head
   :args (s/cat :stream #(instance? MultipartStream %))
