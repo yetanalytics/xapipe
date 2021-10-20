@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [com.yetanalytics.xapipe.client :as client]
+            [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
             [com.yetanalytics.xapipe.event :as event]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
@@ -130,20 +131,22 @@
                                     statements
                                     attachments)
                       [tag x] (a/<! (client/async-request post-request))]
-                  (case tag
-                    ;; On success, update the cursor and keep listening
-                    :response
-                    (do (store/update-job store id cursor [] nil)
-                        (recur))
-                    ;; If the post fails, Send the error to the stop channel and
-                    ;; recur to write and then bail
-                    :exception
-                    (do
-                      (println (format "POST exception: %s" (ex-message x)))
-                      (a/>! stop-chan {:status :error
-                                       :error {:message (ex-message x)
-                                               :type    :target}})
-                      (recur))))
+                  (do
+                    ;; Delete attachment tempfiles
+                    (mm/clean-tempfiles! attachments)
+                    (case tag
+                      ;; On success, update the cursor and keep listening
+                      :response
+                      (do (store/update-job store id cursor [] nil)
+                          (recur))
+                      ;; If the post fails, Send the error to the stop channel and
+                      ;; recur to write and then bail
+                      :exception
+                      (do
+                        (a/>! stop-chan {:status :error
+                                         :error {:message (ex-message x)
+                                                 :type    :target}})
+                        (recur)))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if (a/poll! stop-chan)
