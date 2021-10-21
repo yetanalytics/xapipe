@@ -140,6 +140,7 @@
 
     [:paused :running] ;; resume
     [:paused :error] ;; can't resume
+    [:paused :paused] ;; immediate stop on resume
 
     [:error :running] ;; if errors clear
     [:error :paused] ;; same

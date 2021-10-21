@@ -96,8 +96,6 @@
                           200 ;; TODO: configurable
                           )
                          c)]
-        ;; Set as running
-        (store/update-job store id nil [] nil)
         ;; Post loop
         (a/go-loop []
           (log/debug "POST")
