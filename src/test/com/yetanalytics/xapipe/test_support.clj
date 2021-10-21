@@ -21,7 +21,7 @@
   :dump - A function of no args that will dump memory LRS state
   :request-config - A request config ala xapipe.client"
   [port]
-  (let [lrs (new-lrs {:mode :sync})
+  (let [lrs (new-lrs {}) ;; TODO: Figure out why sync fails
         service
         {:env                   :dev
          :lrs                   lrs

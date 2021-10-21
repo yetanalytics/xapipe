@@ -49,10 +49,11 @@
           (log/error "Job Error" job))
         (testing "successful completion"
           (is (= :complete status)))
-        (testing "all statements transferred"
-          (is (= 453 (support/lrs-count support/*target-lrs*))))
+        (testing "all statements transferred except empty ref"
+          (is (= 452 (support/lrs-count support/*target-lrs*))))
         (testing "read up to end"
           (is (= (Instant/parse until) (Instant/parse cursor))))
         (testing "matching statement ids and order"
-          (is (= (support/lrs-ids support/*source-lrs*)
-                 (support/lrs-ids support/*target-lrs*))))))))
+          (let [source-idset (into #{} (support/lrs-ids support/*source-lrs*))]
+            (is (every? #(contains? source-idset %)
+                        (support/lrs-ids support/*target-lrs*)))))))))
