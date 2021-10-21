@@ -8,11 +8,7 @@
         commons-fileupload/commons-fileupload {:mvn/version "1.4"}
         com.yetanalytics/xapi-schema {:git/url "https://github.com/yetanalytics/xapi-schema.git"
                                       :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"}
-        ;; hk-multipart-mixed/hk-multipart-mixed {:mvn/version "2.3.0"}
-        ;; TODO: replace with master when PR is merged:
-        ;; https://github.com/http-kit/http-kit/pull/451
-        ;; http-kit/http-kit {:mvn/version "2.5.3"}
-        }
+        org.clojure/tools.logging {:mvn/version "1.1.0"}}
  :aliases
  {:run-m {:main-opts ["-m" "com.yetanalytics.xapipe"]}
   :run-x {:ns-default com.yetanalytics.xapipe

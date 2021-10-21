@@ -4,17 +4,11 @@
             [clj-http.client :as client]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]))
-
-;; TODO: remove last-stored emission if it doesn't get used
-;; TODO: Pick and enable actual loggings
-(defn- debug
-  "DEV logging"
-  [& args]
-  nil #_(apply println "DEBUG: " args))
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
@@ -214,12 +208,13 @@
                   init-params)]
     (a/go-loop [req   init-req
                 since init-since]
-      (debug 'req req 'since since)
+      (log/debug "GET" (:url req) :since since)
       (let [req-chan (async-request
                       req)
             [v p]    (a/alts! [req-chan stop-chan])]
         (if (identical? p stop-chan)
           (do
+            (log/info "Stop called" :data v)
             ;; finish pending req and bail
             (a/<! req-chan)
             (a/close! out-chan))
@@ -236,18 +231,18 @@
                 ;; If there are statements, emit them before continuing.
                 ;; This operation will park for takers.
                 (when (not-empty statements)
-                  (debug (format "emitting %d statements, last stored is %s"
-                                 (count statements)
-                                 ?last-stored))
+                  (log/debugf "emitting %d statements, last stored is %s"
+                              (count statements)
+                              ?last-stored)
                   (a/>! out-chan
                         (assoc-in ret [1 ::last-stored] ?last-stored)))
                 (cond
                   ;; If the more link indicates there are more statements to
                   ;; provide, immediately attempt to get them.
                   (not-empty more) (do
-                                     (debug
-                                      (format "more link %s found, redispatching"
-                                              more))
+                                     (log/debugf
+                                      "more link %s found, redispatching"
+                                      more)
                                      (recur
                                       (get-request
                                        config
@@ -265,14 +260,14 @@
                               ?until
                               consistent-through)))
                   (do
-                    (debug
-                     (format "terminating because %s consistent-through is equal or later than %s until"
-                             consistent-through ?until))
+                    (log/debugf
+                     "terminating because %s consistent-through is equal or later than %s until"
+                     consistent-through ?until)
                     (a/close! out-chan))
                   ;; With no more link or until, we're polling.
                   ;; Wait for the specified time
                   :else (do
-                          (debug (format "waiting %d ms..." poll-interval))
+                          (log/debugf "waiting %d ms..." poll-interval)
                           (a/<! (a/timeout poll-interval))
                           (recur
                            (get-request
