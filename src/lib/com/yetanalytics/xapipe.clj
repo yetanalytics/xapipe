@@ -161,9 +161,7 @@
 (comment
 
   (require '[com.yetanalytics.xapipe.store.impl.memory :as mem])
-
   (def store (mem/new-store))
-
   (def job-id (str (java.util.UUID/randomUUID)))
   job-id
   (def stop-fn
@@ -172,7 +170,7 @@
              {:source
               {:request-config {:url-base    "http://localhost:8080"
                                 :xapi-prefix "/xapi"}
-               :get-params     {:until "2021-10-18T16:22:09.866071000Z"}
+               :get-params     {}
                :poll-interval  1000
                :batch-size     50}
               :target
@@ -183,9 +181,6 @@
 
   (clojure.pprint/pprint (stop-fn))
   (clojure.pprint/pprint (store/get-job store job-id))
-
-  ;; Last stored time
-  "2021-10-18T16:22:09.866071000Z"
   )
 
 
