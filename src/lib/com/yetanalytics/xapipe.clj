@@ -185,17 +185,4 @@
 
 
   (clojure.pprint/pprint (stop-fn))
-  (clojure.pprint/pprint (store/get-job store job-id))
-  )
-
-
-;; TODO: delete boiler
-(defn greet
-  "Callable entry point to the application."
-  [data]
-  (println (str "Hello, " (or (:name data) "World") "!")))
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (greet {:name (first args)}))
+  (clojure.pprint/pprint (store/get-job store job-id)))
