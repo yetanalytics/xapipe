@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe
   (:require [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
             [com.yetanalytics.xapipe.event :as event]
@@ -99,31 +100,32 @@
         (store/update-job store id nil [] nil)
         ;; Post loop
         (a/go-loop []
-          (println "post loop run")
+          (log/debug "POST")
           (let [[v p] (a/alts! [stop-chan batch-chan])]
             (if (= p stop-chan)
-              (let [_ (println "stop called...")
+              (let [_ (log/debug "stop called...")
                     {:keys [status
                             error]} v]
                 ;; A stop is called!
                 (case status
                   :paused
                   (do
-                    (println "Pausing.")
+                    (log/info "Pausing.")
                     (store/update-job store id nil [] :paused))
                   :error
                   (do
-                    (println (format "Stopping with error: %s" (:message error)))
+                    (log/errorf "Stopping with error: %s" (:message error))
                     (store/update-job store id nil [error] nil))))
               (if-some [batch v]
-                (let [statements (mapv :statement batch)
+                (let [_ (log/debugf "%d statement batch for POST" )
+                      statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
-                      _ (println (format "Cursor: %s" cursor))
+                      _ (log/debugf "Cursor: %s" cursor)
                       attachments (mapcat :attachments batch)
 
-                      _ (println (format "POSTing %d statements and %d attachments"
-                                         (count statements)
-                                         (count attachments)))
+                      _ (log/debugf "POSTing %d statements and %d attachments"
+                                    (count statements)
+                                    (count attachments))
                       ;; Form a post request
 
                       post-request (client/post-request
@@ -143,17 +145,22 @@
                       ;; recur to write and then bail
                       :exception
                       (do
+                        (log/errorf x "POST Exception: %s" (ex-message x))
                         (a/>! stop-chan {:status :error
                                          :error {:message (ex-message x)
                                                  :type    :target}})
                         (recur)))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
-                (if (a/poll! stop-chan)
+                (if-some [stop-data (a/poll! stop-chan)]
                   ;; If so, recur to exit with that
-                  (recur)
+                  (do
+                    (log/debug "Detected stop after POST." stop-data)
+                    (recur))
                   ;; Otherwise we are complete!
-                  (store/update-job store id nil [] :complete))))))
+                  (do
+                    (log/info "Successful Completion")
+                    (store/update-job store id nil [] :complete)))))))
         ;; Return the stop function
         stop-fn))))
 
