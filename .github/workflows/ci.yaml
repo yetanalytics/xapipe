@@ -1,0 +1,16 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        target: [test-lib]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup CI Environment
+        uses: yetanalytics/actions/setup-env@v0
+
+      - name: Run make target ${{ matrix.target }}
+        run: make ${{ matrix.target }}

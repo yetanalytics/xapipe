@@ -13,8 +13,7 @@
                           job-id
                           new-job)))
                (job/init-job job-id
-                             (:source job-config)
-                             (:target job-config)))
+                             job-config))
         (get job-id)))
   (get-job [store job-id]
     (get @state-atom job-id))
