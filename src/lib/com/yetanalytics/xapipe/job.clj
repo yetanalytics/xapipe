@@ -22,31 +22,60 @@
 
 (s/fdef init-job
   :args (s/cat :id ::id
-               :source-config ::config/source
-               :target-config ::config/target)
+               :config ::config)
   :ret job-spec)
 
 (defn init-job
   "Initialize a new job"
   [id
-   {{?since :since} :get-params
-    get-batch-size  :batch-size
-    :as             source-config
-    :or             {get-batch-size 50}}
-   target-config]
-  {:id id
-   :config
-   {:source
-    (-> source-config
-        (assoc :batch-size get-batch-size)
-        (assoc-in [:get-params :limit] get-batch-size))
-    :target target-config}
-   :state
-   {:status :init
-    :cursor (or ?since "1970-01-01T00:00:00Z")
-    :source {:errors []}
-    :target {:errors []}
-    :errors []}})
+   {{{?since :since} :get-params
+     get-batch-size  :batch-size
+     :as             source-config
+     :or             {get-batch-size 50}} :source
+    {post-batch-size :batch-size
+     :as             target-config}       :target
+    :keys
+    [get-buffer-size
+     statement-buffer-size
+     get-proc-conc
+     batch-buffer-size
+     batch-timeout]
+    :or
+    {get-buffer-size 10
+     get-proc-conc   1
+     batch-timeout   200}}]
+  (let [post-batch-size
+        (or post-batch-size
+            get-batch-size)
+
+        statement-buffer-size
+        (or statement-buffer-size
+            (* get-batch-size
+               get-buffer-size))
+
+        batch-buffer-size
+        (or batch-buffer-size
+            (quot statement-buffer-size
+                  post-batch-size))]
+    {:id id
+     :config
+     {:get-buffer-size       get-buffer-size
+      :statement-buffer-size statement-buffer-size
+      :get-proc-conc         get-proc-conc
+      :batch-buffer-size     batch-buffer-size
+      :batch-timeout         batch-timeout
+      :source
+      (-> source-config
+          (assoc :batch-size get-batch-size)
+          (assoc-in [:get-params :limit] get-batch-size))
+      :target
+      (assoc target-config :batch-size post-batch-size)}
+     :state
+     {:status :init
+      :cursor (or ?since "1970-01-01T00:00:00Z")
+      :source {:errors []}
+      :target {:errors []}
+      :errors []}}))
 
 ;; Job-level state
 
@@ -96,43 +125,3 @@
        ;; will not happen with errors
        (state/set-status
         (or ?command :running)))))
-
-(comment
-
-  (s/explain job-spec
-             (init-job "foo"
-                       {:request-config {:url-base    "http://localhost:8080"
-                                         :xapi-prefix "/xapi"}
-                        :get-params     {:format "exact"}
-                        :poll-interval  1000
-                        :batch-size     50}
-                       {:request-config {:url-base    "http://localhost:8081"
-                                         :xapi-prefix "/xapi"}
-                        :batch-size     50})
-             )
-
-  (update-job
-   {:id "foo",
-    :config
-    {:source
-     {:request-config
-      {:url-base "http://localhost:8080", :xapi-prefix "/xapi"},
-      :get-params    {:limit 50},
-      :poll-interval 1000,
-      :batch-size    50},
-     :target
-     {:request-config
-      {:url-base "http://localhost:8081", :xapi-prefix "/xapi"},
-      :batch-size 50}},
-    :state
-    {:status :init,
-     :cursor "1970-01-01T00:00:00Z",
-     :source {:errors []},
-     :target {:errors []},
-     :errors []}}
-   "1980-01-01T00:00:00Z"
-   [#_{:type :job
-       :msg  "Oh No!"}]
-   :complete)
-
-  )

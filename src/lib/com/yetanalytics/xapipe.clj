@@ -62,40 +62,53 @@
                :as            source-config} :source
               {target-batch-size :batch-size
                post-req-config   :request-config
-               :as               target-config} :target} :config} job-before
+               :as               target-config} :target
+              :keys [get-buffer-size
+                     statement-buffer-size
+                     get-proc-conc
+                     batch-buffer-size
+                     batch-timeout]} :config} job-before
             ;; Derive a since point for the query
             get-since (if ?query-since
                         (t/latest-stamp cursor-before
                                         ?query-since)
                         cursor-before)
-            ;; A channel that will produce statements
+            ;; A channel that will produce get responses
             get-chan (client/get-chan
                       (a/chan
-                       1 ;; TODO: configurable buffer
-                       (comp
-                        (map (fn [[tag x]]
-                               (case tag
-                                 :response x
-                                 :exception (throw x))))
-                        (mapcat xapi/response->statements))
-                       (fn [ex]
-                         (a/put! stop-chan {:status :error
-                                            :error {:message (ex-message ex)
-                                                    :type :source}})
-                         nil))
+                       get-buffer-size)
                       stop-chan
                       get-req-config
                       (assoc get-params :since get-since)
                       poll-interval)
+            ;; A channel that holds statements + attachments
+            statement-chan (a/chan statement-buffer-size)
+
+            ;; Pipeline responses to statement chan, short circuiting errs
+            _ (a/pipeline-blocking
+               get-proc-conc
+               statement-chan
+               (comp
+                (map (fn [[tag x]]
+                       (case tag
+                         :response x
+                         :exception (throw x))))
+                (mapcat xapi/response->statements))
+               get-chan
+               true
+               (fn [ex]
+                 (a/put! stop-chan {:status :error
+                                    :error {:message (ex-message ex)
+                                            :type :source}})
+                 nil))
             ;; A channel that will get batches
             ;; NOTE: Apply other filtering here
-            batch-chan (let [c (a/chan)]
+            batch-chan (let [c (a/chan batch-buffer-size)]
                          (ua/batch
-                          get-chan
+                          statement-chan
                           c
                           target-batch-size
-                          200 ;; TODO: configurable
-                          )
+                          batch-timeout)
                          c)]
         ;; Post loop
         (a/go-loop []
