@@ -30,6 +30,93 @@
   :args (s/cat :job ::job)
   :ret (s/keys :req-un [::states ::stop-fn]))
 
+(defn- post-loop
+  [init-state
+   states-chan
+   stop-chan
+   batch-chan
+   post-req-config]
+  (a/go
+    (loop [state init-state]
+      ;; Emit States
+      (a/>! states-chan state)
+      (log/debug "POST")
+      (let [[v p] (a/alts! [stop-chan batch-chan])]
+        (if (= p stop-chan)
+          (let [_ (log/debug "stop called...")
+                {:keys [status
+                        error]} v]
+            ;; A stop is called!
+            (case status
+              :paused
+              (do
+                (log/info "Pausing.")
+                (a/>! states-chan (state/set-status state :paused)))
+              :error
+              (do
+                (log/errorf "Stopping with error: %s" (:message error))
+                (a/>! states-chan (state/add-error state error)))))
+          (if-some [batch v]
+            (let [_ (log/debugf "%d statement batch for POST" (count batch))
+                  statements (mapv :statement batch)
+                  cursor (-> statements last (get "stored"))
+                  _ (log/debugf "Cursor: %s" cursor)
+                  attachments (mapcat :attachments batch)
+
+                  _ (log/debugf "POSTing %d statements and %d attachments"
+                                (count statements)
+                                (count attachments))
+                  ;; Form a post request
+
+                  post-request (client/post-request
+                                post-req-config
+                                statements
+                                attachments)
+                  [tag x] (a/<! (client/async-request post-request))]
+              (do
+                (case tag
+                  ;; On success, update the cursor and keep listening
+                  :response
+                  (do
+                    (mm/clean-tempfiles! attachments)
+                    (recur (state/update-cursor state cursor)))
+                  ;; If the post fails, Send the error to the stop channel and
+                  ;; recur to write and then bail
+                  :exception
+                  (do
+                    (log/errorf x "POST Exception: %s %s" (ex-message x)
+                                (some-> x
+                                        ex-data
+                                        :body))
+                    ;; Recreate and log req body to file
+                    #_(-> (client/post-request
+                           post-req-config
+                           statements
+                           attachments)
+                          :body
+                          (io/copy (io/file (format "failures/%s_%s_%s.request"
+                                                    id
+                                                    (-> statements first (get "stored"))
+                                                    (-> statements last (get "stored"))))))
+                    (mm/clean-tempfiles! attachments)
+                    (a/>! stop-chan {:status :error
+                                     :error {:message (ex-message x)
+                                             :type    :target}})
+                    (recur state)))))
+            ;; Job finishes
+            ;; Might still be from pause/stop
+            (if-some [stop-data (a/poll! stop-chan)]
+              ;; If so, recur to exit with that
+              (do
+                (log/debug "Detected stop after POST." stop-data)
+                (recur state))
+              ;; Otherwise we are complete!
+              (do
+                (log/info "Successful Completion")
+                (a/>! states-chan (state/set-status state :completion))))))))
+    ;; Post-loop, close the states chan
+    (a/close! states-chan)))
+
 (defn run-job
   "Run a job, returning a map containing:
   :stop-fn - a function that will stop/pause it.
@@ -114,87 +201,13 @@
                         batch-timeout)
                        c)
           running-state (state/set-status state-before :running)]
-      ;; Post loop
-      (a/go
-        (loop [state running-state]
-          ;; Emit States
-          (a/>! states-chan state)
-          (log/debug "POST")
-          (let [[v p] (a/alts! [stop-chan batch-chan])]
-            (if (= p stop-chan)
-              (let [_ (log/debug "stop called...")
-                    {:keys [status
-                            error]} v]
-                ;; A stop is called!
-                (case status
-                  :paused
-                  (do
-                    (log/info "Pausing.")
-                    (a/>! states-chan (state/set-status state :paused)))
-                  :error
-                  (do
-                    (log/errorf "Stopping with error: %s" (:message error))
-                    (a/>! states-chan (state/add-error state error)))))
-              (if-some [batch v]
-                (let [_ (log/debugf "%d statement batch for POST" (count batch))
-                      statements (mapv :statement batch)
-                      cursor (-> statements last (get "stored"))
-                      _ (log/debugf "Cursor: %s" cursor)
-                      attachments (mapcat :attachments batch)
-
-                      _ (log/debugf "POSTing %d statements and %d attachments"
-                                    (count statements)
-                                    (count attachments))
-                      ;; Form a post request
-
-                      post-request (client/post-request
-                                    post-req-config
-                                    statements
-                                    attachments)
-                      [tag x] (a/<! (client/async-request post-request))]
-                  (do
-                    (case tag
-                      ;; On success, update the cursor and keep listening
-                      :response
-                      (do
-                        (mm/clean-tempfiles! attachments)
-                        (recur (state/update-cursor state cursor)))
-                      ;; If the post fails, Send the error to the stop channel and
-                      ;; recur to write and then bail
-                      :exception
-                      (do
-                        (log/errorf x "POST Exception: %s %s" (ex-message x)
-                                    (some-> x
-                                            ex-data
-                                            :body))
-                        ;; Recreate and log req body to file
-                        #_(-> (client/post-request
-                               post-req-config
-                               statements
-                               attachments)
-                              :body
-                              (io/copy (io/file (format "failures/%s_%s_%s.request"
-                                                        id
-                                                        (-> statements first (get "stored"))
-                                                        (-> statements last (get "stored"))))))
-                        (mm/clean-tempfiles! attachments)
-                        (a/>! stop-chan {:status :error
-                                         :error {:message (ex-message x)
-                                                 :type    :target}})
-                        (recur state)))))
-                ;; Job finishes
-                ;; Might still be from pause/stop
-                (if-some [stop-data (a/poll! stop-chan)]
-                  ;; If so, recur to exit with that
-                  (do
-                    (log/debug "Detected stop after POST." stop-data)
-                    (recur state))
-                  ;; Otherwise we are complete!
-                  (do
-                    (log/info "Successful Completion")
-                    (a/>! states-chan (state/set-status state :completion))))))))
-        ;; Post-loop, close the states chan
-        (a/close! states-chan))
+      ;; Post loop transfers statements until it reaches until or an error
+      (post-loop
+       running-state
+       states-chan
+       stop-chan
+       batch-chan
+       post-req-config)
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))
