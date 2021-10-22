@@ -115,7 +115,7 @@
                     (log/errorf "Stopping with error: %s" (:message error))
                     (store/update-job store id nil [error] nil))))
               (if-some [batch v]
-                (let [_ (log/debugf "%d statement batch for POST" )
+                (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
                       _ (log/debugf "Cursor: %s" cursor)
