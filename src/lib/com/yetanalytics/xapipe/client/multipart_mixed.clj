@@ -50,6 +50,17 @@
 
 (s/def ::attachments (s/every ::attachment))
 
+(s/fdef duplicate-attachment
+  :args (s/cat :attachment ::attachment)
+  :ret ::attachment)
+
+(defn duplicate-attachment
+  "Given an attachment yield a copy"
+  [{:keys [sha2 tempfile] :as original}]
+  (let [dup-tempfile (create-tempfile! sha2)]
+    (io/copy tempfile dup-tempfile)
+    (assoc original :tempfile dup-tempfile)))
+
 (s/fdef clean-tempfiles!
   :args (s/cat :attachments ::attachments))
 
@@ -59,11 +70,12 @@
   (doseq [{:keys [^File tempfile]} attachments]
     (.delete tempfile)))
 
-(s/fdef unique-by-sha
+;; WE DONT DO THAT HERE
+#_(s/fdef unique-by-sha
   :args (s/cat :attachments ::attachments)
   :ret ::attachments)
 
-(defn unique-by-sha
+#_(defn unique-by-sha
   [attachments]
   (->> attachments
       (group-by :sha2)

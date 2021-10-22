@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe
   (:require [clojure.core.async :as a]
+            [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
@@ -132,18 +133,31 @@
                                     attachments)
                       [tag x] (a/<! (client/async-request post-request))]
                   (do
-                    ;; Delete attachment tempfiles
-                    (mm/clean-tempfiles! attachments)
                     (case tag
                       ;; On success, update the cursor and keep listening
                       :response
-                      (do (store/update-job store id cursor [] nil)
+                      (do (mm/clean-tempfiles! attachments)
+                          (store/update-job store id cursor [] nil)
                           (recur))
                       ;; If the post fails, Send the error to the stop channel and
                       ;; recur to write and then bail
                       :exception
                       (do
-                        (log/errorf x "POST Exception: %s" (ex-message x))
+                        (log/errorf x "POST Exception: %s %s" (ex-message x)
+                                    (some-> x
+                                            ex-data
+                                            :body))
+                        ;; Recreate and log req body to file
+                        #_(-> (client/post-request
+                             post-req-config
+                             statements
+                             attachments)
+                            :body
+                            (io/copy (io/file (format "failures/%s_%s_%s.request"
+                                                      id
+                                                      (-> statements first (get "stored"))
+                                                      (-> statements last (get "stored"))))))
+                        (mm/clean-tempfiles! attachments)
                         (a/>! stop-chan {:status :error
                                          :error {:message (ex-message x)
                                                  :type    :target}})
