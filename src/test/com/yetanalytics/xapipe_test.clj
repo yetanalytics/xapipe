@@ -18,7 +18,6 @@
     ;; Make sure it's in there
     (is (= 453 (support/lrs-count support/*source-lrs*)))
     (let [[since until] (support/lrs-stored-range support/*source-lrs*)
-          _ (log/infof "since: %s until: %s" since until)
           config {:source
                   {:request-config (:request-config support/*source-lrs*)
                    :get-params     {:since since
@@ -34,7 +33,6 @@
           job (job/init-job
                job-id
                config)
-          _ (log/info "Starting transfer...")
           ;; Run the transfer
           {:keys [stop-fn states]} (run-job job)
           ;; Get all the states
@@ -60,6 +58,72 @@
             (is (every? #(contains? source-idset %)
                         (support/lrs-ids support/*target-lrs*)))))))))
 
+(deftest run-job-source-error-test
+  (testing "xapipe bails on source error"
+    (let [;; Bad source
+          config {:source
+                  {:request-config {:url-base    "http://localhost:8123"
+                                    :xapi-prefix "/foo"}
+                   :get-params     {}
+                   :poll-interval  1000
+                   :batch-size     50}
+                  :target
+                  {:request-config (:request-config support/*target-lrs*)
+                   :batch-size     50}}
+          job-id (.toString (java.util.UUID/randomUUID))
+          job (job/init-job
+               job-id
+               config)
+          {:keys [states]} (run-job job)
+          all-states (a/<!! (a/go-loop [acc []]
+                              (if-let [state (a/<! states)]
+                                (do
+                                  (recur (conj acc state)))
+                                acc)))]
+      (is (= [:init :running :error]
+             (map
+              #(get-in % [:state :status])
+              all-states)))
+      (is (-> all-states
+              last
+              :state
+              :source
+              :errors
+              not-empty)))))
+
+(deftest run-job-target-error-test
+  (testing "xapipe bails on target error"
+    (let [;; Bad source
+          config {:source
+                  {:request-config (:request-config support/*source-lrs*)
+                   :get-params     {}
+                   :poll-interval  1000
+                   :batch-size     50}
+                  :target
+                  {:request-config {:url-base    "http://localhost:8123"
+                                    :xapi-prefix "/foo"}
+                   :batch-size     50}}
+          job-id (.toString (java.util.UUID/randomUUID))
+          job (job/init-job
+               job-id
+               config)
+          {:keys [states]} (run-job job)
+          all-states (a/<!! (a/go-loop [acc []]
+                              (if-let [state (a/<! states)]
+                                (do
+                                  (recur (conj acc state)))
+                                acc)))]
+      (is (= [:init :running :error]
+             (map
+              #(get-in % [:state :status])
+              all-states)))
+      (is (-> all-states
+              last
+              :state
+              :target
+              :errors
+              not-empty)))))
+
 (deftest store-states-test
   (testing "xapipe stores job state in the given state store"
     (let [store (mem/new-store)
@@ -78,11 +142,12 @@
                job-id
                config)
           {:keys [states]} (run-job job)]
-      (is (= (assoc job
-              :state {:status :complete
-                      :cursor (t/normalize-stamp until)
-                      :errors []
-                      :source {:errors []}
-                      :target {:errors []}})
-             (a/<!! (store-states states store))
-             (store/read-job store job-id))))))
+      (testing "result of store-states is the last state"
+        (is (= (assoc job
+                      :state {:status :complete
+                              :cursor (t/normalize-stamp until)
+                              :errors []
+                              :source {:errors []}
+                              :target {:errors []}})
+               (a/<!! (store-states states store))
+               (store/read-job store job-id)))))))

@@ -83,8 +83,8 @@
                       (do
                         (mm/clean-tempfiles! attachments)
                         (recur (state/update-cursor state cursor)))
-                      ;; If the post fails, Send the error to the stop channel and
-                      ;; recur to write and then bail
+                      ;; If the post fails, Send the error to the stop channel
+                      ;; emit and stop.
                       :exception
                       (do
                         (log/errorf x "POST Exception: %s %s" (ex-message x)
@@ -102,10 +102,14 @@
                                                         (-> statements first (get "stored"))
                                                         (-> statements last (get "stored"))))))
                         (mm/clean-tempfiles! attachments)
-                        (a/>! stop-chan {:status :error
-                                         :error {:message (ex-message x)
-                                                 :type    :target}})
-                        (recur state)))))
+                        (let [error {:message (ex-message x)
+                                     :type    :target}]
+                          (a/>! stop-chan {:status :error
+                                           :error error})
+                          (a/>! states-chan
+                                (assoc job :state
+                                       (state/add-error state error)))
+                          (log/error "Stopping on POST error"))))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
