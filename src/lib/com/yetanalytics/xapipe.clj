@@ -387,4 +387,5 @@
       (let [result (a/<! store-result)]
         (log/infof "store result: %s" result)))
     (def stop-fn stop))
+  (stop-fn)
   )
