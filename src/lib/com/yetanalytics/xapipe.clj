@@ -303,7 +303,7 @@
              {:source
               {:request-config {:url-base    "http://localhost:8080"
                                 :xapi-prefix "/xapi"}
-               :get-params     {:until "2021-10-25T17:14:34.964945Z"}
+               :get-params     {}
                :poll-interval  1000
                :batch-size     50}
               :target
@@ -326,4 +326,65 @@
 
   (clojure.pprint/pprint (stop-fn))
 
+  )
+
+(comment
+  ;; Same as above, but with redis as a store
+  (require '[com.yetanalytics.xapipe.store.impl.redis :as redis])
+
+  (def store (redis/new-store {:pool {}
+                               :spec {:uri "redis://localhost:6379"}}))
+
+  (def job-id (str (java.util.UUID/randomUUID)))
+
+  (let [job (job/init-job
+             job-id
+             {:source
+              {:request-config {:url-base    "http://localhost:8080"
+                                :xapi-prefix "/xapi"}
+               :get-params     {}
+               :poll-interval  1000
+               :batch-size     50}
+              :target
+              {:request-config {:url-base    "http://localhost:8081"
+                                :xapi-prefix "/xapi"}
+               :batch-size     50}})
+
+
+        {:keys [states]
+         stop :stop-fn} (run-job job)
+
+        store-result
+        (-> states
+            (log-states :info)
+            (store-states store))]
+    (a/go
+      (let [result (a/<! store-result)]
+        (log/infof "store result: %s" result)))
+    (def stop-fn stop))
+
+  (clojure.pprint/pprint (stop-fn))
+
+  (require '[taoensso.carmine :as car])
+
+  (let [conn {:pool {}
+              :spec {:uri "redis://localhost:6379"}}]
+    (car/wcar conn
+              (car/get job-id)))
+
+
+  ;; Resume
+  (let [job (store/read-job store job-id)
+
+        {:keys [states]
+         stop :stop-fn} (run-job job)
+
+        store-result
+        (-> states
+            (log-states :info)
+            (store-states store))]
+    (a/go
+      (let [result (a/<! store-result)]
+        (log/infof "store result: %s" result)))
+    (def stop-fn stop))
   )
