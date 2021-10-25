@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.main
-  (:require [clojure.string :as cs]
+  (:require [clojure.core.async :as a]
+            [clojure.string :as cs]
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
@@ -57,7 +58,14 @@
           :default 200]
          ]
         (concat
-         [[nil "--job-id ID" "Job ID"]]
+         [;; No defaults, are set if not present
+          [nil "--job-id ID" "Job ID"]
+          [nil "--statement-buffer-size" "Desired size of statement buffer"
+           :parse-fn #(Long/parseLong %)
+           :validate [pos-int? "Must be a positive integer"]]
+          [nil "--batch-buffer-size" "Desired size of statement batch buffer"
+           :parse-fn #(Long/parseLong %)
+           :validate [pos-int? "Must be a positive integer"]]]
          source-options
          target-options)))
 
@@ -101,7 +109,9 @@
                         summary)}
          ;; Minimum required to try a job!
          :else
-         (let [;; options -> config
+         (let [;; TODO: more store
+               store (noop-store/new-store)
+               ;; options -> config
                {:keys [job-id
                        source-batch-size
                        source-xapi-prefix
@@ -132,8 +142,28 @@
                         statement-buffer-size
                         (assoc :statement-buffer-size statement-buffer-size)
                         batch-buffer-size
-                        (assoc :batch-buffer-size batch-buffer-size))]
-           )))
+                        (assoc :batch-buffer-size batch-buffer-size))
+               job-id (or job-id
+                          (.toString (java.util.UUID/randomUUID)))
+               job (job/init-job job-id config)]
+
+           (try
+             (let [{:keys [states]
+                    stop :stop-fn} (xapipe/run-job job)]
+               (.addShutdownHook (Runtime/getRuntime)
+                                 (Thread. ^Runnable stop))
+               (let [{{:keys [status]} :state
+                      :as job-result} (-> states
+                                          (xapipe/log-states :info)
+                                          (xapipe/store-states store)
+                                          a/<!!)]
+                 {:status (if (= :error status)
+                            1
+                            0)}))
+             (catch Exception ex
+               (log/error ex "Runtime Exception")
+               {:status 1
+                :message (ex-message ex)})))))
      nil {:status 1
           :message "\nusage: (start|resume|retry) (verb args) & options\n"}
      {:status 1
