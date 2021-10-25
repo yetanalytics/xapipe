@@ -98,6 +98,17 @@
           state
           errors))
 
+(s/fdef clear-errors
+  :args (s/cat :state state-spec)
+  :ret state-spec)
+
+(defn clear-errors
+  [state]
+  (-> state
+      (update :errors empty)
+      (update-in [:source :errors] empty)
+      (update-in [:target :errors] empty)))
+
 (s/fdef update-cursor
   :args (s/cat :state state-spec
                :new-cursor ::xs/timestamp)
