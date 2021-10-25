@@ -12,7 +12,8 @@
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
-                     ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}}
+                     ch.qos.logback/logback-classic {:mvn/version "1.2.3"
+                                                     :exclusions [org.slf4j/slf4j-api]}}}
   :run-m {:main-opts ["-m" "com.yetanalytics.xapipe"]}
   :run-x {:ns-default com.yetanalytics.xapipe
           :exec-fn greet
