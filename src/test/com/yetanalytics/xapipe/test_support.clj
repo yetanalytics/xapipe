@@ -13,6 +13,33 @@
   (with-open [socket (ServerSocket. 0)]
     (.getLocalPort socket)))
 
+;; Function to take dumped state and convert files to vectors of numbers
+(defn spit-lrs-state
+  [path state]
+  (spit path
+        (let [{attachments :state/attachments
+               documents :state/documents
+               :as state} state]
+          (assoc state
+                 :state/attachments
+                 (reduce-kv
+                  (fn [m sha2 att]
+                    (assoc m sha2
+                           (update att :content
+                                   #(into [] (.getBytes (slurp %))))))
+                  {}
+                  attachments)
+                 :state/documents
+                 (into {}
+                       (for [[ctx-key docs-map] documents]
+                         [ctx-key
+                          (into
+                           {}
+                           (for [[doc-id doc] docs-map]
+                             [doc-id
+                              (update doc :contents
+                                      #(into [] (.getBytes (slurp %))))]))]))))))
+
 ;; A version of mem/fixture-state* that allows any path
 (defn fixture-state
   "Get the state of an LRS from a file"
@@ -129,38 +156,3 @@
     [(-> ss last (get "stored"))
      (-> ss first (get "stored"))]
     []))
-
-(comment
-  ;; How the fixture was made...
-  (test-runner/with-test-suite
-    (let [{:keys [start stop dump]
-           {:keys [xapi-prefix url-base]} :request-config} (support/lrs 8080)]
-      (try
-        (start)
-        (test-runner/conformant?
-         "-e" (str url-base xapi-prefix) "-b" "-z")
-        (Thread/sleep 1000)
-        (spit "dev-resources/lrs/after_conf.edn"
-              (let [{attachments :state/attachments
-                     documents :state/documents
-                     :as state} (dump)]
-                (assoc state
-                       :state/attachments
-                       (reduce-kv
-                        (fn [m sha2 att]
-                          (assoc m sha2 (update att :content #(into [] (.getBytes (slurp %)))) ))
-                        {}
-                        attachments)
-                       :state/documents
-                       (into {}
-                             (for [[ctx-key docs-map] documents]
-                               [ctx-key
-                                (into
-                                 {}
-                                 (for [[doc-id doc] docs-map]
-                                   [doc-id (update doc :contents #(into [] (.getBytes (slurp %))))]))])))))
-        (finally
-          (stop)))))
-
-
-  )
