@@ -1,9 +1,11 @@
 (ns com.yetanalytics.xapipe.test-support
-  (:require [io.pedestal.http :as http]
+  (:require [clojure.java.io :as io]
             [com.yetanalytics.lrs.impl.memory :as mem :refer [new-lrs]]
             [com.yetanalytics.lrs.pedestal.routes :refer [build]]
             [com.yetanalytics.lrs.pedestal.interceptor :as i]
-            [com.yetanalytics.lrs.test-runner :as test-runner])
+            [com.yetanalytics.lrs.xapi.statements :as ss]
+            [com.yetanalytics.lrs.xapi.document   :as doc]
+            [io.pedestal.http :as http])
   (:import [java.net ServerSocket]))
 
 ;; https://gist.github.com/apeckham/78da0a59076a4b91b1f5acf40a96de69
@@ -11,8 +13,60 @@
   (with-open [socket (ServerSocket. 0)]
     (.getLocalPort socket)))
 
+;; Function to take dumped state and convert files to vectors of numbers
+(defn spit-lrs-state
+  [path state]
+  (spit path
+        (let [{attachments :state/attachments
+               documents :state/documents
+               :as state} state]
+          (assoc state
+                 :state/attachments
+                 (reduce-kv
+                  (fn [m sha2 att]
+                    (assoc m sha2
+                           (update att :content
+                                   #(into [] (.getBytes (slurp %))))))
+                  {}
+                  attachments)
+                 :state/documents
+                 (into {}
+                       (for [[ctx-key docs-map] documents]
+                         [ctx-key
+                          (into
+                           {}
+                           (for [[doc-id doc] docs-map]
+                             [doc-id
+                              (update doc :contents
+                                      #(into [] (.getBytes (slurp %))))]))]))))))
+
+;; A version of mem/fixture-state* that allows any path
+(defn fixture-state
+  "Get the state of an LRS from a file"
+  [path]
+  (-> (io/file path)
+      slurp
+      read-string
+      (update :state/statements
+              (partial conj (ss/statements-priority-map)))
+      (update :state/attachments
+              #(reduce-kv
+                (fn [m sha2 att]
+                  (assoc m sha2 (update att :content byte-array)))
+                {}
+                %))
+      (update :state/documents
+              (fn [docs]
+                (into {}
+                      (for [[ctx-key docs-map] docs]
+                        [ctx-key
+                         (into
+                          (doc/documents-priority-map)
+                          (for [[doc-id doc] docs-map]
+                            [doc-id (update doc :contents byte-array)]))]))))))
+
 (defn lrs
-  "Make a new LRS at port.
+  "Make a new LRS at port, seeding from file if seed-path is present.
   Returns a map of:
   :port - For debugging
   :lrs - The LRS itself
@@ -20,8 +74,11 @@
   :stop - A function of no args that will stop the LRS
   :dump - A function of no args that will dump memory LRS state
   :request-config - A request config ala xapipe.client"
-  [port]
-  (let [lrs (new-lrs {:mode :sync})
+  [port & [seed-path]]
+  (let [lrs (new-lrs
+             (cond->
+                 {:mode :sync}
+               (not-empty seed-path) (assoc :init-state (fixture-state seed-path))))
         service
         {:env                   :dev
          :lrs                   lrs
@@ -53,34 +110,28 @@
 
 (defn source-target-fixture
   "Populate *source-lrs* and *target-lrs* with started LRSs on two free ports.
-  Runs the conformance test to "
-  [f]
-  (let [{start-source :start
-         stop-source :stop
-         :as source} (lrs (get-free-port))
-        {start-target :start
-         stop-target :stop
-         :as target} (lrs (get-free-port))]
-    (try
-      ;; Start Em Up!
-      (start-source)
-      (start-target)
-      (binding [*source-lrs* source
-                *target-lrs* target]
-        (f))
-      (finally
-        (stop-source)
-        (stop-target)))))
-
-;; Utilities for easing LRS usage and introspection
-(defn seed-conf-tests!
-  "Seed the LRS with conformance-tests, throws on fail.
-  Must be run from within an existing test suite, that should be in a fixture"
-  [{{:keys [url-base xapi-prefix]} :request-config}]
-  (when-not (true? (test-runner/conformant?
-                    "-e" (str url-base xapi-prefix)))
-    (throw (ex-info "Seed failed, LRS is not conformant!"
-                    {:type ::seed-fail}))))
+  LRSs are empty by default unless seed-path is provided"
+  ([f]
+   (source-target-fixture nil f))
+  ([seed-path f]
+   (let [{start-source :start
+          stop-source :stop
+          :as source} (if seed-path
+                        (lrs (get-free-port) seed-path)
+                        (lrs (get-free-port)))
+         {start-target :start
+          stop-target :stop
+          :as target} (lrs (get-free-port))]
+     (try
+       ;; Start Em Up!
+       (start-source)
+       (start-target)
+       (binding [*source-lrs* source
+                 *target-lrs* target]
+         (f))
+       (finally
+         (stop-source)
+         (stop-target))))))
 
 (defn lrs-count
   "Get the number of statements in an LRS"

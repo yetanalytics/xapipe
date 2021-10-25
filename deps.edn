@@ -25,9 +25,6 @@
                       com.yetanalytics/lrs {:git/url "https://github.com/yetanalytics/lrs.git"
                                             :sha "f58af8f7a096f91ecffeb320ed0e2a4386e026da"}
                       io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
-                      com.yetanalytics/lrs-test-runner
-                      {:git/url "https://github.com/yetanalytics/lrs-test-runner.git"
-                       :sha "0fcd42854f9c79a043c13d436d629826bfc5133d"}
                       ;; Some integration tests use logback
                       ch.qos.logback/logback-classic {:mvn/version "1.2.3"
                                                       :exclusions [org.slf4j/slf4j-api]}}
