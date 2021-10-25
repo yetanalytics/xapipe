@@ -23,14 +23,3 @@
   "Make a new redis store"
   [conn]
   (->RedisStore conn))
-
-(comment
-  (def conn
-    {:pool {}
-     :spec {:uri "redis://localhost:6379"}})
-
-  (car/wcar conn
-            (car/set "foo" {:bar "baz"})
-            (car/get "foo"))
-
-  )
