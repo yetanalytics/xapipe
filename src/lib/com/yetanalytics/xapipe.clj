@@ -26,20 +26,17 @@
 (s/def ::states any?) ;; chan
 (s/def ::stop-fn (s/fspec :args (s/cat) :ret ::job))
 
-(s/fdef run-job
-  :args (s/cat :job ::job)
-  :ret (s/keys :req-un [::states ::stop-fn]))
-
 (defn- post-loop
-  [init-state
+  [{init-state                                    :state
+    {{post-req-config   :request-config} :target} :config
+    :as job}
    states-chan
    stop-chan
-   batch-chan
-   post-req-config]
+   batch-chan]
   (a/go
     (loop [state init-state]
       ;; Emit States
-      (a/>! states-chan state)
+      (a/>! states-chan (assoc job :state state))
       (if (state/errors? state)
         (log/error "POST loop stopping with errors")
         (do
@@ -54,11 +51,13 @@
                   :paused
                   (do
                     (log/info "Pausing.")
-                    (a/>! states-chan (state/set-status state :paused)))
+                    (a/>! states-chan (assoc job :state
+                                             (state/set-status state :paused))))
                   :error
                   (do
                     (log/errorf "Stopping with error: %s" (:message error))
-                    (a/>! states-chan (state/add-error state error)))))
+                    (a/>! states-chan (assoc job :state
+                                             (state/add-error state error))))))
               (if-some [batch v]
                 (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
@@ -116,9 +115,14 @@
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
-                    (a/>! states-chan (state/set-status state :complete))))))))))
+                    (a/>! states-chan (assoc job :state
+                                             (state/set-status state :complete)))))))))))
     ;; Post-loop, close the states chan
     (a/close! states-chan)))
+
+(s/fdef run-job
+  :args (s/cat :job ::job)
+  :ret (s/keys :req-un [::states ::stop-fn]))
 
 (defn run-job
   "Run a job, returning a map containing:
@@ -209,15 +213,14 @@
           running-state (state/set-status state-before :running)]
       ;; Post loop transfers statements until it reaches until or an error
       (post-loop
-       running-state
+       (merge job-before
+              {:state running-state})
        states-chan
        stop-chan
-       batch-chan
-       post-req-config)
+       batch-chan)
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))
-
 
 (comment
 

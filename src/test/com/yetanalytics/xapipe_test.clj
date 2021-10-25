@@ -42,8 +42,8 @@
                                   (recur (conj acc state)))
                                 acc)))]
       ;; At this point we're done or have errored.
-      (let [{:keys [status
-                    cursor]} (last all-states)]
+      (let [{{:keys [status
+                     cursor]} :state} (last all-states)]
         (when (= status :error)
           (log/error "Job Error" job))
         (testing "successful completion"
