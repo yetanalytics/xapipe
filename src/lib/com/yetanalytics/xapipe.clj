@@ -8,6 +8,7 @@
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
+            [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.util.async :as ua]
             [com.yetanalytics.xapipe.xapi :as xapi]))
@@ -208,7 +209,7 @@
                         batch-timeout)
                        c)
           ;; Send the init state
-          _ (a/put! states-chan state-before)
+          _ (a/put! states-chan job-before)
           ;; Then set it as running for post
           running-state (state/set-status state-before :running)]
       ;; Post loop transfers statements until it reaches until or an error
@@ -222,34 +223,103 @@
       {:states states-chan
        :stop-fn stop-fn})))
 
-(comment
+(s/fdef log-states
+  :args (s/cat
+         :states any?
+         :level #{:info :debug :trace :error :warn})
+  :ret any?)
 
+(defn log-states
+  "Log a sequence of job states at the given level"
+  [states
+   level]
+  (let [states-out (a/chan)]
+    (a/go-loop []
+      (if-let [{:keys [id state]
+                :as job} (a/<! states)]
+        (do
+          (log/logf level
+                    "Job ID %s state: %s"
+                    id state)
+          (a/>! states-out job)
+          (recur))
+        (a/close! states-out)))
+    states-out))
+
+(s/fdef store-states
+  :args (s/cat :states ::states ;; successive job maps
+               :store #(satisfies? store/XapipeStore %))
+  :ret any?) ;; a channel with final state
+
+(defn store-states
+  "Write states to storage, which is assumed to be a blocking operation.
+  Return a final job state, possibly decorated with a job persistence error."
+  [states
+   store]
+  (a/go-loop [last-job nil]
+    (log/debug "storage loop run")
+    (if-let [{{:keys [status]
+               :as state} :state
+              :as job} (a/<! states)]
+      (let [[tag x] (a/<!
+                     (a/thread
+                       (try
+                         (if (store/write-job store
+                                              job)
+                           [:result true]
+                           [:exception
+                            (ex-info "Unknown storage write error"
+                                     {:type ::unknown-storage-error})])
+                         (catch Throwable ex
+                           [:exception (ex-info "Storage write error"
+                                                {:type ::storage-error}
+                                                ex)]))))]
+        (case tag
+          :result
+          (do
+            (log/debug "state stored")
+            (recur job))
+          :exception
+          (do
+            (log/error x "State storage error, closing")
+            (update job :state
+                    state/add-error {:type :job
+                                     :message (ex-message x)}))))
+      last-job)))
+
+(comment
+  (require '[com.yetanalytics.xapipe.store.impl.memory :as mem])
+
+  (def store (mem/new-store))
 
   (def job-id (str (java.util.UUID/randomUUID)))
 
-  (let [{:keys [states]
-         stop :stop-fn}
-        (-> (job/init-job
+  (let [job (job/init-job
              job-id
              {:source
               {:request-config {:url-base    "http://localhost:8080"
                                 :xapi-prefix "/xapi"}
-               :get-params     {}
+               :get-params     {:until "2021-10-25T17:14:34.964945Z"}
                :poll-interval  1000
                :batch-size     50}
               :target
               {:request-config {:url-base    "http://localhost:8081"
                                 :xapi-prefix "/xapi"}
                :batch-size     50}})
-            run-job)]
-    (def stop-fn stop)
-
-    (a/go-loop []
-      (when-let [state (a/<! states)]
-        (log/info "state" state)
-        (recur))))
 
 
+        {:keys [states]
+         stop :stop-fn} (run-job job)
+
+        store-result
+        (-> states
+            (log-states :info)
+            (store-states store))]
+    (a/go
+      (let [result (a/<! store-result)]
+        (log/infof "store result: %s" result)))
+    (def stop-fn stop))
 
   (clojure.pprint/pprint (stop-fn))
+
   )
