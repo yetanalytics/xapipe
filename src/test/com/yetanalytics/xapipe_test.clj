@@ -2,19 +2,16 @@
   (:require [clojure.core.async :as a]
             [clojure.test :refer :all]
             [clojure.tools.logging :as log]
-            [com.yetanalytics.lrs.test-runner :as test-runner]
             [com.yetanalytics.xapipe :refer :all]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.test-support :as support])
   (:import [java.time Instant]))
 
-(use-fixtures :once test-runner/test-suite-fixture)
-(use-fixtures :each support/source-target-fixture)
+(use-fixtures :each (partial support/source-target-fixture
+                             "dev-resources/lrs/after_conf.edn"))
 
 (deftest xfer-test
   (testing "xapipe transfers conf test data from source to target"
-    ;; Seed source with data
-    (support/seed-conf-tests! support/*source-lrs*)
     ;; Make sure it's in there
     (is (= 453 (support/lrs-count support/*source-lrs*)))
     (let [[since until] (support/lrs-stored-range support/*source-lrs*)
