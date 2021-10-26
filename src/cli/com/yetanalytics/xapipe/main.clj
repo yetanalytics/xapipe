@@ -1,6 +1,5 @@
 (ns com.yetanalytics.xapipe.main
   (:require [clojure.core.async :as a]
-            [clojure.pprint :as pprint]
             [clojure.spec.alpha :as s]
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
@@ -201,8 +200,8 @@
                           (.toString (java.util.UUID/randomUUID)))
                job (job/init-job job-id config)]
            (if (true? show-job)
-             {:exit 0
-              :message (with-out-str (pprint/pprint job))}
+             {:status 0
+              :message (pr-str job)}
              (let [;; TODO: more store
                    store (noop-store/new-store)]
                (try
@@ -229,21 +228,16 @@
      {:status 1
       :message "\nusage: (start|resume|retry) (verb args) & options\n"})))
 
-(defn- print-err
-  [x]
-  (binding [*out* *err*]
-    (print x)))
-
 (defn -main [& args]
   (let [{:keys [status message]} (apply main* args)]
     (if (zero? status)
       (do
         (when (not-empty message)
-          (print message))
+          (log/info message))
         (System/exit 0))
       (do
         (when (not-empty message)
-          (print message))
+          (log/error message))
         (System/exit status)))))
 
 (comment
