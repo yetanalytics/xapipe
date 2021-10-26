@@ -82,7 +82,9 @@
                         :related_activities} kk)
                    (Boolean/parseBoolean v)
                    v))
-          m)))]])
+          m)))]
+   [nil "--source-username" "Source LRS BASIC Auth username"]
+   [nil "--source-password" "Source LRS BASIC Auth password"]])
 
 (def target-options
   [[nil "--target-batch-size TARGET_BATCH_SIZE" "Target LRS POST desired batch size"
@@ -92,7 +94,9 @@
    [nil "--target-xapi-prefix TARGET_XAPI_PREFIX" "xAPI endpoint prefix on Target LRS"
     :validate [(fn [^String s]
                  (.startsWith s "/")) "Must start with a slash"]
-    :default "/xapi"]])
+    :default "/xapi"]
+   [nil "--target-username" "Target LRS BASIC Auth username"]
+   [nil "--target-password" "Target LRS BASIC Auth password"]])
 
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
@@ -197,9 +201,13 @@
                     source-xapi-prefix
                     source-poll-interval
                     get-params
+                    source-username
+                    source-password
 
                     target-batch-size
                     target-xapi-prefix
+                    target-username
+                    target-password
 
                     get-buffer-size
                     get-proc-conc
@@ -217,12 +225,20 @@
                             :get-proc-conc get-proc-conc
                             :batch-timeout batch-timeout
                             :source
-                            {:request-config source-req-config
+                            {:request-config (cond-> source-req-config
+                                               (and source-username
+                                                    source-password)
+                                               (assoc :username source-username
+                                                      :password source-password))
                              :get-params     get-params
                              :poll-interval  source-poll-interval
                              :batch-size     source-batch-size}
                             :target
-                            {:request-config target-req-config
+                            {:request-config (cond-> target-req-config
+                                               (and target-username
+                                                    target-password)
+                                               (assoc :username target-username
+                                                      :password target-password))
                              :batch-size     target-batch-size}}
                      statement-buffer-size
                      (assoc :statement-buffer-size statement-buffer-size)
