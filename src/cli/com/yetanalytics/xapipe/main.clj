@@ -14,7 +14,17 @@
 
 (def common-options
   [["-h" "--help" "Show the help and options summary"
-    :default false]])
+    :default false]
+   ["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis"
+    :default :noop
+    :parse-fn keyword
+    :validate [#{:noop
+                 :redis} "Must be: noop | redis"]]
+   [nil "--redis-host HOST" "Redis Host"
+    :default "0.0.0.0"]
+   [nil "--redis-port PORT" "Redis Port"
+    :default 6379
+    :parse-fn #(Long/parseLong %)]])
 
 ;; xAPI partial GET params
 ;; TODO: Move spec
@@ -136,18 +146,23 @@
         (str "start <source-url-base> <target-url-base> & options:\n"
              opts-summary)]
     (cond
-      (:help options) {:status 0
-                       :message summary}
+      ;; param errors
       (not-empty errors) {:status 1
                           :message (cs/join \, errors)}
+      ;; user requested help
+      (:help options) {:status 0
+                       :message summary}
+      ;; no source
       (empty? source-url-base)
       {:status 1
        :message (str "source-url-base required!\n"
                      summary)}
+      ;; no target
       (empty? target-url-base)
       {:status 1
        :message (str "target-url-base required!\n"
                      summary)}
+      ;; invalid xapi params
       (not (s/valid? ::partial-get-params
                      (:get-params options)))
       {:status 1
@@ -175,6 +190,10 @@
                     statement-buffer-size
                     batch-buffer-size
 
+                    storage
+                    redis-host
+                    redis-port
+
                     show-job]} options
             config (cond-> {:get-buffer-size get-buffer-size
                             :get-proc-conc get-proc-conc
@@ -199,8 +218,15 @@
         (if (true? show-job)
           {:status 0
            :message (pr-str job)}
-          (let [;; TODO: more store
-                store (noop-store/new-store)]
+          (let [store (case storage
+                        :noop (noop-store/new-store)
+                        :redis (redis-store/new-store
+                                ;; TODO: Pool?
+                                {:pool {}
+                                 :spec
+                                 {:uri (format "redis://%s:%d"
+                                               redis-host
+                                               redis-port)}}))]
             (try
               (let [{:keys [states]
                      stop :stop-fn} (xapipe/run-job job)]
@@ -246,7 +272,12 @@
      bad-verb-resp)))
 
 (defn -main [& args]
-  (let [{:keys [status message]} (apply main* args)]
+  (let [{:keys [status message]}
+        (try
+          (apply main* args)
+          (catch Exception ex
+            {:status 1
+             :message (ex-message ex)}))]
     (if (zero? status)
       (do
         (when (not-empty message)
