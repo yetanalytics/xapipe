@@ -138,14 +138,12 @@
             ;; options -> config
             {:keys [job-id
                     source-batch-size
-                    source-xapi-prefix
                     source-poll-interval
                     get-params
                     source-username
                     source-password
 
                     target-batch-size
-                    target-xapi-prefix
                     target-username
                     target-password
 
