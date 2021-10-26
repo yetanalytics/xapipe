@@ -257,9 +257,12 @@
   {:status 1
    :message "Not yet implemented!"})
 
+(def top-level-summary
+  "usage: (start|resume|retry) (verb args) (--help)")
+
 (def bad-verb-resp
   {:status 1
-   :message "\nusage: (start|resume|retry) (verb args) & options\n"})
+   :message top-level-summary})
 
 (defn- main*
   ([] bad-verb-resp)
@@ -268,6 +271,8 @@
      "start" (start args)
      "resume" (resume args)
      "retry" (retry args)
+     "--help" {:status 0
+               :message top-level-summary}
      nil bad-verb-resp
      bad-verb-resp)))
 
