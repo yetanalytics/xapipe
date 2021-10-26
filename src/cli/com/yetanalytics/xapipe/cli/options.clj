@@ -29,15 +29,15 @@
     :format})
 
 (def source-options
-  [[nil "--source-batch-size SOURCE_BATCH_SIZE" "Source LRS GET limit param"
+  [[nil "--source-batch-size SIZE" "Source LRS GET limit param"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 50]
-   [nil "--source-xapi-prefix SOURCE_XAPI_PREFIX" "xAPI endpoint prefix on Source LRS"
+   [nil "--source-xapi-prefix PREFIX" "xAPI endpoint prefix on Source LRS"
     :validate [(fn [^String s]
                  (.startsWith s "/")) "Must start with a slash"]
     :default "/xapi"]
-   [nil "--source-poll-interval SOURCE_POLL_INTERVAL" "Source LRS GET poll timeout"
+   [nil "--source-poll-interval INTERVAL" "Source LRS GET poll timeout"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 1000]
@@ -58,20 +58,20 @@
                    (Boolean/parseBoolean v)
                    v))
           m)))]
-   [nil "--source-username" "Source LRS BASIC Auth username"]
-   [nil "--source-password" "Source LRS BASIC Auth password"]])
+   [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
+   [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]])
 
 (def target-options
-  [[nil "--target-batch-size TARGET_BATCH_SIZE" "Target LRS POST desired batch size"
+  [[nil "--target-batch-size SIZE" "Target LRS POST desired batch size"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 50]
-   [nil "--target-xapi-prefix TARGET_XAPI_PREFIX" "xAPI endpoint prefix on Target LRS"
+   [nil "--target-xapi-prefix PREFIX" "xAPI endpoint prefix on Target LRS"
     :validate [(fn [^String s]
                  (.startsWith s "/")) "Must start with a slash"]
     :default "/xapi"]
-   [nil "--target-username" "Target LRS BASIC Auth username"]
-   [nil "--target-password" "Target LRS BASIC Auth password"]])
+   [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
+   [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]])
 
 
 (def job-id-option
@@ -96,10 +96,10 @@
     :default 200]
    ;; No defaults, are set if not present
    job-id-option
-   [nil "--statement-buffer-size" "Desired size of statement buffer"
+   [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
-   [nil "--batch-buffer-size" "Desired size of statement batch buffer"
+   [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
    show-job-option])
