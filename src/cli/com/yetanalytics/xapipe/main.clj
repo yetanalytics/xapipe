@@ -119,114 +119,131 @@
 (def retry-options
   [])
 
-(defn main*
-  ([]
-   {:status 1
-    :message "\nusage: (start|resume|retry) (verb args) & options\n"})
+;; Verbs
+(defn- start
+  "Start a job, overwriting any previously with that id"
+  [args]
+  (let [{[source-url-base
+          target-url-base
+          & rest-args] :arguments
+         opts-summary  :summary
+         :keys         [options
+                        errors]} (cli/parse-opts
+                                  args
+                                  (into common-options
+                                        start-options))
+        summary
+        (str "start <source-url-base> <target-url-base> & options:\n"
+             opts-summary)]
+    (cond
+      (:help options) {:status 0
+                       :message summary}
+      (not-empty errors) {:status 1
+                          :message (cs/join \, errors)}
+      (empty? source-url-base)
+      {:status 1
+       :message (str "source-url-base required!\n"
+                     summary)}
+      (empty? target-url-base)
+      {:status 1
+       :message (str "target-url-base required!\n"
+                     summary)}
+      (not (s/valid? ::partial-get-params
+                     (:get-params options)))
+      {:status 1
+       :message (str "invalid xAPI params:\n"
+                     (s/explain-str
+                      ::partial-get-params
+                      (:get-params options)))}
+      ;; Minimum required to try a job!
+      :else
+      (let [
+            ;; options -> config
+            {:keys [job-id
+                    source-batch-size
+                    source-xapi-prefix
+                    source-poll-interval
+                    get-params
+
+                    target-batch-size
+                    target-xapi-prefix
+
+                    get-buffer-size
+                    get-proc-conc
+                    batch-timeout
+
+                    statement-buffer-size
+                    batch-buffer-size
+
+                    show-job]} options
+            config (cond-> {:get-buffer-size get-buffer-size
+                            :get-proc-conc get-proc-conc
+                            :batch-timeout batch-timeout
+                            :source
+                            {:request-config {:url-base    source-url-base
+                                              :xapi-prefix source-xapi-prefix}
+                             :get-params     get-params
+                             :poll-interval  source-poll-interval
+                             :batch-size     source-batch-size}
+                            :target
+                            {:request-config {:url-base    target-url-base
+                                              :xapi-prefix target-xapi-prefix}
+                             :batch-size     target-batch-size}}
+                     statement-buffer-size
+                     (assoc :statement-buffer-size statement-buffer-size)
+                     batch-buffer-size
+                     (assoc :batch-buffer-size batch-buffer-size))
+            job-id (or job-id
+                       (.toString (java.util.UUID/randomUUID)))
+            job (job/init-job job-id config)]
+        (if (true? show-job)
+          {:status 0
+           :message (pr-str job)}
+          (let [;; TODO: more store
+                store (noop-store/new-store)]
+            (try
+              (let [{:keys [states]
+                     stop :stop-fn} (xapipe/run-job job)]
+                (.addShutdownHook (Runtime/getRuntime)
+                                  (Thread. ^Runnable stop))
+                (let [{{:keys [status]} :state
+                       :as job-result} (-> states
+                                           (xapipe/log-states :info)
+                                           (xapipe/store-states store)
+                                           a/<!!)]
+                  {:status (if (= :error status)
+                             1
+                             0)}))
+              (catch Exception ex
+                (log/error ex "Runtime Exception")
+                {:status 1
+                 :message (ex-message ex)}))))))))
+
+(defn- resume
+  "Resume a job by ID, clearing errors"
+  [args]
+  {:status 1
+   :message "Not yet implemented!"})
+
+(defn- retry
+  "Resume a job by ID, clearing errors"
+  [args]
+  {:status 1
+   :message "Not yet implemented!"})
+
+(def bad-verb-resp
+  {:status 1
+   :message "\nusage: (start|resume|retry) (verb args) & options\n"})
+
+(defn- main*
+  ([] bad-verb-resp)
   ([verb & args]
    (case verb
-     "start"
-     (let [{[source-url-base
-             target-url-base
-             & rest-args] :arguments
-            opts-summary  :summary
-            :keys         [options
-                           errors]} (cli/parse-opts
-                                     args
-                                     (into common-options
-                                           start-options))
-           summary
-           (str "start <source-url-base> <target-url-base> & options:\n"
-                opts-summary)]
-       (cond
-         (:help options) {:status 0
-                          :message summary}
-         (not-empty errors) {:status 1
-                             :message (cs/join \, errors)}
-         (empty? source-url-base)
-         {:status 1
-          :message (str "source-url-base required!\n"
-                        summary)}
-         (empty? target-url-base)
-         {:status 1
-          :message (str "target-url-base required!\n"
-                        summary)}
-         (not (s/valid? ::partial-get-params
-                        (:get-params options)))
-         {:status 1
-          :message (str "invalid xAPI params:\n"
-                        (s/explain-str
-                         ::partial-get-params
-                         (:get-params options)))}
-         ;; Minimum required to try a job!
-         :else
-         (let [
-               ;; options -> config
-               {:keys [job-id
-                       source-batch-size
-                       source-xapi-prefix
-                       source-poll-interval
-                       get-params
-
-                       target-batch-size
-                       target-xapi-prefix
-
-                       get-buffer-size
-                       get-proc-conc
-                       batch-timeout
-
-                       statement-buffer-size
-                       batch-buffer-size
-
-                       show-job]} options
-               config (cond-> {:get-buffer-size get-buffer-size
-                               :get-proc-conc get-proc-conc
-                               :batch-timeout batch-timeout
-                               :source
-                               {:request-config {:url-base    source-url-base
-                                                 :xapi-prefix source-xapi-prefix}
-                                :get-params     get-params
-                                :poll-interval  source-poll-interval
-                                :batch-size     source-batch-size}
-                               :target
-                               {:request-config {:url-base    target-url-base
-                                                 :xapi-prefix target-xapi-prefix}
-                                :batch-size     target-batch-size}}
-                        statement-buffer-size
-                        (assoc :statement-buffer-size statement-buffer-size)
-                        batch-buffer-size
-                        (assoc :batch-buffer-size batch-buffer-size))
-               job-id (or job-id
-                          (.toString (java.util.UUID/randomUUID)))
-               job (job/init-job job-id config)]
-           (if (true? show-job)
-             {:status 0
-              :message (pr-str job)}
-             (let [;; TODO: more store
-                   store (noop-store/new-store)]
-               (try
-                 (let [{:keys [states]
-                        stop :stop-fn} (xapipe/run-job job)]
-                   (.addShutdownHook (Runtime/getRuntime)
-                                     (Thread. ^Runnable stop))
-                   (let [{{:keys [status]} :state
-                          :as job-result} (-> states
-                                              (xapipe/log-states :info)
-                                              (xapipe/store-states store)
-                                              a/<!!)]
-                     {:status (if (= :error status)
-                                1
-                                0)}))
-                 (catch Exception ex
-                   (log/error ex "Runtime Exception")
-                   {:status 1
-                    :message (ex-message ex)}))))
-
-           )))
-     nil {:status 1
-          :message "\nusage: (start|resume|retry) (verb args) & options\n"}
-     {:status 1
-      :message "\nusage: (start|resume|retry) (verb args) & options\n"})))
+     "start" (start args)
+     "resume" (resume args)
+     "retry" (retry args)
+     nil bad-verb-resp
+     bad-verb-resp)))
 
 (defn -main [& args]
   (let [{:keys [status message]} (apply main* args)]
