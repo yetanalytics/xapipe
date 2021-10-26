@@ -8,6 +8,7 @@
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
             [xapi-schema.spec.resources :as xsr])
@@ -98,6 +99,13 @@
    [nil "--target-username" "Target LRS BASIC Auth username"]
    [nil "--target-password" "Target LRS BASIC Auth password"]])
 
+(def job-id-option
+  [nil "--job-id ID" "Job ID"])
+
+(def show-job-option
+  [nil "--show-job" "Show the job and exit"
+   :default false])
+
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
     :parse-fn #(Long/parseLong %)
@@ -112,15 +120,14 @@
     :validate [pos-int? "Must be a positive integer"]
     :default 200]
    ;; No defaults, are set if not present
-   [nil "--job-id ID" "Job ID"]
+   job-id-option
    [nil "--statement-buffer-size" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
    [nil "--batch-buffer-size" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
-   [nil "--show-job" "Show the job and exit"
-    :default false]])
+   show-job-option])
 
 (def start-options
   (into []
@@ -130,14 +137,28 @@
          target-options)))
 
 (def resume-options
-  [])
+  [show-job-option])
 
 (def retry-options
-  [])
+  [show-job-option])
 
 ;; Verbs
 
 ;; Start
+(defn- create-store
+  [{:keys [storage
+           redis-host
+           redis-port]}]
+  (case storage
+    :noop (noop-store/new-store)
+    :redis (redis-store/new-store
+            ;; TODO: Pool?
+            {:pool {}
+             :spec
+             {:uri (format "redis://%s:%d"
+                           redis-host
+                           redis-port)}})))
+
 (defn- parse-lrs-url
   [^String url]
   (try
@@ -149,6 +170,30 @@
        :xapi-prefix (.getPath parsed)})
     (catch Exception _
       nil)))
+
+(defn- handle-job
+  "Actually execute a job, wrapping result"
+  [store job]
+  (try
+    (let [{:keys [states]
+           stop :stop-fn} (xapipe/run-job job)]
+      (.addShutdownHook (Runtime/getRuntime)
+                        (Thread. ^Runnable
+                                 (fn []
+                                   (do (stop)
+                                       (a/<!! (a/into [] states))))))
+      (let [{{:keys [status]} :state
+             :as job-result} (-> states
+                                 (xapipe/log-states :info)
+                                 (xapipe/store-states store)
+                                 a/<!!)]
+        {:status (if (= :error status)
+                   1
+                   0)}))
+    (catch Exception ex
+      (log/error ex "Runtime Exception")
+      {:status 1
+       :message (ex-message ex)})))
 
 (defn- start
   "Start a job, overwriting any previously with that id"
@@ -250,38 +295,40 @@
         (if (true? show-job)
           {:status 0
            :message (pr-str job)}
-          (let [store (case storage
-                        :noop (noop-store/new-store)
-                        :redis (redis-store/new-store
-                                ;; TODO: Pool?
-                                {:pool {}
-                                 :spec
-                                 {:uri (format "redis://%s:%d"
-                                               redis-host
-                                               redis-port)}}))]
-            (try
-              (let [{:keys [states]
-                     stop :stop-fn} (xapipe/run-job job)]
-                (.addShutdownHook (Runtime/getRuntime)
-                                  (Thread. ^Runnable stop))
-                (let [{{:keys [status]} :state
-                       :as job-result} (-> states
-                                           (xapipe/log-states :info)
-                                           (xapipe/store-states store)
-                                           a/<!!)]
-                  {:status (if (= :error status)
-                             1
-                             0)}))
-              (catch Exception ex
-                (log/error ex "Runtime Exception")
-                {:status 1
-                 :message (ex-message ex)}))))))))
+          (let [store (create-store options)]
+            (handle-job store job)))))))
 
 (defn- resume
   "Resume a job by ID, clearing errors"
   [args]
-  {:status 1
-   :message "Not yet implemented!"})
+  (let [{[job-id] :arguments
+         opts-summary  :summary
+         :keys         [options
+                        errors]} (cli/parse-opts
+                                  args
+                                  (into common-options
+                                        resume-options))
+        summary (str "resume <job-id> & options:\n"
+                     opts-summary)]
+    (cond
+      (or (nil? job-id)
+          (empty? job-id))
+      {:status 1
+       :message summary}
+
+      (= (:storage options) :noop)
+      {:status 1
+       :message (str "Resume not possible without storage. Use -s redis\n"
+                     opts-summary)}
+      :else
+      (let [store (create-store options)]
+        (if-let [job (store/read-job store job-id)]
+          (if (:show-job options)
+            {:status 0
+             :message (pr-str job)}
+            (handle-job store job))
+          {:status 1
+           :message (format "Job %s not found!" job-id)})))))
 
 (defn- retry
   "Resume a job by ID, clearing errors"
