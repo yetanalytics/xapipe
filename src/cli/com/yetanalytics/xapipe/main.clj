@@ -6,10 +6,12 @@
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.yetanalytics.xapipe :as xapipe]
+            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
             [xapi-schema.spec.resources :as xsr])
+  (:import [java.net URL])
   (:gen-class))
 
 (def common-options
@@ -130,11 +132,25 @@
   [])
 
 ;; Verbs
+
+;; Start
+(defn- parse-lrs-url
+  [^String url]
+  (try
+    (let [^URL parsed (URL. url)]
+      {:url-base (format
+                  "%s://%s"
+                  (.getProtocol parsed)
+                  (.getAuthority parsed))
+       :xapi-prefix (.getPath parsed)})
+    (catch Exception _
+      nil)))
+
 (defn- start
   "Start a job, overwriting any previously with that id"
   [args]
-  (let [{[source-url-base
-          target-url-base
+  (let [{[source-url
+          target-url
           & rest-args] :arguments
          opts-summary  :summary
          :keys         [options
@@ -143,8 +159,10 @@
                                   (into common-options
                                         start-options))
         summary
-        (str "start <source-url-base> <target-url-base> & options:\n"
-             opts-summary)]
+        (str "start <source-url> <target-url> & options:\n"
+             opts-summary)
+        source-req-config (parse-lrs-url source-url)
+        target-req-config (parse-lrs-url target-url)]
     (cond
       ;; param errors
       (not-empty errors) {:status 1
@@ -153,14 +171,14 @@
       (:help options) {:status 0
                        :message summary}
       ;; no source
-      (empty? source-url-base)
+      (nil? source-req-config)
       {:status 1
-       :message (str "source-url-base required!\n"
+       :message (str "source-url not present or invalid\n"
                      summary)}
       ;; no target
-      (empty? target-url-base)
+      (nil? target-req-config)
       {:status 1
-       :message (str "target-url-base required!\n"
+       :message (str "target-url not present or invalid\n"
                      summary)}
       ;; invalid xapi params
       (not (s/valid? ::partial-get-params
@@ -199,14 +217,12 @@
                             :get-proc-conc get-proc-conc
                             :batch-timeout batch-timeout
                             :source
-                            {:request-config {:url-base    source-url-base
-                                              :xapi-prefix source-xapi-prefix}
+                            {:request-config source-req-config
                              :get-params     get-params
                              :poll-interval  source-poll-interval
                              :batch-size     source-batch-size}
                             :target
-                            {:request-config {:url-base    target-url-base
-                                              :xapi-prefix target-xapi-prefix}
+                            {:request-config target-req-config
                              :batch-size     target-batch-size}}
                      statement-buffer-size
                      (assoc :statement-buffer-size statement-buffer-size)
