@@ -14,6 +14,7 @@
                                                          resume-options
                                                          retry-options]]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
@@ -212,7 +213,7 @@
 
       (= (:storage options) :noop)
       {:status 1
-       :message (str "Resume not possible without storage. Use -s redis\n"
+       :message (str "resume not possible without storage. Use -s redis\n"
                      opts-summary)}
       :else
       (let [store (create-store options)]
@@ -227,8 +228,36 @@
 (defn- retry
   "Resume a job by ID, clearing errors"
   [args]
-  {:status 1
-   :message "Not yet implemented!"})
+  (let [{[job-id] :arguments
+         opts-summary  :summary
+         :keys         [options
+                        errors]} (cli/parse-opts
+                                  args
+                                  (into common-options
+                                        retry-options))
+        summary (str "retry <job-id> & options:\n"
+                     opts-summary)]
+    (cond
+      (or (nil? job-id)
+          (empty? job-id))
+      {:status 1
+       :message summary}
+
+      (= (:storage options) :noop)
+      {:status 1
+       :message (str "retry not possible without storage. Use -s redis\n"
+                     opts-summary)}
+      :else
+      (let [store (create-store options)]
+        (if-let [job (store/read-job store job-id)]
+          (if (:show-job options)
+            {:status 0
+             :message (pr-str job)}
+            (handle-job store (-> job
+                                  (update :state state/clear-errors)
+                                  (update :state state/set-status :paused))))
+          {:status 1
+           :message (format "Job %s not found!" job-id)})))))
 
 (def top-level-summary
   "usage: (start|resume|retry) (verb args) (--help)")
