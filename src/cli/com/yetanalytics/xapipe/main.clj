@@ -206,6 +206,8 @@
         summary (str "resume <job-id> & options:\n"
                      opts-summary)]
     (cond
+      (:help options) {:status 0
+                       :message summary}
       (or (nil? job-id)
           (empty? job-id))
       {:status 1
@@ -238,6 +240,8 @@
         summary (str "retry <job-id> & options:\n"
                      opts-summary)]
     (cond
+      (:help options) {:status 0
+                       :message summary}
       (or (nil? job-id)
           (empty? job-id))
       {:status 1
@@ -274,7 +278,11 @@
      "resume" (resume args)
      "retry" (retry args)
      "--help" {:status 0
-               :message top-level-summary}
+               :message
+               (cs/join "\n" (map :message
+                                  [(start ["--help"])
+                                   (resume ["--help"])
+                                   (retry ["--help"])]))}
      nil bad-verb-resp
      bad-verb-resp)))
 
