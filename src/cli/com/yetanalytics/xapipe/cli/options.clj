@@ -33,10 +33,6 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 50]
-   [nil "--source-xapi-prefix PREFIX" "xAPI endpoint prefix on Source LRS"
-    :validate [(fn [^String s]
-                 (.startsWith s "/")) "Must start with a slash"]
-    :default "/xapi"]
    [nil "--source-poll-interval INTERVAL" "Source LRS GET poll timeout"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
@@ -66,10 +62,6 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 50]
-   [nil "--target-xapi-prefix PREFIX" "xAPI endpoint prefix on Target LRS"
-    :validate [(fn [^String s]
-                 (.startsWith s "/")) "Must start with a slash"]
-    :default "/xapi"]
    [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
    [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]])
 
