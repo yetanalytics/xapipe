@@ -176,12 +176,11 @@
   ex-info."
   [request
    & {:keys [ret-chan
-             budget
              attempt
-             max-attempt]
-      :or {budget 10000
-           attempt 0
-           max-attempt 10}}]
+             backoff-opts]
+      :or {attempt 0
+           backoff-opts {:budget 10000
+                         :max-attempt 10}}}]
   (let [ret (or ret-chan (a/promise-chan))
         req (assoc request
                    :throw-exceptions false ;; don't throw so we handle resp as data
@@ -200,26 +199,22 @@
          (retryable-status? status)
          (if-let [backoff (u/backoff-ms
                            attempt
-                           {:budget budget
-                            :max-attempt max-attempt})]
+                           backoff-opts)]
            ;; Go async, wait and relaunch
            (a/go
              (a/<! (a/timeout backoff))
              (async-request
               req
               :ret-chan ret
-              :budget budget
               :attempt (inc attempt)
-              :max-attempt max-attempt))
+              :backoff-opts backoff-opts))
            (a/put!
             ret
             [:exception
              (ex-info "Max retries reached!"
                       {:type     ::request-fail
                        :response resp
-                       :budget budget
-                       :attempt attempt
-                       :max-attempt max-attempt})]))
+                       :backoff-opts backoff-opts})]))
          :else
          (a/put!
           ret
