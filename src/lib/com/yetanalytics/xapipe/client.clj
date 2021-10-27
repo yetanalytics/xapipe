@@ -236,7 +236,8 @@
                :stop-chan any?
                :config ::request-config
                :init-params ::get-params
-               :poll-interval ::poll-interval)
+               :poll-interval ::poll-interval
+               :backoff-opts (s/? u/backoff-opts-spec))
   :ret any?)
 
 (defn get-chan
@@ -249,15 +250,20 @@
     ?until     :until
     :as        init-params
     :or        {init-since epoch-stamp}}
-   poll-interval]
-  (let [init-req (get-request
+   poll-interval
+   & [backoff-opts]]
+  (let [backoff-opts (or backoff-opts
+                         {:budget 10000
+                          :max-attempt 10})
+        init-req (get-request
                   config
                   init-params)]
     (a/go-loop [req   init-req
                 since init-since]
       (log/debug "GET" (:url req) :since since)
       (let [req-chan (async-request
-                      req)
+                      req
+                      :backoff-opts backoff-opts)
             [v p]    (a/alts! [req-chan stop-chan])]
         (if (identical? p stop-chan)
           (do
