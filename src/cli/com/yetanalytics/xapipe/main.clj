@@ -62,6 +62,13 @@
     (catch Exception _
       nil)))
 
+(defn- force-stop-job!
+  "Given a stop-fn and states channel, finish and stop the job.
+  *BLOCKING*"
+  [stop-fn states]
+  (when (stop-fn)
+    (a/<!! (a/into [] states))))
+
 (defn- handle-job
   "Actually execute a job, wrapping result"
   [store job]
@@ -71,8 +78,7 @@
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
                                  (fn []
-                                   (do (stop)
-                                       (a/<!! (a/into [] states))))))
+                                   (force-stop-job! stop states))))
       (let [{{:keys [status]} :state
              :as job-result} (-> states
                                  (xapipe/log-states :info)
@@ -268,7 +274,7 @@
   {:status 1
    :message top-level-summary})
 
-(defn- main*
+(defn main*
   ([] bad-verb-resp)
   ([verb & args]
    (case verb
@@ -300,10 +306,3 @@
         (when (not-empty message)
           (log/error message))
         (System/exit status)))))
-
-(comment
-
-  (main* "start" "http://0.0.0.0:8080" "http://0.0.0.0:8081"
-         "-p" "related_agents=true"
-         "--show-job")
-  )

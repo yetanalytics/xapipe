@@ -1,4 +1,4 @@
 .phony: test-lib
 
 test-lib:
-	clojure -X:test :dirs '["src/test"]'
+	clojure -X:cli:test :dirs '["src/test"]'
