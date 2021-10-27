@@ -11,7 +11,8 @@
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.util.async :as ua]
-            [com.yetanalytics.xapipe.xapi :as xapi]))
+            [com.yetanalytics.xapipe.xapi :as xapi])
+  (:import [org.apache.http.impl.client CloseableHttpClient]))
 
 (s/def ::job
   job/job-spec)
@@ -35,7 +36,8 @@
    states-chan
    stop-chan
    batch-chan
-   {:keys [conn-mgr]
+   {:keys [conn-mgr
+           http-client]
     :as conn-opts}]
   (a/go
     (loop [state init-state]
@@ -132,6 +134,7 @@
                                              (state/set-status state :complete)))))))))))
     ;; Post-loop, kill the HTTP client and close the states chan
     (client/shutdown conn-mgr)
+    (.close ^CloseableHttpClient http-client)
     (a/close! states-chan)))
 
 (s/def ::source-client-opts ::client/http-client-opts)
