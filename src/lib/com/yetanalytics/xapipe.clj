@@ -33,7 +33,8 @@
     :as job}
    states-chan
    stop-chan
-   batch-chan]
+   batch-chan
+   backoff-opts]
   (a/go
     (loop [state init-state]
       ;; Emit States
@@ -75,7 +76,9 @@
                                     post-req-config
                                     statements
                                     attachments)
-                      [tag x] (a/<! (client/async-request post-request))]
+                      [tag x] (a/<! (client/async-request
+                                     post-request
+                                     :backoff-opts backoff-opts))]
                   (do
                     (case tag
                       ;; On success, update the cursor and keep listening
@@ -140,16 +143,18 @@
   [{:keys [id]
     {status-before :status
      cursor-before :cursor
-     :as state-before}      :state
+     :as           state-before}      :state
     {{:keys [poll-interval]
       {?query-since :since
-       :as get-params} :get-params
-      get-req-config :request-config
-      :as            source-config} :source
-     {target-batch-size :batch-size
-      post-req-config   :request-config
-      :as               target-config} :target
-     :keys [get-buffer-size
+       :as          get-params}    :get-params
+      get-req-config      :request-config
+      source-backoff-opts :backoff-opts
+      :as                 source-config}    :source
+     {target-batch-size   :batch-size
+      post-req-config     :request-config
+      target-backoff-opts :backoff-opts
+      :as                 target-config} :target
+     :keys                             [get-buffer-size
             statement-buffer-size
             get-proc-conc
             batch-buffer-size
@@ -182,7 +187,8 @@
                     stop-chan
                     get-req-config
                     (assoc get-params :since get-since)
-                    poll-interval)
+                    poll-interval
+                    source-backoff-opts)
           ;; A channel that holds statements + attachments
           statement-chan (a/chan statement-buffer-size)
 
@@ -222,7 +228,8 @@
               {:state running-state})
        states-chan
        stop-chan
-       batch-chan)
+       batch-chan
+       target-backoff-opts)
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))
