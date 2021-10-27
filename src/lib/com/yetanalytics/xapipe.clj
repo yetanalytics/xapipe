@@ -134,13 +134,17 @@
     (client/shutdown conn-mgr)
     (a/close! states-chan)))
 
+(s/def ::source-client-opts ::client/http-client-opts)
+(s/def ::target-client-opts ::client/http-client-opts)
+
 (s/fdef run-job
   :args (s/cat :job ::job
                :conn-opts (s/?
                            (s/keys :opt-un [::client/conn-mgr
                                             ::client/http-client
                                             ::client/conn-mgr-opts
-                                            ::client/http-client-opts])))
+                                            ::source-client-opts
+                                            ::target-client-opts])))
   :ret (s/keys :req-un [::states ::stop-fn]))
 
 (defn run-job
@@ -174,7 +178,11 @@
    & [{:keys [conn-mgr
               http-client
               conn-mgr-opts
-              http-client-opts]}]]
+              source-client-opts
+              target-client-opts]
+       :or {conn-mgr-opts {}
+            source-client-opts {}
+            target-client-opts {}}}]]
   (case status-before
     :running  (throw (ex-info "Job already running!"
                               {:type ::already-running
@@ -186,13 +194,15 @@
                               {:type ::cannot-start-completed
                                :job  job-before}))
     (let [;; Http async conn pool + client
-          {:keys [conn-mgr
-                  http-client]
-           :as conn-opts} (client/init
-                           conn-mgr
-                           http-client
-                           conn-mgr-opts
-                           http-client-opts)
+          conn-mgr (or conn-mgr
+                       (client/init-conn-mgr
+                        conn-mgr-opts))
+          source-client (or http-client
+                            (client/init-client
+                             conn-mgr source-client-opts))
+          target-client (or http-client
+                            (client/init-client
+                             conn-mgr target-client-opts))
           ;; set up channels and start
           states-chan (a/chan)
           stop-chan (a/promise-chan)
@@ -215,7 +225,8 @@
                     :backoff-opts
                     source-backoff-opts
                     :conn-opts
-                    conn-opts)
+                    {:conn-mgr conn-mgr
+                     :http-client source-client})
           ;; A channel that holds statements + attachments
           statement-chan (a/chan statement-buffer-size)
 
@@ -256,7 +267,8 @@
        states-chan
        stop-chan
        batch-chan
-       conn-opts)
+       {:conn-mgr conn-mgr
+        :http-client target-client})
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))

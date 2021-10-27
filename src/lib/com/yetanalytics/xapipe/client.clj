@@ -370,29 +370,28 @@
 (s/def ::conn-mgr-opts map?) ;; map of opts to build a conn mgr with
 (s/def ::http-client-opts map?) ;; map of opts for http client
 
-(s/fdef init
-  :args (s/cat :conn-mgr (s/nilable ::conn-mgr)
-               :http-client (s/nilable ::http-client)
-               :conn-mgr-opts ::conn-mgr-opts
-               :http-client-opts ::http-client-opts)
-  :ret (s/keys :req-un [::conn-mgr
-                        ::http-client]))
+(s/fdef init-conn-mgr
+  :args (s/cat :conn-mgr-opts ::conn-mgr-opts)
+  :ret ::conn-mgr)
 
-(defn init
-  "Return or initialize an async conn-mgr and client"
+(defn init-conn-mgr
+  "Return and initialize an async conn-mgr and client"
+  [conn-mgr-opts]
+  (conn-mgr/make-reuseable-async-conn-manager
+   conn-mgr-opts))
+
+(s/fdef init-client
+  :args (s/cat
+         :conn-mgr ::conn-mgr
+         :client-opts ::http-client-opts)
+  :ret ::http-client)
+
+(defn init-client
   [conn-mgr
-   http-client
-   conn-mgr-opts
-   http-client-opts]
-  (let [acm (or conn-mgr
-                (conn-mgr/make-reuseable-async-conn-manager
-                 conn-mgr-opts))
-        cli (or (and conn-mgr http-client)
-                (http/build-async-http-client
-                 http-client-opts
-                 acm))]
-    {:conn-mgr acm
-     :http-client cli}))
+   client-opts]
+  (http/build-async-http-client
+   client-opts
+   conn-mgr))
 
 (s/fdef shutdown
   :args (s/cat :conn-mgr ::conn-mgr))
