@@ -28,13 +28,13 @@
 (s/def ::stop-fn (s/fspec :args (s/cat) :ret ::job))
 
 (defn- post-loop
-  [{init-state                                    :state
-    {{post-req-config   :request-config} :target} :config
+  [{init-state :state
+    {{post-req-config   :request-config
+      backoff-opts      :backoff-opts} :target} :config
     :as job}
    states-chan
    stop-chan
-   batch-chan
-   backoff-opts]
+   batch-chan]
   (a/go
     (loop [state init-state]
       ;; Emit States
@@ -228,8 +228,7 @@
               {:state running-state})
        states-chan
        stop-chan
-       batch-chan
-       target-backoff-opts)
+       batch-chan)
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))
