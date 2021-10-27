@@ -1,18 +1,23 @@
 (ns com.yetanalytics.xapipe.job.config
   (:require [clojure.spec.alpha :as s]
-            [com.yetanalytics.xapipe.client :as client]))
+            [com.yetanalytics.xapipe.client :as client]
+            [com.yetanalytics.xapipe.util :as u]))
 
 (s/def ::batch-size pos-int?) ;; limit param for get, batch size for post
+
+(s/def ::backoff-opts u/backoff-opts-spec)
 
 (s/def ::source
   (s/keys :req-un [::client/request-config
                    ::client/poll-interval
-                   ::batch-size]
+                   ::batch-size
+                   ::backoff-opts]
           :opt-un [::client/get-params]))
 
 (s/def ::target
   (s/keys :req-un [::client/request-config
-                   ::batch-size]))
+                   ::batch-size
+                   ::backoff-opts]))
 
 ;; How many get requests to read-ahead
 ;; default: 10
