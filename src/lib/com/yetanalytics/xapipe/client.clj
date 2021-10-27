@@ -198,30 +198,28 @@
          (= status 200) (a/put! ret [:response resp])
 
          (retryable-status? status)
-         (let [budget' (- budget request-time)]
-           (if-let [backoff (and (< 0 budget')
-                                 (u/backoff-ms
-                                  attempt
-                                  {:budget budget'
-                                   :max-attempt max-attempt}))]
-             ;; Go async, wait and relaunch
-             (a/go
-               (a/<! (a/timeout backoff))
-               (async-request
-                req
-                :ret-chan ret
-                :budget (- budget' backoff)
-                :attempt (inc attempt)
-                :max-attempt max-attempt))
-             (a/put!
-              ret
-              [:exception
-               (ex-info "Max retries reached!"
-                        {:type     ::request-fail
-                         :response resp
-                         :budget budget'
-                         :attempt attempt
-                         :max-attempt max-attempt})])))
+         (if-let [backoff (u/backoff-ms
+                           attempt
+                           {:budget budget
+                            :max-attempt max-attempt})]
+           ;; Go async, wait and relaunch
+           (a/go
+             (a/<! (a/timeout backoff))
+             (async-request
+              req
+              :ret-chan ret
+              :budget budget
+              :attempt (inc attempt)
+              :max-attempt max-attempt))
+           (a/put!
+            ret
+            [:exception
+             (ex-info "Max retries reached!"
+                      {:type     ::request-fail
+                       :response resp
+                       :budget budget
+                       :attempt attempt
+                       :max-attempt max-attempt})]))
          :else
          (a/put!
           ret
