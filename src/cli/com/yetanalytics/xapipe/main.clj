@@ -300,10 +300,3 @@
         (when (not-empty message)
           (log/error message))
         (System/exit status)))))
-
-(comment
-
-  (main* "start" "http://0.0.0.0:8080" "http://0.0.0.0:8081"
-         "-p" "related_agents=true"
-         "--show-job")
-  )
