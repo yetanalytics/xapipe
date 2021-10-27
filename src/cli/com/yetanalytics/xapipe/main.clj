@@ -268,7 +268,7 @@
   {:status 1
    :message top-level-summary})
 
-(defn- main*
+(defn main*
   ([] bad-verb-resp)
   ([verb & args]
    (case verb
