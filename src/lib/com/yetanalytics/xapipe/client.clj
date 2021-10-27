@@ -1,11 +1,11 @@
 (ns com.yetanalytics.xapipe.client
   "LRS Client"
-  (:require #_[org.httpkit.client :as client]
-            [clj-http.client :as client]
+  (:require [clj-http.client :as client]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
+            [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]))
@@ -150,6 +150,20 @@
                  (not-empty password))
           (assoc :basic-auth [username password])))))
 
+(def rate-limit-status?
+  #{420 429})
+
+(def retryable-error?
+  #{502 503 504})
+
+(defn- retryable-status?
+  "Is the HTTP status code one we care to retry?"
+  [status]
+  (and status
+       (or
+        (rate-limit-status? status)
+        (retryable-error? status))))
+
 (defn async-request
   "Perform an async http request, returning a promise channel with tuple
   of either:
@@ -160,21 +174,61 @@
 
   Only status 200 responses will be returned, all others will be wrapped in an
   ex-info."
-  [request]
-  (let [ret (a/promise-chan)]
+  [request
+   & {:keys [ret-chan
+             budget
+             attempt
+             max-attempt]
+      :or {budget 10000
+           attempt 0
+           max-attempt 10}}]
+  (let [ret (or ret-chan (a/promise-chan))
+        req (assoc request
+                   :throw-exceptions false ;; don't throw so we handle resp as data
+                   :async true
+                   :async? true) ;; docs mention this but it is probably not needed
+        ]
     (client/request
-     (assoc request
-            :async true
-            :async? true) ;; docs mention this but it is probably not needed
-     (fn [{:keys [status]
+     req
+     (fn [{:keys [status
+                  request-time]
            :as   resp}]
-       (a/put! ret
-               (if (= status 200)
-                 [:response resp]
-                 [:exception
-                  (ex-info "Non-200 Request Status"
-                           {:type     ::request-fail
-                            :response resp})])))
+       (cond
+         ;; Both our GET and POST expect 200
+         (= status 200) (a/put! ret [:response resp])
+
+         (retryable-status? status)
+         (let [budget' (- budget request-time)]
+           (if-let [backoff (and (< 0 budget')
+                                 (u/backoff-ms
+                                  attempt
+                                  {:budget budget'
+                                   :max-attempt max-attempt}))]
+             ;; Go async, wait and relaunch
+             (a/go
+               (a/<! (a/timeout backoff))
+               (async-request
+                req
+                :ret-chan ret
+                :budget (- budget' backoff)
+                :attempt (inc attempt)
+                :max-attempt max-attempt))
+             (a/put!
+              ret
+              [:exception
+               (ex-info "Max retries reached!"
+                        {:type     ::request-fail
+                         :response resp
+                         :budget budget'
+                         :attempt attempt
+                         :max-attempt max-attempt})])))
+         :else
+         (a/put!
+          ret
+          [:exception
+           (ex-info "Non-200 Request Status"
+                    {:type     ::request-fail
+                     :response resp})])))
      (fn [exception]
        (a/put! ret
                [:exception
