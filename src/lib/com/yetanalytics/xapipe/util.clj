@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.util
-  "Utility functions")
+  "Utility functions"
+  (:require [clojure.spec.alpha :as s]))
 
 ;; From `lrsql`
 

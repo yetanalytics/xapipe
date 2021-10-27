@@ -39,14 +39,18 @@
     []
     {:source-batch-size 50,
      :source-poll-interval 1000,
-     :get-params {}}
+     :get-params {},
+     :source-backoff-budget 10000,
+     :source-backoff-max-attempt 10}
     nil
 
     ;; invalid batch size
     ["--source-batch-size" "0"]
     {:source-batch-size 50,
      :source-poll-interval 1000,
-     :get-params {}}
+     :get-params {},
+     :source-backoff-budget 10000,
+     :source-backoff-max-attempt 10}
     ["Failed to validate \"--source-batch-size 0\": Must be a positive integer"]
 
     ;; xAPI Params
@@ -58,11 +62,15 @@
     {:source-batch-size 50,
      :source-poll-interval 1000,
      :get-params {:since "2021-10-26T17:51:06.530464Z"
-                  :related_agents true}}
+                  :related_agents true},
+     :source-backoff-budget 10000,
+     :source-backoff-max-attempt 10}
     nil))
 
 (deftest target-options-test
-  (is (= {:options {:target-batch-size 50}
+  (is (= {:options {:target-batch-size 50
+                    :target-backoff-budget 10000
+                    :target-backoff-max-attempt 10}
           :errors nil}
          (select-keys
           (cli/parse-opts [] target-options)

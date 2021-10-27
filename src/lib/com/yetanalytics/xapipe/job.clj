@@ -28,12 +28,20 @@
 (defn init-job
   "Initialize a new job"
   [id
-   {{{?since :since} :get-params
-     get-batch-size  :batch-size
-     :as             source-config
-     :or             {get-batch-size 50}} :source
-    {post-batch-size :batch-size
-     :as             target-config}       :target
+   {{{?since :since}  :get-params
+     get-batch-size   :batch-size
+     get-backoff-opts :backoff-opts
+     :as              source-config
+     :or              {get-batch-size   50
+                       get-backoff-opts {:budget      10000
+                                         :max-attempt 10}}}
+    :source
+    {post-batch-size   :batch-size
+     post-backoff-opts :backoff-opts
+     :as               target-config
+     :or               {post-backoff-opts {:budget      10000
+                                           :max-attempt 10}}}
+    :target
     :keys
     [get-buffer-size
      statement-buffer-size
@@ -66,10 +74,12 @@
       :batch-timeout         batch-timeout
       :source
       (-> source-config
-          (assoc :batch-size get-batch-size)
+          (assoc :batch-size get-batch-size
+                 :backoff-opts get-backoff-opts)
           (assoc-in [:get-params :limit] get-batch-size))
       :target
-      (assoc target-config :batch-size post-batch-size)}
+      (assoc target-config
+             :batch-size post-batch-size)}
      :state
      {:status :init
       :cursor (or ?since "1970-01-01T00:00:00Z")

@@ -16,6 +16,32 @@
     :default 6379
     :parse-fn #(Long/parseLong %)]])
 
+(defn backoff-opts
+  [tag]
+  [[nil
+    (format "--%s-backoff-budget BUDGET" tag)
+    (format "%s LRS Retry Backoff Budget in ms" (cs/capitalize tag))
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]
+    :default 10000]
+   [nil
+    (format "--%s-backoff-max-attempt MAX" tag)
+    (format "%s LRS Retry Backoff Max Attempts, set to -1 for no retry"
+            (cs/capitalize tag))
+    :parse-fn #(Long/parseLong %)
+    :validate [#(<= -1 %) "Must be -1 or greater"]
+    :default 10]
+   [nil
+    (format "--%s-backoff-j-range RANGE" tag)
+    (format "%s LRS Retry Backoff Jitter Range in ms" (cs/capitalize tag))
+    :parse-fn #(Long/parseLong %)
+    :validate [nat-int? "Must be a natural integer"]]
+   [nil
+    (format "--%s-backoff-initial INITIAL" tag)
+    (format "%s LRS Retry Backoff Initial Delay" (cs/capitalize tag))
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]]])
+
 ;; a set for filtering
 (def valid-get-params
   #{:agent
@@ -29,41 +55,44 @@
     :format})
 
 (def source-options
-  [[nil "--source-batch-size SIZE" "Source LRS GET limit param"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
-    :default 50]
-   [nil "--source-poll-interval INTERVAL" "Source LRS GET poll timeout"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
-    :default 1000]
-   ["-p" "--xapi-get-param KEY=VALUE" "xAPI GET Parameters"
-    :id :get-params
-    :default {}
-    :multi true
-    :validate [not-empty "Must provide param KEY=VALUE"]
-    :update-fn
-    (fn [m v]
-      (let [[k v] (cs/split v #"=" 2)
-            kk (keyword k)]
-        (if (contains? valid-get-params
-                       kk)
-          (assoc m kk
-                 (if (#{:related_agents
-                        :related_activities} kk)
-                   (Boolean/parseBoolean v)
-                   v))
-          m)))]
-   [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
-   [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]])
+  (into
+   [[nil "--source-batch-size SIZE" "Source LRS GET limit param"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]
+     :default 50]
+    [nil "--source-poll-interval INTERVAL" "Source LRS GET poll timeout"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]
+     :default 1000]
+    ["-p" "--xapi-get-param KEY=VALUE" "xAPI GET Parameters"
+     :id :get-params
+     :default {}
+     :multi true
+     :validate [not-empty "Must provide param KEY=VALUE"]
+     :update-fn
+     (fn [m v]
+       (let [[k v] (cs/split v #"=" 2)
+             kk (keyword k)]
+         (if (contains? valid-get-params
+                        kk)
+           (assoc m kk
+                  (if (#{:related_agents
+                         :related_activities} kk)
+                    (Boolean/parseBoolean v)
+                    v))
+           m)))]
+    [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
+    [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
+   (backoff-opts "source")))
 
 (def target-options
-  [[nil "--target-batch-size SIZE" "Target LRS POST desired batch size"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
-    :default 50]
-   [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
-   [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]])
+  (into [[nil "--target-batch-size SIZE" "Target LRS POST desired batch size"
+          :parse-fn #(Long/parseLong %)
+          :validate [pos-int? "Must be a positive integer"]
+          :default 50]
+         [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
+         [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
+        (backoff-opts "target")))
 
 
 (def job-id-option

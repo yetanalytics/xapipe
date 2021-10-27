@@ -148,10 +148,18 @@
                     get-params
                     source-username
                     source-password
+                    source-backoff-budget
+                    source-backoff-max-attempt
+                    source-backoff-j-range
+                    source-backoff-initial
 
                     target-batch-size
                     target-username
                     target-password
+                    target-backoff-budget
+                    target-backoff-max-attempt
+                    target-backoff-j-range
+                    target-backoff-initial
 
                     get-buffer-size
                     get-proc-conc
@@ -176,14 +184,28 @@
                                                       :password source-password))
                              :get-params     get-params
                              :poll-interval  source-poll-interval
-                             :batch-size     source-batch-size}
+                             :batch-size     source-batch-size
+                             :backoff-opts
+                             (cond-> {:budget source-backoff-budget
+                                      :max-attempt source-backoff-max-attempt}
+                               source-backoff-j-range
+                               (assoc :j-range source-backoff-j-range)
+                               source-backoff-initial
+                               (assoc :initial source-backoff-initial))}
                             :target
                             {:request-config (cond-> target-req-config
                                                (and target-username
                                                     target-password)
                                                (assoc :username target-username
                                                       :password target-password))
-                             :batch-size     target-batch-size}}
+                             :batch-size     target-batch-size
+                             :backoff-opts
+                             (cond-> {:budget target-backoff-budget
+                                      :max-attempt target-backoff-max-attempt}
+                               target-backoff-j-range
+                               (assoc :j-range target-backoff-j-range)
+                               target-backoff-initial
+                               (assoc :initial target-backoff-initial))}}
                      statement-buffer-size
                      (assoc :statement-buffer-size statement-buffer-size)
                      batch-buffer-size
