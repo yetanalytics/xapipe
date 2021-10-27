@@ -34,7 +34,9 @@
     :as job}
    states-chan
    stop-chan
-   batch-chan]
+   batch-chan
+   {:keys [conn-mgr]
+    :as conn-opts}]
   (a/go
     (loop [state init-state]
       ;; Emit States
@@ -72,10 +74,13 @@
                                     (count attachments))
                       ;; Form a post request
 
-                      post-request (client/post-request
-                                    post-req-config
-                                    statements
-                                    attachments)
+                      post-request (merge
+                                    (client/post-request
+                                     post-req-config
+                                     statements
+                                     attachments)
+                                    ;; Use the conn + client
+                                    conn-opts)
                       [tag x] (a/<! (client/async-request
                                      post-request
                                      :backoff-opts backoff-opts))]
@@ -125,11 +130,17 @@
                     (log/info "Successful Completion")
                     (a/>! states-chan (assoc job :state
                                              (state/set-status state :complete)))))))))))
-    ;; Post-loop, close the states chan
+    ;; Post-loop, kill the HTTP client and close the states chan
+    (client/shutdown conn-mgr)
     (a/close! states-chan)))
 
 (s/fdef run-job
-  :args (s/cat :job ::job)
+  :args (s/cat :job ::job
+               :conn-opts (s/?
+                           (s/keys :opt-un [::client/conn-mgr
+                                            ::client/http-client
+                                            ::client/conn-mgr-opts
+                                            ::client/http-client-opts])))
   :ret (s/keys :req-un [::states ::stop-fn]))
 
 (defn run-job
@@ -149,17 +160,21 @@
        :as          get-params}    :get-params
       get-req-config      :request-config
       source-backoff-opts :backoff-opts
-      :as                 source-config}    :source
+      :as                 source-config} :source
      {target-batch-size   :batch-size
       post-req-config     :request-config
       target-backoff-opts :backoff-opts
       :as                 target-config} :target
-     :keys                             [get-buffer-size
+     :keys [get-buffer-size
             statement-buffer-size
             get-proc-conc
             batch-buffer-size
             batch-timeout]} :config
-    :as                     job-before}]
+    :as                     job-before}
+   & [{:keys [conn-mgr
+              http-client
+              conn-mgr-opts
+              http-client-opts]}]]
   (case status-before
     :running  (throw (ex-info "Job already running!"
                               {:type ::already-running
@@ -170,8 +185,16 @@
     :complete (throw (ex-info "Cannot start a completed job"
                               {:type ::cannot-start-completed
                                :job  job-before}))
-    ;; set up channels and start
-    (let [states-chan (a/chan)
+    (let [;; Http async conn pool + client
+          {:keys [conn-mgr
+                  http-client]
+           :as conn-opts} (client/init
+                           conn-mgr
+                           http-client
+                           conn-mgr-opts
+                           http-client-opts)
+          ;; set up channels and start
+          states-chan (a/chan)
           stop-chan (a/promise-chan)
           stop-fn   #(a/put! stop-chan {:status :paused})
 
@@ -188,7 +211,11 @@
                     get-req-config
                     (assoc get-params :since get-since)
                     poll-interval
-                    source-backoff-opts)
+                    ;; kwargs
+                    :backoff-opts
+                    source-backoff-opts
+                    :conn-opts
+                    conn-opts)
           ;; A channel that holds statements + attachments
           statement-chan (a/chan statement-buffer-size)
 
@@ -228,7 +255,8 @@
               {:state running-state})
        states-chan
        stop-chan
-       batch-chan)
+       batch-chan
+       conn-opts)
       ;; Return the state emitter and stop fn
       {:states states-chan
        :stop-fn stop-fn})))

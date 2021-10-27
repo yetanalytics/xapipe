@@ -1,6 +1,8 @@
 (ns com.yetanalytics.xapipe.client
   "LRS Client"
   (:require [clj-http.client :as client]
+            [clj-http.core :as http]
+            [clj-http.conn-mgr :as conn-mgr]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
@@ -231,13 +233,24 @@
 (s/def ::poll-interval
   nat-int?)
 
+(s/def ::conn-mgr any?) ;; Reusable async conn mgr
+(s/def ::http-client any?) ;; http client to thread
+
+(s/def ::conn-opts (s/keys :req-un [::conn-mgr ::http-client]))
+
+(s/def ::backoff-opts u/backoff-opts-spec)
+
 (s/fdef get-chan
   :args (s/cat :out-chan any?
                :stop-chan any?
                :config ::request-config
                :init-params ::get-params
                :poll-interval ::poll-interval
-               :backoff-opts (s/? u/backoff-opts-spec))
+               :kwargs
+               (s/keys*
+                :opt-un
+                [::backoff-opts
+                 ::conn-opts]))
   :ret any?)
 
 (defn get-chan
@@ -251,7 +264,8 @@
     :as        init-params
     :or        {init-since epoch-stamp}}
    poll-interval
-   & [backoff-opts]]
+   & {:keys [backoff-opts
+             conn-opts]}]
   (let [backoff-opts (or backoff-opts
                          {:budget 10000
                           :max-attempt 10})
@@ -262,7 +276,8 @@
                 since init-since]
       (log/debug "GET" (:url req) :since since)
       (let [req-chan (async-request
-                      req
+                      (merge req
+                             conn-opts)
                       :backoff-opts backoff-opts)
             [v p]    (a/alts! [req-chan stop-chan])]
         (if (identical? p stop-chan)
@@ -351,3 +366,38 @@
         ::get-success
         :exception
         ::get-exception))
+
+(s/def ::conn-mgr-opts map?) ;; map of opts to build a conn mgr with
+(s/def ::http-client-opts map?) ;; map of opts for http client
+
+(s/fdef init
+  :args (s/cat :conn-mgr (s/nilable ::conn-mgr)
+               :http-client (s/nilable ::http-client)
+               :conn-mgr-opts ::conn-mgr-opts
+               :http-client-opts ::http-client-opts)
+  :ret (s/keys :req-un [::conn-mgr
+                        ::http-client]))
+
+(defn init
+  "Return or initialize an async conn-mgr and client"
+  [conn-mgr
+   http-client
+   conn-mgr-opts
+   http-client-opts]
+  (let [acm (or conn-mgr
+                (conn-mgr/make-reuseable-async-conn-manager
+                 conn-mgr-opts))
+        cli (or (and conn-mgr http-client)
+                (http/build-async-http-client
+                 http-client-opts
+                 acm))]
+    {:conn-mgr acm
+     :http-client cli}))
+
+(s/fdef shutdown
+  :args (s/cat :conn-mgr ::conn-mgr))
+
+(defn shutdown
+  "Shutdown a connection manager"
+  [conn-mgr]
+  (conn-mgr/shutdown-manager conn-mgr))
