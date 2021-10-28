@@ -231,7 +231,17 @@
                     {:conn-mgr conn-mgr
                      :http-client source-client})
           ;; A channel that holds statements + attachments
-          statement-chan (a/chan statement-buffer-size)
+          statement-chan (a/chan
+                          statement-buffer-size
+                          ;; filtering can be implemented as a transducer here.
+                          (filter
+                           (constantly true))
+                          (fn [ex]
+                            (a/put! stop-chan
+                                    {:status :error
+                                     :error {:type :job
+                                             :message (ex-message ex)}})
+                            nil))
 
           ;; Pipeline responses to statement chan, short circuiting errs
           _ (a/pipeline-blocking
