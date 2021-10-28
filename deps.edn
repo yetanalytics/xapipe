@@ -7,8 +7,14 @@
         com.taoensso/carmine {:mvn/version "3.1.0"}
         commons-fileupload/commons-fileupload {:mvn/version "1.4"}
         com.yetanalytics/xapi-schema {:git/url "https://github.com/yetanalytics/xapi-schema.git"
-                                      :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"}
-        org.clojure/tools.logging {:mvn/version "1.1.0"}}
+                                      :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"
+                                      :exclusions [org.clojure/clojure
+                                                   org.clojure/clojurescript
+                                                   org.clojure/data.json]}
+        org.clojure/tools.logging {:mvn/version "1.1.0"}
+        com.yetanalytics/project-persephone
+        {:git/url "https://github.com/yetanalytics/project-persephone.git"
+         :sha "b6f1155ee28cd77e2dba2ee3eb9b711a79c8f57d"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
@@ -28,7 +34,13 @@
                       io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
                       ;; Some integration tests use logback
                       ch.qos.logback/logback-classic {:mvn/version "1.2.3"
-                                                      :exclusions [org.slf4j/slf4j-api]}}
+                                                      :exclusions [org.slf4j/slf4j-api]}
+                      com.yetanalytics/datasim
+                      {:git/url    "https://github.com/yetanalytics/datasim.git"
+                       :sha        "9a4fb7926981b1282cc72aa093bd66a1c57abbd1"
+                       :exclusions [org.clojure/test.check
+                                    com.yetanalytics/project-pan
+                                    com.yetanalytics/xapi-schema]}}
          :exec-fn cognitect.test-runner.api/test}
   :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn hf.depstar/uberjar

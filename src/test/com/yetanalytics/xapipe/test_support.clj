@@ -1,5 +1,7 @@
 (ns com.yetanalytics.xapipe.test-support
   (:require [clojure.java.io :as io]
+            [com.yetanalytics.datasim.input :as dsinput]
+            [com.yetanalytics.datasim.sim :as dsim]
             [com.yetanalytics.lrs.impl.memory :as mem :refer [new-lrs]]
             [com.yetanalytics.lrs.pedestal.routes :refer [build]]
             [com.yetanalytics.lrs.pedestal.interceptor :as i]
@@ -156,3 +158,38 @@
     [(-> ss last (get "stored"))
      (-> ss first (get "stored"))]
     []))
+
+(defn gen-statements
+  "Generate n statements with default profile and settings, or use provided"
+  [n & {:keys [profiles
+               personae
+               alignments
+               parameters]}]
+  (take n
+        (dsim/sim-seq
+         (dsinput/map->Input
+          (assoc
+           (dsinput/realize-subobjects
+            {:personae
+             (or personae
+                 [{:name "Test Subjects",
+                   :objectType "Group",
+                   :member
+                   [{:name "alice",
+                     :mbox "mailto:alice@example.org",
+                     :objectType "Agent"}
+                    {:name "bob",
+                     :mbox "mailto:bob@example.org",
+                     :objectType "Agent"}]}])
+             :parameters (or parameters
+                             {:from "2021-10-28T20:07:36.035431Z"
+                              :seed 42})
+             :alignments (or alignments [])})
+           :profiles
+           (into []
+                 (map
+                  (fn [loc]
+                    (dsinput/from-location
+                     :profile :json loc))
+                  (or profiles
+                      ["dev-resources/profiles/calibration.jsonld"]))))))))
