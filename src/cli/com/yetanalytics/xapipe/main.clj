@@ -71,10 +71,10 @@
 
 (defn- handle-job
   "Actually execute a job, wrapping result"
-  [store job]
+  [store job client-opts]
   (try
     (let [{:keys [states]
-           stop :stop-fn} (xapipe/run-job job)]
+           stop :stop-fn} (xapipe/run-job job client-opts)]
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
                                  (fn []
@@ -92,6 +92,88 @@
       {:status 1
        :message (ex-message ex)})))
 
+(defn- options->client-opts
+  [{:keys [conn-timeout
+           conn-threads
+           conn-default-per-route
+           conn-insecure?
+           conn-io-thread-count]}]
+  {:conn-mgr-opts
+   (cond-> {}
+     conn-timeout (assoc :timeout conn-timeout)
+     conn-threads (assoc :threads conn-threads)
+     conn-default-per-route
+     (assoc :default-per-route conn-default-per-route)
+     conn-insecure? (assoc :insecure? conn-insecure?)
+     conn-io-thread-count
+     (assoc-in [:io-config :io-thread-count]
+               conn-io-thread-count))})
+
+(defn- options->config
+  [{:keys [job-id
+           source-batch-size
+           source-poll-interval
+           get-params
+           source-username
+           source-password
+           source-backoff-budget
+           source-backoff-max-attempt
+           source-backoff-j-range
+           source-backoff-initial
+
+           target-batch-size
+           target-username
+           target-password
+           target-backoff-budget
+           target-backoff-max-attempt
+           target-backoff-j-range
+           target-backoff-initial
+
+           get-buffer-size
+           get-proc-conc
+           batch-timeout
+
+           statement-buffer-size
+           batch-buffer-size]}
+   source-req-config
+   target-req-config]
+  (cond-> {:get-buffer-size get-buffer-size
+           :get-proc-conc get-proc-conc
+           :batch-timeout batch-timeout
+           :source
+           {:request-config (cond-> source-req-config
+                              (and source-username
+                                   source-password)
+                              (assoc :username source-username
+                                     :password source-password))
+            :get-params     get-params
+            :poll-interval  source-poll-interval
+            :batch-size     source-batch-size
+            :backoff-opts
+            (cond-> {:budget source-backoff-budget
+                     :max-attempt source-backoff-max-attempt}
+              source-backoff-j-range
+              (assoc :j-range source-backoff-j-range)
+              source-backoff-initial
+              (assoc :initial source-backoff-initial))}
+           :target
+           {:request-config (cond-> target-req-config
+                              (and target-username
+                                   target-password)
+                              (assoc :username target-username
+                                     :password target-password))
+            :batch-size     target-batch-size
+            :backoff-opts
+            (cond-> {:budget target-backoff-budget
+                     :max-attempt target-backoff-max-attempt}
+              target-backoff-j-range
+              (assoc :j-range target-backoff-j-range)
+              target-backoff-initial
+              (assoc :initial target-backoff-initial))}}
+    statement-buffer-size
+    (assoc :statement-buffer-size statement-buffer-size)
+    batch-buffer-size
+    (assoc :batch-buffer-size batch-buffer-size)))
 
 ;; Verbs
 
@@ -140,84 +222,18 @@
                       (:get-params options)))}
       ;; Minimum required to try a job!
       :else
-      (let [
-            ;; options -> config
-            {:keys [job-id
-                    source-batch-size
-                    source-poll-interval
-                    get-params
-                    source-username
-                    source-password
-                    source-backoff-budget
-                    source-backoff-max-attempt
-                    source-backoff-j-range
-                    source-backoff-initial
-
-                    target-batch-size
-                    target-username
-                    target-password
-                    target-backoff-budget
-                    target-backoff-max-attempt
-                    target-backoff-j-range
-                    target-backoff-initial
-
-                    get-buffer-size
-                    get-proc-conc
-                    batch-timeout
-
-                    statement-buffer-size
-                    batch-buffer-size
-
-                    storage
-                    redis-host
-                    redis-port
-
-                    show-job]} options
-            config (cond-> {:get-buffer-size get-buffer-size
-                            :get-proc-conc get-proc-conc
-                            :batch-timeout batch-timeout
-                            :source
-                            {:request-config (cond-> source-req-config
-                                               (and source-username
-                                                    source-password)
-                                               (assoc :username source-username
-                                                      :password source-password))
-                             :get-params     get-params
-                             :poll-interval  source-poll-interval
-                             :batch-size     source-batch-size
-                             :backoff-opts
-                             (cond-> {:budget source-backoff-budget
-                                      :max-attempt source-backoff-max-attempt}
-                               source-backoff-j-range
-                               (assoc :j-range source-backoff-j-range)
-                               source-backoff-initial
-                               (assoc :initial source-backoff-initial))}
-                            :target
-                            {:request-config (cond-> target-req-config
-                                               (and target-username
-                                                    target-password)
-                                               (assoc :username target-username
-                                                      :password target-password))
-                             :batch-size     target-batch-size
-                             :backoff-opts
-                             (cond-> {:budget target-backoff-budget
-                                      :max-attempt target-backoff-max-attempt}
-                               target-backoff-j-range
-                               (assoc :j-range target-backoff-j-range)
-                               target-backoff-initial
-                               (assoc :initial target-backoff-initial))}}
-                     statement-buffer-size
-                     (assoc :statement-buffer-size statement-buffer-size)
-                     batch-buffer-size
-                     (assoc :batch-buffer-size batch-buffer-size))
-            job-id (or job-id
+      (let [config (options->config
+                    options
+                    source-req-config
+                    target-req-config)
+            job-id (or (:job-id options)
                        (.toString (java.util.UUID/randomUUID)))
             job (job/init-job job-id config)]
-        (if (true? show-job)
+        (if (true? (:show-job options))
           {:status 0
            :message (pr-str job)}
           (let [store (create-store options)]
-            (handle-job store job)))))))
+            (handle-job store job (options->client-opts options))))))))
 
 (defn- resume
   "Resume a job by ID, clearing errors"
@@ -249,7 +265,9 @@
           (if (:show-job options)
             {:status 0
              :message (pr-str job)}
-            (handle-job store job))
+            (handle-job store
+                        job
+                        (options->client-opts options)))
           {:status 1
            :message (format "Job %s not found!" job-id)})))))
 
@@ -283,9 +301,11 @@
           (if (:show-job options)
             {:status 0
              :message (pr-str job)}
-            (handle-job store (-> job
-                                  (update :state state/clear-errors)
-                                  (update :state state/set-status :paused))))
+            (handle-job store
+                        (-> job
+                            (update :state state/clear-errors)
+                            (update :state state/set-status :paused))
+                        (options->client-opts options)))
           {:status 1
            :message (format "Job %s not found!" job-id)})))))
 
