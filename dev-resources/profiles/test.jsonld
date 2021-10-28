@@ -1,0 +1,150 @@
+{
+  "id" : "https://xapinet.org/xapi/yet/test-profile",
+  "@context" : "https://w3id.org/xapi/profiles/context",
+  "conformsTo" : "https://w3id.org/xapi/profiles#1.0",
+  "type" : "Profile",
+  "prefLabel" : {
+    "en" : "Profile Server Test xAPI Profile"
+  },
+  "definition" : {
+    "en" : "This xAPI Profile contains additional Concepts that can be used for testing purposes."
+  },
+  "author" : {
+    "url" : "https://www.yetanalytics.com/",
+    "name" : "Yet Analytics",
+    "type" : "Organization"
+  },
+  "versions" : [
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "generatedAtTime" : "2021-04-20T14:06:32.000Z"
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v0",
+      "generatedAtTime" : "2020-03-24T19:16:07.395Z"
+    }
+  ],
+  "concepts" : [
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-0",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "Verb",
+      "deprecated" : true,
+      "prefLabel" : {
+        "en" : "Verb 0"
+      },
+      "definition" : {
+        "en" : "This Verb Has Been Deprecated"
+      }
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-1",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "Verb",
+      "deprecated" : false,
+      "prefLabel" : {
+        "en" : "Verb 1"
+      },
+      "definition" : {
+        "lat" : "Lorem Ipsum."
+      },
+      "broader" : ["https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-2"],
+      "broadMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#did"],
+      "relatedMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#did"],
+      "exactMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#did"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-2",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "Verb",
+      "deprecated" : true,
+      "prefLabel" : {
+        "en" : "Verb 2"
+      },
+      "definition": {
+        "lat" : "Lorem Ipsum."
+      },
+      "narrower" : ["https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-1"],
+      "related" : ["https://xapinet.org/xapi/yet/test-profile/v1/concepts#verb-1"],
+      "narrowMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#didnt"],
+      "relatedMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#didnt"],
+      "exactMatch" : ["https://xapinet.org/xapi/yet/calibration/v1/concepts#didnt"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#activity-type",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "ActivityType",
+      "deprecated" : false,
+      "prefLabel" : {
+        "en" : "Activity Type 1"
+      },
+      "definition" : {
+        "lat" : "Lorem Ipsum."
+      }
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#activity-ext",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "ActivityExtension",
+      "prefLabel" : {
+        "en" : "Activity Extension 1"
+      },
+      "definition" : {
+        "lat" : "Lorem Ipsum."
+      },
+      "recommendedActivityTypes" : [
+        "https://xapinet.org/xapi/yet/test-profile/v1/concepts#activity-type"
+      ],
+      "context" : "https://example.org/context",
+      "inlineSchema" : "{\"type\" : \"number\"}"
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#activity",
+      "inScheme" : "https://xapinet.org/xapi/yet/test-profile/v1",
+      "type" : "Activity",
+      "activityDefinition" : {
+        "@context" : "https://w3id.org/xapi/profiles/activity-context",
+        "name" : {
+          "en" : "Activity 1"
+        },
+        "description" : {
+          "lat" : "Lorem Ipsum"
+        },
+        "type" : "https://xapinet.org/xapi/yet/test-profile/v1/concepts#activity-type",
+        "interactionType" : "choice",
+        "correctResponsesPattern" : [
+          "choice-a",
+          "choice-b",
+          "choice-c",
+          "choice-d"
+        ],
+        "choices" : [
+          {
+            "id" : "choice-a",
+            "description" : {
+              "en" : "Choice A"
+            }
+          },
+          {
+            "id" : "choice-b",
+            "description" : {
+              "en" : "Choice B"
+            }
+          },
+          {
+            "id" : "choice-c",
+            "description" : {
+              "en" : "Choice C"
+            }
+          },
+          {
+            "id" : "choice-d",
+            "description" : {
+              "en" : "Choice D"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
