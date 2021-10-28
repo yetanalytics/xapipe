@@ -10,11 +10,27 @@
     :parse-fn keyword
     :validate [#{:noop
                  :redis} "Must be: noop | redis"]]
+   ;; Redis Backend Options
+   ;; TODO: auth, or just let them pass the redis url
    [nil "--redis-host HOST" "Redis Host"
     :default "0.0.0.0"]
    [nil "--redis-port PORT" "Redis Port"
     :default 6379
-    :parse-fn #(Long/parseLong %)]])
+    :parse-fn #(Long/parseLong %)]
+   ;; Connection Manager Options
+   [nil "--conn-timeout TIMEOUT" "Connection Manager Connection Timeout"
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]]
+   [nil "--conn-threads THREADS" "Connection Manager Max Threads"
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]]
+   [nil "--conn-default-per-route CONNS" "Connection Manager Simultaneous Connections Per Host"
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]]
+   [nil "--conn-insecure?" "Allow Insecure HTTPS Connections"]
+   [nil "--conn-io-thread-count THREADS" "Connection Manager I/O Thread Pool Size, default is number of processors"
+    :parse-fn #(Long/parseLong %)
+    :validate [pos-int? "Must be a positive integer"]]])
 
 (defn backoff-opts
   [tag]

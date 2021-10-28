@@ -29,6 +29,11 @@ start <source-url> <target-url> & options:
   -s, --storage STORAGE                 :noop    Select storage backend, noop (default) or redis
       --redis-host HOST                 0.0.0.0  Redis Host
       --redis-port PORT                 6379     Redis Port
+      --conn-timeout TIMEOUT                     Connection Manager Connection Timeout
+      --conn-threads THREADS                     Connection Manager Max Threads
+      --conn-default-per-route CONNS             Connection Manager Simultaneous Connections Per Host
+      --conn-insecure?                           Allow Insecure HTTPS Connections
+      --conn-io-thread-count THREADS             Connection Manager I/O Thread Pool Size, default is number of processors
       --get-buffer-size SIZE            10       Size of GET response buffer
       --get-proc-conc SIZE              1        Concurrency of get req processing
       --batch-timeout TIMEOUT           200      Msecs to wait for a fully formed batch
@@ -53,15 +58,25 @@ start <source-url> <target-url> & options:
       --target-backoff-j-range RANGE             Target LRS Retry Backoff Jitter Range in ms
       --target-backoff-initial INITIAL           Target LRS Retry Backoff Initial Delay
 resume <job-id> & options:
-  -h, --help                      Show the help and options summary
-  -s, --storage STORAGE  :noop    Select storage backend, noop (default) or redis
-      --redis-host HOST  0.0.0.0  Redis Host
-      --redis-port PORT  6379     Redis Port
-      --show-job                  Show the job and exit
+  -h, --help                                   Show the help and options summary
+  -s, --storage STORAGE               :noop    Select storage backend, noop (default) or redis
+      --redis-host HOST               0.0.0.0  Redis Host
+      --redis-port PORT               6379     Redis Port
+      --conn-timeout TIMEOUT                   Connection Manager Connection Timeout
+      --conn-threads THREADS                   Connection Manager Max Threads
+      --conn-default-per-route CONNS           Connection Manager Simultaneous Connections Per Host
+      --conn-insecure?                         Allow Insecure HTTPS Connections
+      --conn-io-thread-count THREADS           Connection Manager I/O Thread Pool Size, default is number of processors
+      --show-job                               Show the job and exit
 retry <job-id> & options:
-  -h, --help                      Show the help and options summary
-  -s, --storage STORAGE  :noop    Select storage backend, noop (default) or redis
-      --redis-host HOST  0.0.0.0  Redis Host
-      --redis-port PORT  6379     Redis Port
-      --show-job                  Show the job and exit
+  -h, --help                                   Show the help and options summary
+  -s, --storage STORAGE               :noop    Select storage backend, noop (default) or redis
+      --redis-host HOST               0.0.0.0  Redis Host
+      --redis-port PORT               6379     Redis Port
+      --conn-timeout TIMEOUT                   Connection Manager Connection Timeout
+      --conn-threads THREADS                   Connection Manager Max Threads
+      --conn-default-per-route CONNS           Connection Manager Simultaneous Connections Per Host
+      --conn-insecure?                         Allow Insecure HTTPS Connections
+      --conn-io-thread-count THREADS           Connection Manager I/O Thread Pool Size, default is number of processors
+      --show-job                               Show the job and exit
 ```
