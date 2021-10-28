@@ -1,6 +1,8 @@
 (ns com.yetanalytics.xapipe.client
   "LRS Client"
   (:require [clj-http.client :as client]
+            [clj-http.core :as http]
+            [clj-http.conn-mgr :as conn-mgr]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
@@ -8,7 +10,8 @@
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
-            [com.yetanalytics.xapipe.util.time :as t]))
+            [com.yetanalytics.xapipe.util.time :as t])
+  (:import [org.apache.http.impl.client CloseableHttpClient]))
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
@@ -231,13 +234,24 @@
 (s/def ::poll-interval
   nat-int?)
 
+(s/def ::conn-mgr any?) ;; Reusable async conn mgr
+(s/def ::http-client any?) ;; http client to thread
+
+(s/def ::conn-opts (s/keys :req-un [::conn-mgr ::http-client]))
+
+(s/def ::backoff-opts u/backoff-opts-spec)
+
 (s/fdef get-chan
   :args (s/cat :out-chan any?
                :stop-chan any?
                :config ::request-config
                :init-params ::get-params
                :poll-interval ::poll-interval
-               :backoff-opts (s/? u/backoff-opts-spec))
+               :kwargs
+               (s/keys*
+                :opt-un
+                [::backoff-opts
+                 ::conn-opts]))
   :ret any?)
 
 (defn get-chan
@@ -251,88 +265,94 @@
     :as        init-params
     :or        {init-since epoch-stamp}}
    poll-interval
-   & [backoff-opts]]
+   & {:keys [backoff-opts
+             conn-opts]}]
   (let [backoff-opts (or backoff-opts
                          {:budget 10000
                           :max-attempt 10})
         init-req (get-request
                   config
                   init-params)]
-    (a/go-loop [req   init-req
-                since init-since]
-      (log/debug "GET" (:url req) :since since)
-      (let [req-chan (async-request
-                      req
-                      :backoff-opts backoff-opts)
-            [v p]    (a/alts! [req-chan stop-chan])]
-        (if (identical? p stop-chan)
-          (do
-            (log/info "Stop called" :data v)
-            ;; finish pending req and bail
-            (a/<! req-chan)
-            (a/close! out-chan))
-          (let [[tag resp :as ret] v]
-            (case tag
-              :response
-              (let [{{consistent-through "X-Experience-API-Consistent-Through"}
-                     :headers
-                     {{:strs [statements more]} :statement-result}
-                     :body}      resp
-                    ?last-stored (some-> statements
-                                         peek
-                                         (get "stored"))]
-                ;; If there are statements, emit them before continuing.
-                ;; This operation will park for takers.
-                (when (not-empty statements)
-                  (log/debugf "emitting %d statements, last stored is %s"
-                              (count statements)
-                              ?last-stored)
-                  (a/>! out-chan
-                        (assoc-in ret [1 ::last-stored] ?last-stored)))
-                (cond
-                  ;; If the more link indicates there are more statements to
-                  ;; provide, immediately attempt to get them.
-                  (not-empty more) (do
-                                     (log/debugf
-                                      "more link %s found, redispatching"
-                                      more)
-                                     (recur
-                                      (get-request
-                                       config
-                                       {} ;; has no effect with more
-                                       more)
-                                      ;; Set since for the cursor if we have new stuff
-                                      (or ?last-stored since)))
+    (a/go
+      (loop [req   init-req
+             since init-since]
+        (log/debug "GET" (:url req) :since since)
+        (let [req-chan (async-request
+                        (merge req
+                               conn-opts)
+                        :backoff-opts backoff-opts)
+              [v p]    (a/alts! [req-chan stop-chan])]
+          (if (identical? p stop-chan)
+            (do
+              (log/info "Stop called" :data v)
+              ;; finish pending req and bail
+              (a/<! req-chan)
+              (a/close! out-chan))
+            (let [[tag resp :as ret] v]
+              (case tag
+                :response
+                (let [{{consistent-through "X-Experience-API-Consistent-Through"}
+                       :headers
+                       {{:strs [statements more]} :statement-result}
+                       :body}      resp
+                      ?last-stored (some-> statements
+                                           peek
+                                           (get "stored"))]
+                  ;; If there are statements, emit them before continuing.
+                  ;; This operation will park for takers.
+                  (when (not-empty statements)
+                    (log/debugf "emitting %d statements, last stored is %s"
+                                (count statements)
+                                ?last-stored)
+                    (a/>! out-chan
+                          (assoc-in ret [1 ::last-stored] ?last-stored)))
+                  (cond
+                    ;; If the more link indicates there are more statements to
+                    ;; provide, immediately attempt to get them.
+                    (not-empty more) (do
+                                       (log/debugf
+                                        "more link %s found, redispatching"
+                                        more)
+                                       (recur
+                                        (get-request
+                                         config
+                                         {} ;; has no effect with more
+                                         more)
+                                        ;; Set since for the cursor if we have new stuff
+                                        (or ?last-stored since)))
 
-                  ;; The lack of a more link means we are at the end of what the
-                  ;; LRS has for the given query.
-                  ;; At this point we check for an until and maybe terminate
-                  (and ?until
-                       (not= 1
-                             (t/stamp-cmp
-                              ?until
-                              consistent-through)))
-                  (do
-                    (log/debugf
-                     "terminating because %s consistent-through is equal or later than %s until"
-                     consistent-through ?until)
-                    (a/close! out-chan))
-                  ;; With no more link or until, we're polling.
-                  ;; Wait for the specified time
-                  :else (do
-                          (log/debugf "waiting %d ms..." poll-interval)
-                          (a/<! (a/timeout poll-interval))
-                          (recur
-                           (get-request
-                            config
-                            ;; Update Since to the LRS header
-                            (assoc init-params
-                                   :since
-                                   consistent-through))
-                           consistent-through))))
-              :exception
-              (do (a/>! out-chan ret)
-                  (a/close! out-chan)))))))
+                    ;; The lack of a more link means we are at the end of what the
+                    ;; LRS has for the given query.
+                    ;; At this point we check for an until and maybe terminate
+                    (and ?until
+                         (not= 1
+                               (t/stamp-cmp
+                                ?until
+                                consistent-through)))
+                    (do
+                      (log/debugf
+                       "terminating because %s consistent-through is equal or later than %s until"
+                       consistent-through ?until)
+                      (a/close! out-chan))
+                    ;; With no more link or until, we're polling.
+                    ;; Wait for the specified time
+                    :else (do
+                            (log/debugf "waiting %d ms..." poll-interval)
+                            (a/<! (a/timeout poll-interval))
+                            (recur
+                             (get-request
+                              config
+                              ;; Update Since to the LRS header
+                              (assoc init-params
+                                     :since
+                                     consistent-through))
+                             consistent-through))))
+                :exception
+                (do (a/>! out-chan ret)
+                    (a/close! out-chan)))))))
+      ;; if a client was passed in, close it!
+      (when-let [http-client (:http-client conn-opts)]
+        (.close ^CloseableHttpClient http-client)))
     out-chan))
 
 (s/def ::get-response
@@ -351,3 +371,37 @@
         ::get-success
         :exception
         ::get-exception))
+
+(s/def ::conn-mgr-opts map?) ;; map of opts to build a conn mgr with
+(s/def ::http-client-opts map?) ;; map of opts for http client
+
+(s/fdef init-conn-mgr
+  :args (s/cat :conn-mgr-opts ::conn-mgr-opts)
+  :ret ::conn-mgr)
+
+(defn init-conn-mgr
+  "Return and initialize an async conn-mgr and client"
+  [conn-mgr-opts]
+  (conn-mgr/make-reuseable-async-conn-manager
+   conn-mgr-opts))
+
+(s/fdef init-client
+  :args (s/cat
+         :conn-mgr ::conn-mgr
+         :client-opts ::http-client-opts)
+  :ret ::http-client)
+
+(defn init-client
+  [conn-mgr
+   client-opts]
+  (http/build-async-http-client
+   client-opts
+   conn-mgr))
+
+(s/fdef shutdown
+  :args (s/cat :conn-mgr ::conn-mgr))
+
+(defn shutdown
+  "Shutdown a connection manager"
+  [conn-mgr]
+  (conn-mgr/shutdown-manager conn-mgr))
