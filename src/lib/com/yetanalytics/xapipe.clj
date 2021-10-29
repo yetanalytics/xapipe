@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
+            [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
@@ -172,6 +173,7 @@
       post-req-config     :request-config
       target-backoff-opts :backoff-opts
       :as                 target-config} :target
+     filter-config :filter
      :keys [get-buffer-size
             statement-buffer-size
             get-proc-conc
@@ -231,17 +233,22 @@
                     {:conn-mgr conn-mgr
                      :http-client source-client})
           ;; A channel that holds statements + attachments
-          statement-chan (a/chan
-                          statement-buffer-size
-                          ;; filtering can be implemented as a transducer here.
-                          (filter
-                           (constantly true))
-                          (fn [ex]
-                            (a/put! stop-chan
-                                    {:status :error
-                                     :error {:type :job
-                                             :message (ex-message ex)}})
-                            nil))
+          statement-chan
+          (if (not-empty filter-config)
+            ;; If we are given a filter-config, we apply a transducer
+            (do
+              (log/debugf "Job %s filter config %s" id filter-config)
+              (a/chan
+               statement-buffer-size
+               (filt/filter-xf filter-config)
+               (fn [ex]
+                 (a/put! stop-chan
+                         {:status :error
+                          :error {:type :job
+                                  :message (ex-message ex)}})
+                 nil)))
+            ;; Otherwise just a simple chan
+            (a/chan statement-buffer-size))
 
           ;; Pipeline responses to statement chan, short circuiting errs
           _ (a/pipeline-blocking

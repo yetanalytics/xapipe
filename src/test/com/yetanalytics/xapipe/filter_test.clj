@@ -18,12 +18,12 @@
                             50 :profiles [b-profile]))
         all-statements (interleave a-statements b-statements)]
     (testing "Profile template filter filters by profile + template IDs"
-      (are [profile-ids template-ids statements]
+      (are [profile-urls template-ids statements]
 
           (= statements
              (sequence (template-filter-xf
-                        profile-ids
-                        template-ids)
+                        {:profile-urls profile-urls
+                         :template-ids template-ids})
                        all-statements))
 
         ;; By profiles only
@@ -43,7 +43,7 @@
         [a-profile b-profile] (concat a-template-ids
                                       b-template-ids) all-statements))
     (testing "Filtering by single or multiple template IDs"
-      (are [profile-ids n-templates template-ids statements]
+      (are [profile-urls n-templates template-ids statements]
           ;; For a given grouping of IDs, the resulting statements
           ;; are a subset of the given profile
           (every?
@@ -51,8 +51,8 @@
              (cset/subset?
               (into #{}
                     (template-filter-xf
-                     profile-ids
-                     ids)
+                     {:profile-urls profile-urls
+                      :template-ids ids})
                     all-statements)
               (set statements)))
            (partition-all n-templates template-ids))
