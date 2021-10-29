@@ -38,7 +38,8 @@
               (for [{:keys [templates]} (map get-profile profile-urls)
                     {:keys [id] :as template} templates
                     :when (or (empty? template-ids)
-                              (contains? template-ids id))]
+                              (some (partial = id)
+                                    template-ids))]
                 (per/template->validator template)))]
     (filter
      (fn [statement]
