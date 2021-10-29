@@ -11,7 +11,7 @@
   (:import [java.time Instant]))
 
 (use-fixtures :each (partial support/source-target-fixture
-                             "dev-resources/lrs/after_conf.edn"))
+                             {:seed-path "dev-resources/lrs/after_conf.edn"}))
 
 (deftest run-job-test
   (testing "xapipe transfers conf test data from source to target"
@@ -151,3 +151,56 @@
                               :target {:errors []}})
                (a/<!! (store-states states store))
                (store/read-job store job-id)))))))
+
+(deftest filter-template-test
+  (testing "xapipe filters based on profile statement templates"
+    ;; To start, the fixture has placed the conf test statements
+    (is (= 453 (support/lrs-count support/*source-lrs*)))
+    ;; We generate 50 statements from a profile.
+    (let [calibration-statements (support/gen-statements
+                                  50 :profiles
+                                  ["dev-resources/profiles/calibration.jsonld"])]
+      ;; And load them
+      ((:load support/*source-lrs*) calibration-statements)
+      ;; for a total of 503:
+      (is (= 503 (support/lrs-count support/*source-lrs*)))
+      ;; Set up and run the transfer
+      (let [[since until] (support/lrs-stored-range support/*source-lrs*)
+            config {:filter
+                    {:template
+                     {:profile-urls ["dev-resources/profiles/calibration.jsonld"]
+                      :template-ids []}}
+                    :source
+                    {:request-config (:request-config support/*source-lrs*)
+                     :get-params     {:since since
+                                      :until until}
+                     :poll-interval  1000
+                     :batch-size     50}
+                    :target
+                    {:request-config (:request-config support/*target-lrs*)
+                     :batch-size     50}}
+            ;; Generate an ID
+            job-id (.toString (java.util.UUID/randomUUID))
+            ;; Initialize
+            job (job/init-job
+                 job-id
+                 config)
+            ;; Run the transfer
+            {:keys [stop-fn states]} (run-job job)
+            ;; Get all the states
+            all-states (a/<!! (a/go-loop [acc []]
+                                (if-let [state (a/<! states)]
+                                  (do
+                                    (log/debug "state" state)
+                                    (recur (conj acc state)))
+                                  acc)))]
+        (let []
+          ;; At this point we're done or have errored.
+          (let [{{:keys [status
+                         cursor]} :state} (last all-states)]
+            (testing "successful completion"
+              (is (= :complete status)))
+            (testing "only calibration statements transferred"
+              (is (= 50 (support/lrs-count support/*target-lrs*)))
+              (is (= (map #(get % "id") calibration-statements)
+                     (map #(get % "id") (support/lrs-statements support/*target-lrs*)))))))))))

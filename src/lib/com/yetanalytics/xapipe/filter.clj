@@ -6,7 +6,8 @@
             [com.yetanalytics.persephone :as per]
             [com.yetanalytics.persephone.utils.json :as per-json]
             [com.yetanalytics.pan.objects.profile :as prof]
-            [com.yetanalytics.pan.objects.template :as template]))
+            [com.yetanalytics.pan.objects.template :as template]
+            [com.yetanalytics.xapipe.client.multipart-mixed :as mm]))
 
 (s/def ::profile-url string?) ;; These can be from disk, so don't spec 'em too hard
 (s/def ::template-id ::template/id)
@@ -38,6 +39,13 @@
   (s/keys :req-un [::profile-urls
                    ::template-ids]))
 
+(defn- with-cleanup
+  "Blocking cleanup function, must be run on dropped statements"
+  [pred-result attachments]
+  (when (and (not pred-result) (not-empty attachments))
+    (mm/clean-tempfiles! attachments))
+  pred-result)
+
 (s/fdef template-filter-xf
   :args (s/cat :template ::template)
   ;; Ret here is a transducer, TODO: spec it?
@@ -57,11 +65,14 @@
                                     template-ids))]
                 (per/template->validator template)))]
     (filter
-     (fn [statement]
-       (some (fn [v]
-               (per/validate-statement-vs-template
-                v statement))
-             validators)))))
+     (fn [{:keys [statement
+                  attachments]}]
+       (with-cleanup
+         (some (fn [v]
+                 (per/validate-statement-vs-template
+                  v statement))
+               validators)
+         attachments)))))
 
 ;; Config map for all filtering
 (def filter-config-spec

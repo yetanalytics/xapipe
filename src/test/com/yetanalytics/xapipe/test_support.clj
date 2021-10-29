@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
+            [com.yetanalytics.lrs :as lrs]
             [com.yetanalytics.lrs.impl.memory :as mem :refer [new-lrs]]
             [com.yetanalytics.lrs.pedestal.routes :refer [build]]
             [com.yetanalytics.lrs.pedestal.interceptor :as i]
@@ -75,8 +76,9 @@
   :start - A function of no args that will start the LRS
   :stop - A function of no args that will stop the LRS
   :dump - A function of no args that will dump memory LRS state
+  :load - A function of two args, statements and attachments to load data
   :request-config - A request config ala xapipe.client"
-  [port & [seed-path]]
+  [port & {:keys [seed-path]}]
   (let [lrs (new-lrs
              (cond->
                  {:mode :sync}
@@ -104,6 +106,12 @@
      :start          #(http/start server)
      :stop           #(http/stop server)
      :dump           #(mem/dump lrs)
+     :load           (fn [statements & [attachments]]
+                       (lrs/store-statements
+                        lrs
+                        {}
+                        (into [] statements)
+                        (into [] attachments)))
      :request-config {:url-base    (format "http://0.0.0.0:%d" port)
                       :xapi-prefix "/xapi"}}))
 
@@ -114,12 +122,12 @@
   "Populate *source-lrs* and *target-lrs* with started LRSs on two free ports.
   LRSs are empty by default unless seed-path is provided"
   ([f]
-   (source-target-fixture nil f))
-  ([seed-path f]
+   (source-target-fixture {} f))
+  ([{:keys [seed-path]} f]
    (let [{start-source :start
           stop-source :stop
           :as source} (if seed-path
-                        (lrs (get-free-port) seed-path)
+                        (lrs (get-free-port) :seed-path seed-path)
                         (lrs (get-free-port)))
          {start-target :start
           stop-target :stop
@@ -148,6 +156,14 @@
   (-> (dump)
       :state/statements
       keys))
+
+(defn lrs-statements
+  "Get all ids in an LRS"
+  [{:keys [dump]}]
+  (-> (dump)
+      :state/statements
+      vals
+      reverse))
 
 (defn lrs-stored-range
   [{:keys [dump]}]

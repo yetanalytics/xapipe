@@ -234,38 +234,39 @@
                      :http-client source-client})
           ;; A channel that holds statements + attachments
           statement-chan
-          (if (not-empty filter-config)
-            ;; If we are given a filter-config, we apply a transducer
-            (do
-              (log/debugf "Job %s filter config %s" id filter-config)
-              (a/chan
-               statement-buffer-size
-               (filt/filter-xf filter-config)
-               (fn [ex]
-                 (a/put! stop-chan
-                         {:status :error
-                          :error {:type :job
-                                  :message (ex-message ex)}})
-                 nil)))
-            ;; Otherwise just a simple chan
-            (a/chan statement-buffer-size))
+          (a/chan statement-buffer-size)
 
           ;; Pipeline responses to statement chan, short circuiting errs
           _ (a/pipeline-blocking
              get-proc-conc
              statement-chan
-             (comp
-              (map (fn [[tag x]]
-                     (case tag
-                       :response x
-                       :exception (throw x))))
-              (mapcat xapi/response->statements))
+             (apply comp
+                    (cond-> [;; Handle error responses
+                             (map (fn [[tag x]]
+                                    (case tag
+                                      :response x
+                                      :exception
+                                      (throw (ex-info
+                                              (format "Source Error: %s"
+                                                      (ex-message x))
+                                              {:type ::source}
+                                              x)))))
+                             ;; coerce responses to statements
+                             (mapcat xapi/response->statements)]
+                      ;; If we are given a filter-config, we apply additional
+                      ;; filter transducers
+                      ;; Note that these MUST clean up attachments when dropping
+                      (not-empty filter-config)
+                      (conj (filt/filter-xf filter-config))))
              get-chan
              true
              (fn [ex]
-               (a/put! stop-chan {:status :error
-                                  :error {:message (ex-message ex)
-                                          :type :source}})
+               (a/put! stop-chan
+                       {:status :error
+                        :error {:message (ex-message ex)
+                                :type (case (some-> ex ex-data :type)
+                                        ::source :source
+                                        :job)}})
                nil))
           ;; A channel that will get batches
           ;; NOTE: Apply other filtering here

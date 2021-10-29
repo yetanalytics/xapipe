@@ -42,6 +42,7 @@
      :or               {post-backoff-opts {:budget      10000
                                            :max-attempt 10}}}
     :target
+    filter-config :filter
     :keys
     [get-buffer-size
      statement-buffer-size
@@ -79,7 +80,9 @@
           (assoc-in [:get-params :limit] get-batch-size))
       :target
       (assoc target-config
-             :batch-size post-batch-size)}
+             :batch-size post-batch-size)
+      :filter
+      (or filter-config {})}
      :state
      {:status :init
       :cursor (or ?since "1970-01-01T00:00:00Z")

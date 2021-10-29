@@ -21,10 +21,15 @@
       (are [profile-urls template-ids statements]
 
           (= statements
-             (sequence (template-filter-xf
-                        {:profile-urls profile-urls
-                         :template-ids template-ids})
-                       all-statements))
+             (map :statement
+                  (sequence (template-filter-xf
+                             {:profile-urls profile-urls
+                              :template-ids template-ids})
+                            (mapv
+                             (fn [s]
+                               {:statement s
+                                :attachments []})
+                             all-statements))))
 
         ;; By profiles only
         ;; Just A
@@ -50,10 +55,16 @@
            (fn [ids]
              (cset/subset?
               (into #{}
-                    (template-filter-xf
-                     {:profile-urls profile-urls
-                      :template-ids ids})
-                    all-statements)
+                    (comp
+                     (template-filter-xf
+                      {:profile-urls profile-urls
+                       :template-ids ids})
+                     (map :statement))
+                    (mapv
+                     (fn [s]
+                       {:statement s
+                        :attachments []})
+                     all-statements))
               (set statements)))
            (partition-all n-templates template-ids))
 
