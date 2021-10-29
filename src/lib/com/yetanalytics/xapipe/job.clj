@@ -46,12 +46,10 @@
     :keys
     [get-buffer-size
      statement-buffer-size
-     get-proc-conc
      batch-buffer-size
      batch-timeout]
     :or
     {get-buffer-size 10
-     get-proc-conc   1
      batch-timeout   200}}]
   (let [post-batch-size
         (or post-batch-size
@@ -70,7 +68,6 @@
      :config
      {:get-buffer-size       get-buffer-size
       :statement-buffer-size statement-buffer-size
-      :get-proc-conc         get-proc-conc
       :batch-buffer-size     batch-buffer-size
       :batch-timeout         batch-timeout
       :source

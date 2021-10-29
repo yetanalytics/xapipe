@@ -78,7 +78,6 @@
 
 (deftest job-options-test
   (is (= {:options {:get-buffer-size 10,
-                    :get-proc-conc 1,
                     :batch-timeout 200,
                     :show-job false}
           :errors nil}

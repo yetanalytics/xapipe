@@ -130,7 +130,6 @@
            target-backoff-initial
 
            get-buffer-size
-           get-proc-conc
            batch-timeout
 
            statement-buffer-size
@@ -138,7 +137,6 @@
    source-req-config
    target-req-config]
   (cond-> {:get-buffer-size get-buffer-size
-           :get-proc-conc get-proc-conc
            :batch-timeout batch-timeout
            :source
            {:request-config (cond-> source-req-config

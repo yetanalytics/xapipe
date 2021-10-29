@@ -176,7 +176,6 @@
      filter-config :filter
      :keys [get-buffer-size
             statement-buffer-size
-            get-proc-conc
             batch-buffer-size
             batch-timeout]} :config
     :as                     job-before}
@@ -238,7 +237,7 @@
 
           ;; Pipeline responses to statement chan, short circuiting errs
           _ (a/pipeline-blocking
-             get-proc-conc
+             1
              statement-chan
              (apply comp
                     (cond-> [;; Handle error responses

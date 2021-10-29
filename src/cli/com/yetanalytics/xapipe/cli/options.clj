@@ -123,10 +123,6 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 10]
-   [nil "--get-proc-conc SIZE" "Concurrency of get req processing"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
-    :default 1]
    [nil "--batch-timeout TIMEOUT" "Msecs to wait for a fully formed batch"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]

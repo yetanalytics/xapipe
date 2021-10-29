@@ -28,9 +28,6 @@
 ;; default: source batch-size * get-buffer-size
 (s/def ::statement-buffer-size pos-int?)
 
-;; Desired thread conc of response processing
-(s/def ::get-proc-conc pos-int?)
-
 ;; how many batches of (target batch size) to buffer
 ;; default: statement-buffer-size / target batch-size
 (s/def ::batch-buffer-size pos-int?)
@@ -46,7 +43,6 @@
                    ::target]
           :opt-un [::get-buffer-size
                    ::statement-buffer-size
-                   ::get-proc-conc
                    ::batch-buffer-size
                    ::batch-timeout
                    ::filter]))
