@@ -65,7 +65,9 @@
                     (log/errorf "Stopping with error: %s" (:message error))
                     (a/>! states-chan (assoc job :state
                                              (state/add-error state error))))))
-              (if-some [{:keys [batch]} v]
+              (if-some [{:keys [batch
+                                filter-state]
+                         :or {filter-state {}}} v]
                 (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
@@ -93,7 +95,9 @@
                       :response
                       (do
                         (mm/clean-tempfiles! attachments)
-                        (recur (state/update-cursor state cursor)))
+                        (recur (-> state
+                                   (state/update-cursor cursor)
+                                   (state/update-filter filter-state))))
                       ;; If the post fails, Send the error to the stop channel
                       ;; emit and stop.
                       :exception

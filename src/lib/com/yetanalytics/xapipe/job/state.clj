@@ -192,3 +192,17 @@
                 :message "Cannot start or pause job with errors."})
 
     :else (assoc state :status new-status)))
+
+(s/fdef update-filter
+  :args (s/cat :state state-spec
+               :filter-state ::filter)
+  :ret state-spec)
+
+(defn update-filter
+  "Update filter state"
+  [{:keys [status] :as state} filter-state]
+  (if (= :error status)
+    (add-error state
+               {:type :job
+                :message "Cannot update filter on job with errors"})
+    (assoc state :filter filter-state)))

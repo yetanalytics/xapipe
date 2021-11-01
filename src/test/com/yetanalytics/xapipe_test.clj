@@ -259,13 +259,19 @@
         (let []
           ;; At this point we're done or have errored.
           (let [{{:keys [status
-                         cursor]} :state} (last all-states)]
+                         cursor]
+                  last-filter-state :filter} :state} (last all-states)]
+            (println (last all-states))
             (testing "successful completion"
               (is (= :complete status)))
             (testing "only calibration statements transferred"
               (is (= 3 (support/lrs-count support/*target-lrs*)))
               (is (= (map #(get % "id") calibration-statements)
-                     (map #(get % "id") (support/lrs-statements support/*target-lrs*)))))))))))
+                     (map #(get % "id") (support/lrs-statements support/*target-lrs*)))))
+            (testing "outputs state"
+              (testing "last is empty because reset"
+                (is (= {:pattern {}}
+                       last-filter-state))))))))))
 
 (deftest all-filter-test
   (testing "xapipe filters based on profile templates + patterns"
