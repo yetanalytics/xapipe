@@ -176,28 +176,43 @@
          {:keys [statement]
           :as record}]
       (if-let [state-key (get-state-key statement)]
-        (let [hits (not-empty
-                       (for [[pat-key fsm] fsm-map
-                             :let [{:keys [accepted?]
-                                    :as hit} (fsm/read-next
-                                              fsm
-                                              (get state state-key)
-                                              statement)]
-                             :when accepted?]
-                         [state-key pat-key hit]))
-              ;; TODO: How are registrations removed from this?
-              ;; What is final completion?
-              new-state (cond-> (reduce
-                                 (fn [m [sk pk hit]]
-                                   (assoc-in m [sk pk] hit))
-                                 state
-                                 hits)
-                          ;; remove any active if we've failed
-                          (and (empty? hits) state-key)
-                          (dissoc state-key))]
-          [new-state (if (not-empty hits)
-                       true
-                       false)])
+        (let [;; Just the state concerned with this reg
+              reg-state (get state state-key)
+
+              [new-reg-state
+               accepted-patterns]
+              (reduce
+               (fn [[reg-s accepted] [pat-key new-s]]
+                 (let [accepted? (:accepted? new-s)
+                       failed? (empty? (:states new-s))]
+                   [;; If the state is accepted or faled.
+                    ;; remove it
+                    (if (or accepted?
+                            failed?)
+                      (dissoc reg-s pat-key)
+                      ;; Otherwise, it is in-process
+                      (assoc reg-s pat-key new-s))
+                    ;; Track accepted for filter
+                    (cond-> accepted
+                      accepted?
+                      (conj pat-key))]))
+               [(or reg-state {})
+                #{}]
+               (for [[pat-key fsm] fsm-map]
+                 [pat-key
+                  (fsm/read-next
+                   fsm
+                   (get reg-state pat-key)
+                   statement)]))]
+          [;; Add the new in-process state or remove it
+           (if (empty? new-reg-state)
+             (dissoc state state-key)
+             (assoc state state-key new-reg-state))
+           ;; If we have in-process or are accepting, pass it
+           (if (or (not-empty new-reg-state)
+                   (not-empty accepted-patterns))
+             true
+             false)])
         [state false]))))
 
 ;; TODO: remove xducers
@@ -227,7 +242,7 @@
              (vreset! fsm-state-v
                       next-state)
              (if keep?
-               (xf result (assoc input :fsm-state next-state))
+               (xf result input)
                (do
                  ;; Drop the input. We must delete any attachments
                  (when-let [attachments (not-empty (:attachments input))]

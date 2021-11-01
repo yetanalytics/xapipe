@@ -4,6 +4,7 @@
             [com.yetanalytics.xapipe.test-support :as support]
             [clojure.set :as cset]))
 
+;; TODO: remove/rework
 (deftest template-filter-xf-test
   (let [a-profile "dev-resources/profiles/calibration_a.jsonld"
         a-template-ids (-> a-profile get-profile :templates (->> (mapv :id)))
@@ -73,6 +74,53 @@
         [b-profile] 1 b-template-ids b-statements
         [b-profile] 5 b-template-ids b-statements))))
 
+(deftest pattern-filter-pred-test
+  (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
+        ;; This strict pattern expects activities 1, 2 and 3, in order
+        [a b c] (support/gen-statements
+                 3
+                 :profiles [profile-url]
+                 :personae [{:name "Test Subjects",
+                             :objectType "Group",
+                             :member
+                             [{:name "alice",
+                               :mbox "mailto:alice@example.org",
+                               :objectType "Agent"}]}])
+        pred (pattern-filter-pred
+              {:profile-urls [profile-url]
+               :pattern-ids []})]
+    (are [statements states]
+        (= states
+           (rest
+            (reductions
+             (fn [[state _] s]
+               (pred state {:statement s}))
+             [{} nil]
+             statements)))
+      [a b c] [;; a starts the pattern
+               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  {:states #{1}, :accepted? false}}}
+                true]
+               ;; b continues
+               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  {:states #{0}, :accepted? false}}}
+                true]
+               ;; c is accepted and terminates
+               [{} true]]
+
+      [b a c] [;; a drops
+               [{} false]
+               ;; a picks up
+               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  {:states #{1}, :accepted? false}}}
+                true]
+               ;; c drops
+               [{} false]])))
+
+;; TODO: remove/rework
 (deftest pattern-filter-xf-test
   (let [a-profile "dev-resources/profiles/calibration_a.jsonld"
         a-pattern-ids (-> a-profile get-profile :patterns (->> (mapv :id)))
@@ -97,18 +145,6 @@
                          :attachments []})
                       all-statements)))))
 
-    (testing "Passes fsm state"
-      (is (-> (sequence (pattern-filter-xf
-                         {:profile-urls [a-profile]
-                          :pattern-ids []})
-                        (mapv
-                         (fn [s]
-                           {:statement s
-                            :attachments []})
-                         all-statements))
-              last
-              :fsm-state
-              some?)))
     (testing "Profile pattern filter filters by profile + pattern IDs"
       (are [profile-urls pattern-ids statements]
 
