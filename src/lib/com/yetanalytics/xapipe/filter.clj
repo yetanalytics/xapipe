@@ -194,12 +194,30 @@
   (s/keys :opt-un [::template
                    ::pattern]))
 
+(s/def :com.yetanalytics.xapipe.filter.stateless-predicates/template
+  filter-pred-spec)
+
 (s/fdef stateless-predicates
   :args (s/cat :config filter-config-spec)
-  :ret (s/map-of keyword?
-                 filter-pred-spec))
+  :ret (s/keys :opt-un
+               [:com.yetanalytics.xapipe.filter.stateless-predicates/template]))
 
 (defn stateless-predicates
+  "Stateless predicates are simple true/false"
   [{:keys [template]}]
   (cond-> {}
     template (assoc :template (template-filter-pred template))))
+
+(s/def :com.yetanalytics.xapipe.filter.stateful-predicates/pattern
+  pattern-filter-pred-spec)
+
+(s/fdef stateful-predicates
+  :args (s/cat :config filter-config-spec)
+  :ret (s/keys :opt-un
+               [:com.yetanalytics.xapipe.filter.stateful-predicates/pattern]))
+
+(defn stateful-predicates
+  "Stateful predicates require state to reduce over"
+  [{:keys [pattern]}]
+  (cond-> {}
+    pattern (assoc :pattern (pattern-filter-pred pattern))))

@@ -36,20 +36,30 @@
   batch.
   If :predicates or :stateful-predicates, maps of id keys to predicates, are
   provided, use them to filter statements.
-  Stateful predicate state will be provided on the enclosing batch map by key
+
+  Stateful predicate state will be provided on the enclosing batch map by key.
+
+  To provide initial state, supply a :init-states key, which should contain
+  state for each stateful predicate.
+
   If :cleanup-fn is provided, run it on dropped records"
   [a b size timeout-ms
    & {:keys [predicates
              stateful-predicates
+             init-states
              cleanup-fn]}]
   (let [stateless-pred (if (empty? predicates)
-                         identity
+                         (constantly true)
                          (apply some-fn (vals predicates)))]
-    (a/go-loop [buf []]
+    (a/go-loop [buf []
+                states (or init-states
+                           (into {}
+                                 (for [[k p] stateful-predicates]
+                                   [k {}])))]
       ;; Send if the buffer is full
       (if (= size (count buf))
         (do (a/>! b buf)
-            (recur []))
+            (recur [] states))
         (let [timeout-chan (a/timeout timeout-ms)
               [v p] (a/alts! [a timeout-chan])]
           (if (identical? p timeout-chan)
@@ -57,39 +67,42 @@
             (do
               (when (not-empty buf)
                 (a/>! b buf))
-              (recur []))
+              (recur [] states))
             (if-not (nil? v)
               ;; We have a record
               (if (stateless-pred v)
-                (recur (conj buf v))
+                ;; If stateless passes, we do any stateful
+                (if (not-empty stateful-predicates)
+                  (let [checks (into {}
+                                     (for [[k p] stateful-predicates]
+                                       [k (p (get states k) v)]))
+                        pass? (every? (comp true? second)
+                                      (vals checks))]
+                    (when-not pass?
+                      (when cleanup-fn
+                        (cleanup-fn v)))
+                    (recur
+                     (if pass?
+                       (conj buf v)
+                       buf)
+                     ;; new states
+                     (reduce-kv
+                      (fn [m k v]
+                        (assoc m k (first v)))
+                      {}
+                      checks)))
+                  ;; Just stateless, OK to pass
+                  (recur (conj buf v) states))
                 (do
                   (when cleanup-fn
                     (cleanup-fn v))
-                  (recur buf)))
+                  (recur buf states)))
               ;; A is closed, we should close B
               (do
                 ;; But only after draining anything in the buffer
                 (when (not-empty buf)
                   (a/>! b buf))
                 (a/close! b)))))))))
-
-
-#_(defn filter-stateless
-  "Stateless predicate filter, dropped records will have cleanup-fn run on them
-  if provided, in a thread."
-  [in-chan
-   pred
-   out-chan
-   & {:keys [cleanup-fn]}]
-  (a/go-loop []
-    (if-let [record (a/<! in-chan)]
-      (do
-        (if (pred record)
-          (a/>! out-chan record)
-          (if cleanup-fn
-            (a/thread (cleanup-fn record))))
-        (recur))
-      (a/close! out-chan))))
 
 (comment
   (do

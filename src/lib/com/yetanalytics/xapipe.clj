@@ -272,6 +272,8 @@
                         batch-timeout
                         :predicates
                         (filt/stateless-predicates filter-config)
+                        :stateful-predicates
+                        (filt/stateful-predicates filter-config)
                         :cleanup-fn
                         (fn [{:keys [attachments]}]
                           (when (not-empty attachments)

@@ -204,3 +204,64 @@
               (is (= 50 (support/lrs-count support/*target-lrs*)))
               (is (= (map #(get % "id") calibration-statements)
                      (map #(get % "id") (support/lrs-statements support/*target-lrs*)))))))))))
+
+(deftest filter-pattern-test
+  (testing "xapipe filters based on profile patterns"
+    ;; To start, the fixture has placed the conf test statements, none of which
+    ;; should be included in result
+    (is (= 453 (support/lrs-count support/*source-lrs*)))
+    ;; We generate 3 statements from a profile with a strict pattern
+    (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
+          calibration-statements (support/gen-statements
+                                  3
+                                  :profiles [profile-url]
+                                  :personae [{:name "Test Subjects",
+                                              :objectType "Group",
+                                              :member
+                                              [{:name "alice",
+                                                :mbox "mailto:alice@example.org",
+                                                :objectType "Agent"}]}])]
+      ;; And load them
+      ((:load support/*source-lrs*) calibration-statements)
+      ;; for a total of 456:
+      (is (= 456 (support/lrs-count support/*source-lrs*)))
+      ;; Set up and run the transfer
+      (let [[since until] (support/lrs-stored-range support/*source-lrs*)
+            config {:filter
+                    {:pattern
+                     {:profile-urls [profile-url]
+                      :pattern-ids []}}
+                    :source
+                    {:request-config (:request-config support/*source-lrs*)
+                     :get-params     {:since since
+                                      :until until}
+                     :poll-interval  1000
+                     :batch-size     50}
+                    :target
+                    {:request-config (:request-config support/*target-lrs*)
+                     :batch-size     50}}
+            ;; Generate an ID
+            job-id (.toString (java.util.UUID/randomUUID))
+            ;; Initialize
+            job (job/init-job
+                 job-id
+                 config)
+            ;; Run the transfer
+            {:keys [stop-fn states]} (run-job job)
+            ;; Get all the states
+            all-states (a/<!! (a/go-loop [acc []]
+                                (if-let [state (a/<! states)]
+                                  (do
+                                    (log/debug "state" state)
+                                    (recur (conj acc state)))
+                                  acc)))]
+        (let []
+          ;; At this point we're done or have errored.
+          (let [{{:keys [status
+                         cursor]} :state} (last all-states)]
+            (testing "successful completion"
+              (is (= :complete status)))
+            (testing "only calibration statements transferred"
+              (is (= 3 (support/lrs-count support/*target-lrs*)))
+              (is (= (map #(get % "id") calibration-statements)
+                     (map #(get % "id") (support/lrs-statements support/*target-lrs*)))))))))))
