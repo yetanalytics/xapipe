@@ -78,33 +78,6 @@
                v statement))
             validators))))
 
-;; TODO: remove transducers + cleanup when proper pred filter established
-(defn- with-cleanup
-  "Blocking cleanup function, must be run on dropped statements"
-  [pred-result attachments]
-  (when (and (not pred-result) (not-empty attachments))
-    (mm/clean-tempfiles! attachments))
-  pred-result)
-
-(s/fdef template-filter-xf
-  :args (s/cat :template-cfg ::template)
-  ;; Ret here is a transducer, TODO: spec it?
-  )
-
-(defn template-filter-xf
-  "Return a transducer that will filter a sequence of statements to only those
-  in the given profiles and template-ids, if provided."
-  [template-cfg]
-  (let [pred (template-filter-pred template-cfg)]
-    (filter
-     (fn [{:keys [attachments]
-           :as record}]
-       (with-cleanup
-         (pred record)
-         attachments)))))
-
-;; TODO: end remove
-
 (s/def ::pattern-id ::pat/id)
 
 (def state-key-spec
@@ -215,58 +188,11 @@
              false)])
         [state false]))))
 
-;; TODO: remove xducers
-
-(s/fdef pattern-filter-xf
-  :args (s/cat :pattern-cfg ::pattern
-               :fsm-state (s/nilable any?)
-               )
-  ;; Ret here is a transducer, TODO: spec it?
-  )
-
-(defn pattern-filter-xf
-  "Return a transducer that will filter a sequence of statements to only those
-  the given profiles' patterns, restricted to pattern-ids if provided."
-  [pattern-cfg
-   & [fsm-state]
-   ]
-  (let [pred (pattern-filter-pred pattern-cfg)]
-    (fn [xf]
-      (let [fsm-state-v (volatile! fsm-state)]
-        (fn
-          ([] (xf))
-          ([result]
-           (xf result))
-          ([result input]
-           (let [[next-state keep?] (pred @fsm-state-v input)]
-             (vreset! fsm-state-v
-                      next-state)
-             (if keep?
-               (xf result input)
-               (do
-                 ;; Drop the input. We must delete any attachments
-                 (when-let [attachments (not-empty (:attachments input))]
-                   (mm/clean-tempfiles! attachments))
-                 result)))))))))
 
 ;; Config map for all filtering
 (def filter-config-spec
-  (s/keys :opt-un [::template]))
-
-(s/fdef filter-xf
-  :args (s/cat :config filter-config-spec)
-  ;; TODO: Ret is a transducer, research specs for those
-  )
-
-(defn filter-xf
-  [{:keys [template]}]
-  (apply comp
-         (cond-> []
-           template
-           (conj (template-filter-xf
-                  template)))))
-
-;; TODO: end remove
+  (s/keys :opt-un [::template
+                   ::pattern]))
 
 (s/fdef stateless-predicates
   :args (s/cat :config filter-config-spec)
