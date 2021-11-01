@@ -1,16 +1,42 @@
 (ns com.yetanalytics.xapipe.util.async
   "Useful Async facilities"
   (:require [clojure.core.async :as a]
+            [clojure.core.async.impl.protocols :as aproto]
             [clojure.spec.alpha :as s]))
 
-(s/def ::stateless-predicate
-  (s/fspec :args (s/cat :input any?)
-           :ret boolean?))
+(defn channel?
+  [x]
+  (satisfies? aproto/Channel x))
 
-(s/def ::stateful-predicate
-  (s/fspec :args (s/cat :state any?
-                        :input any?)
-           :ret (s/tuple any? boolean?)))
+(s/def ::stateless-predicates
+  (s/map-of
+   keyword?
+   ifn?))
+
+(s/def ::stateful-predicates
+  (s/map-of
+   keyword?
+   ifn?))
+
+(s/def ::init-states
+  (s/map-of
+   keyword?
+   any?))
+
+(s/def ::cleanup-fn
+  (s/fspec :args (s/cat :record any?)
+           :ret any?))
+
+(s/fdef batch-filter
+  :args (s/cat :a channel?
+               :b channel?
+               :size pos-int?
+               :timeout-ms nat-int?
+               :kwargs (s/keys*
+                        :opt-un [::stateless-predicates
+                                 ::stateful-predicates
+                                 ::init-states
+                                 ::cleanup-fn])))
 
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
@@ -24,7 +50,9 @@
   To provide initial state, supply a :init-states key, which should contain
   state for each stateful predicate.
 
-  If :cleanup-fn is provided, run it on dropped records"
+  If :cleanup-fn is provided, run it on dropped records
+
+  Returns channel b"
   [a b size timeout-ms
    & {:keys [stateless-predicates
              stateful-predicates
@@ -86,4 +114,5 @@
                 ;; But only after draining anything in the buffer
                 (when (not-empty buf)
                   (a/>! b {:batch buf}))
-                (a/close! b)))))))))
+                (a/close! b)))))))
+    b))

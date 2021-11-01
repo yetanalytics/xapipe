@@ -264,21 +264,20 @@
                nil))
           ;; A channel that will get batches
           ;; NOTE: Apply other filtering here
-          batch-chan (let [c (a/chan batch-buffer-size)]
-                       (ua/batch-filter
-                        statement-chan
-                        c
-                        target-batch-size
-                        batch-timeout
-                        :stateless-predicates
-                        (filt/stateless-predicates filter-config)
-                        :stateful-predicates
-                        (filt/stateful-predicates filter-config)
-                        :cleanup-fn
-                        (fn [{:keys [attachments]}]
-                          (when (not-empty attachments)
-                            (a/thread (mm/clean-tempfiles! attachments)))))
-                       c)
+          batch-chan
+          (ua/batch-filter
+           statement-chan
+           (a/chan batch-buffer-size)
+           target-batch-size
+           batch-timeout
+           :stateless-predicates
+           (filt/stateless-predicates filter-config)
+           :stateful-predicates
+           (filt/stateful-predicates filter-config)
+           :cleanup-fn
+           (fn [{:keys [attachments]}]
+             (when (not-empty attachments)
+               (a/thread (mm/clean-tempfiles! attachments)))))
           ;; Send the init state
           _ (a/put! states-chan job-before)
           ;; Then set it as running for post

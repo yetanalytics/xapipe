@@ -1,7 +1,11 @@
 (ns com.yetanalytics.xapipe.util.async-test
   (:require [clojure.test :refer :all]
             [com.yetanalytics.xapipe.util.async :refer :all]
-            [clojure.core.async :as a]))
+            [clojure.core.async :as a]
+            [com.yetanalytics.xapipe.test-support :as support]))
+
+(use-fixtures :once (support/instrument-fixture
+                     `[batch-filter]))
 
 (deftest batch-filter-test
   (testing "with no predicates"

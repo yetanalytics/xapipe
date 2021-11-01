@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.test-support
   (:require [clojure.java.io :as io]
+            [clojure.spec.test.alpha :as st]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
             [com.yetanalytics.lrs :as lrs]
@@ -209,3 +210,12 @@
                      :profile :json loc))
                   (or profiles
                       ["dev-resources/profiles/calibration.jsonld"]))))))))
+
+(defn instrument-fixture
+  [sym-or-syms]
+  (fn [f]
+    (st/instrument sym-or-syms)
+    (try
+      (f)
+      (finally
+        (st/unstrument sym-or-syms)))))
