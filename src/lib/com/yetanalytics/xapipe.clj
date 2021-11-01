@@ -239,24 +239,19 @@
           _ (a/pipeline-blocking
              1
              statement-chan
-             (apply comp
-                    (cond-> [;; Handle error responses
-                             (map (fn [[tag x]]
-                                    (case tag
-                                      :response x
-                                      :exception
-                                      (throw (ex-info
-                                              (format "Source Error: %s"
-                                                      (ex-message x))
-                                              {:type ::source}
-                                              x)))))
-                             ;; coerce responses to statements
-                             (mapcat xapi/response->statements)]
-                      ;; If we are given a filter-config, we apply additional
-                      ;; filter transducers
-                      ;; Note that these MUST clean up attachments when dropping
-                      (not-empty filter-config)
-                      (conj (filt/filter-xf filter-config))))
+             (comp
+              ;; handle error resps
+              (map (fn [[tag x]]
+                     (case tag
+                       :response x
+                       :exception
+                       (throw (ex-info
+                               (format "Source Error: %s"
+                                       (ex-message x))
+                               {:type ::source}
+                               x)))))
+              ;; coerce resp to statements
+              (mapcat xapi/response->statements))
              get-chan
              true
              (fn [ex]
@@ -270,11 +265,17 @@
           ;; A channel that will get batches
           ;; NOTE: Apply other filtering here
           batch-chan (let [c (a/chan batch-buffer-size)]
-                       (ua/batch
+                       (ua/batch-filter
                         statement-chan
                         c
                         target-batch-size
-                        batch-timeout)
+                        batch-timeout
+                        :predicates
+                        (filt/stateless-predicates filter-config)
+                        :cleanup-fn
+                        (fn [{:keys [attachments]}]
+                          (when (not-empty attachments)
+                            (a/thread (mm/clean-tempfiles! attachments)))))
                        c)
           ;; Send the init state
           _ (a/put! states-chan job-before)

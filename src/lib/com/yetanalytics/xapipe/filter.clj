@@ -267,3 +267,13 @@
                   template)))))
 
 ;; TODO: end remove
+
+(s/fdef stateless-predicates
+  :args (s/cat :config filter-config-spec)
+  :ret (s/map-of keyword?
+                 filter-pred-spec))
+
+(defn stateless-predicates
+  [{:keys [template]}]
+  (cond-> {}
+    template (assoc :template (template-filter-pred template))))
