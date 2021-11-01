@@ -13,7 +13,6 @@
             [com.yetanalytics.pan.objects.template :as template]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]))
 
-
 (s/def ::profile-url string?) ;; These can be from disk, so don't spec 'em too hard
 (s/def ::template-id ::template/id)
 
@@ -32,6 +31,18 @@
 
                          ex)))))
 
+;; The record we filter
+(def record-spec
+  (s/keys :req-un [::xs/statement
+                   ::mm/attachments]))
+
+;; A (stateless) predicate
+(def filter-pred-spec
+  (s/fspec :args (s/cat :record
+                        (s/keys :req-un [::xs/statement
+                                         ::mm/attachments]))
+           :ret boolean?))
+
 (s/def ::profile-urls
   (s/every ::profile-url
            :min-count 1))
@@ -44,21 +55,13 @@
   (s/keys :req-un [::profile-urls
                    ::template-ids]))
 
-(defn- with-cleanup
-  "Blocking cleanup function, must be run on dropped statements"
-  [pred-result attachments]
-  (when (and (not pred-result) (not-empty attachments))
-    (mm/clean-tempfiles! attachments))
-  pred-result)
+(s/fdef template-filter-pred
+  :args (s/cat :template-cfg ::template)
+  :ret filter-pred-spec)
 
-(s/fdef template-filter-xf
-  :args (s/cat :template ::template)
-  ;; Ret here is a transducer, TODO: spec it?
-  )
-
-(defn template-filter-xf
-  "Return a transducer that will filter a sequence of statements to only those
-  in the given profiles and template-ids, if provided."
+(defn template-filter-pred
+  "Given config for a Statement Template-based filter, return a predicate
+  function to filter records."
   [{:keys [profile-urls
            template-ids]}]
   (let [validators
@@ -69,14 +72,36 @@
                               (some (partial = id)
                                     template-ids))]
                 (per/template->validator template)))]
+    (fn [{:keys [statement
+                 attachments]}]
+      (some (fn [v]
+              (per/validate-statement-vs-template
+               v statement))
+            validators))))
+
+;; TODO: remove transducers + cleanup when proper pred filter established
+(defn- with-cleanup
+  "Blocking cleanup function, must be run on dropped statements"
+  [pred-result attachments]
+  (when (and (not pred-result) (not-empty attachments))
+    (mm/clean-tempfiles! attachments))
+  pred-result)
+
+(s/fdef template-filter-xf
+  :args (s/cat :template-cfg ::template)
+  ;; Ret here is a transducer, TODO: spec it?
+  )
+
+(defn template-filter-xf
+  "Return a transducer that will filter a sequence of statements to only those
+  in the given profiles and template-ids, if provided."
+  [template-cfg]
+  (let [pred (template-filter-pred template-cfg)]
     (filter
-     (fn [{:keys [statement
-                  attachments]}]
+     (fn [{:keys [attachments]
+           :as record}]
        (with-cleanup
-         (some (fn [v]
-                 (per/validate-statement-vs-template
-                  v statement))
-               validators)
+         (pred record)
          attachments)))))
 
 (s/def ::pattern-id ::pat/id)
