@@ -1,6 +1,16 @@
 (ns com.yetanalytics.xapipe.util.async
   "Useful Async facilities"
-  (:require [clojure.core.async :as a]))
+  (:require [clojure.core.async :as a]
+            [clojure.spec.alpha :as s]))
+
+(s/def ::stateless-predicate
+  (s/fspec :args (s/cat :input any?)
+           :ret boolean?))
+
+(s/def ::stateful-predicate
+  (s/fspec :args (s/cat :state any?
+                        :input any?)
+           :ret (s/tuple any? boolean?)))
 
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
@@ -16,15 +26,15 @@
 
   If :cleanup-fn is provided, run it on dropped records"
   [a b size timeout-ms
-   & {:keys [predicates
+   & {:keys [stateless-predicates
              stateful-predicates
              init-states
              cleanup-fn]
-      :or {predicates {}
+      :or {stateless-predicates {}
            stateful-predicates {}}}]
-  (let [stateless-pred (if (empty? predicates)
+  (let [stateless-pred (if (empty? stateless-predicates)
                          (constantly true)
-                         (apply every-pred (vals predicates)))]
+                         (apply every-pred (vals stateless-predicates)))]
     (a/go-loop [buf []
                 states (or init-states
                            (into {}

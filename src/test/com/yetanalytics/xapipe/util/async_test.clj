@@ -34,7 +34,7 @@
              b-chan
              50
              500
-             :predicates
+             :stateless-predicates
              {:odd? odd?}
              :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
 
@@ -54,7 +54,7 @@
                b-chan
                50
                500
-               :predicates
+               :stateless-predicates
                ;; impossible!
                {:odd? odd?
                 :even? even?})]

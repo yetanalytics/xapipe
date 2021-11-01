@@ -270,7 +270,7 @@
                         c
                         target-batch-size
                         batch-timeout
-                        :predicates
+                        :stateless-predicates
                         (filt/stateless-predicates filter-config)
                         :stateful-predicates
                         (filt/stateful-predicates filter-config)
