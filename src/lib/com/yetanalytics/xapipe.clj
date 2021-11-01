@@ -65,7 +65,7 @@
                     (log/errorf "Stopping with error: %s" (:message error))
                     (a/>! states-chan (assoc job :state
                                              (state/add-error state error))))))
-              (if-some [batch v]
+              (if-some [{:keys [batch]} v]
                 (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
