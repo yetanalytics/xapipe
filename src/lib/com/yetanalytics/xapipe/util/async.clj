@@ -70,7 +70,8 @@
                                    [k {}])))]
       ;; Send if the buffer is full
       (if (= size (count buf))
-        (do (a/>! b {:batch buf})
+        (do (a/>! b {:batch buf
+                     :filter-state states})
             (recur [] states))
         (let [timeout-chan (a/timeout timeout-ms)
               [v p] (a/alts! [a timeout-chan])]
@@ -78,7 +79,8 @@
             ;; We've timed out. Flush!
             (do
               (when (not-empty buf)
-                (a/>! b {:batch buf}))
+                (a/>! b {:batch buf
+                         :filter-state states}))
               (recur [] states))
             (if-not (nil? v)
               ;; We have a record
@@ -113,6 +115,7 @@
               (do
                 ;; But only after draining anything in the buffer
                 (when (not-empty buf)
-                  (a/>! b {:batch buf}))
+                  (a/>! b {:batch buf
+                           :filter-state states}))
                 (a/close! b)))))))
     b))
