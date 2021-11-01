@@ -39,8 +39,7 @@
 ;; A (stateless) predicate
 (def filter-pred-spec
   (s/fspec :args (s/cat :record
-                        (s/keys :req-un [::xs/statement
-                                         ::mm/attachments]))
+                        record-spec)
            :ret boolean?))
 
 (s/def ::profile-urls
@@ -104,7 +103,50 @@
          (pred record)
          attachments)))))
 
+;; TODO: end remove
+
 (s/def ::pattern-id ::pat/id)
+
+(def state-key-spec
+  (s/or :registration :statement/registration
+        :subreg (s/tuple :statement/registration
+                         :statement/registration)))
+
+(s/fdef get-state-key
+  :args (s/keys :statement ::xs/statement)
+  :ret (s/nilable state-key-spec))
+
+(defn get-state-key
+  "Given a statement, return a state key if possible, or nil"
+  [statement]
+  (let [?reg (get-in statement ["context" "registration"])
+        ?subreg (get-in statement ["context" "extensions" per/subreg-iri])]
+    (cond
+      (and ?reg ?subreg) [?reg ?subreg]
+      ?reg               ?reg
+      :else              nil)))
+
+(s/def ::accepted? boolean?)
+(s/def ::states (s/coll-of int?
+                           :kind set?
+                           :into #{}))
+
+(def state-info-spec
+  (s/keys :req-un [::accepted?
+                   ::states]))
+
+(def pattern-filter-state-spec
+  (s/map-of
+   state-key-spec
+   (s/map-of
+    ::pattern-id
+    state-info-spec)))
+
+;; A stateful predicate for pattern filters
+(def pattern-filter-pred-spec
+  (s/fspec :args (s/cat :state pattern-filter-state-spec
+                        :record record-spec)
+           :ret [pattern-filter-state-spec boolean?]))
 
 (s/def ::pattern-ids (s/every ::pattern-id))
 
@@ -113,8 +155,55 @@
   (s/keys :req-un [::profile-urls
                    ::pattern-ids]))
 
+(s/fdef pattern-filter-pred
+  :args (s/cat :pattern-cfg ::pattern)
+  :ret pattern-filter-pred-spec)
+
+(defn pattern-filter-pred
+  "Given a list of profile URLs generate a stateful predicate to filter
+  to only statements in patterns. If pattern ids are provided, limit filtered
+  statements to those."
+  [{:keys [profile-urls
+           pattern-ids]}]
+  (let [fsm-map (-> profile-urls
+                    (->> (map get-profile)
+                         (map per/profile->fsms)
+                         (into {}))
+                    (cond->
+                        (not-empty pattern-ids)
+                      (select-keys pattern-ids)))]
+    (fn [state
+         {:keys [statement]
+          :as record}]
+      (if-let [state-key (get-state-key statement)]
+        (let [hits (not-empty
+                       (for [[pat-key fsm] fsm-map
+                             :let [{:keys [accepted?]
+                                    :as hit} (fsm/read-next
+                                              fsm
+                                              (get state state-key)
+                                              statement)]
+                             :when accepted?]
+                         [state-key pat-key hit]))
+              ;; TODO: How are registrations removed from this?
+              ;; What is final completion?
+              new-state (cond-> (reduce
+                                 (fn [m [sk pk hit]]
+                                   (assoc-in m [sk pk] hit))
+                                 state
+                                 hits)
+                          ;; remove any active if we've failed
+                          (and (empty? hits) state-key)
+                          (dissoc state-key))]
+          [new-state (if (not-empty hits)
+                       true
+                       false)])
+        [state false]))))
+
+;; TODO: remove xducers
+
 (s/fdef pattern-filter-xf
-  :args (s/cat :pattern ::pattern
+  :args (s/cat :pattern-cfg ::pattern
                :fsm-state (s/nilable any?)
                )
   ;; Ret here is a transducer, TODO: spec it?
@@ -123,17 +212,10 @@
 (defn pattern-filter-xf
   "Return a transducer that will filter a sequence of statements to only those
   the given profiles' patterns, restricted to pattern-ids if provided."
-  [{:keys [profile-urls
-           pattern-ids]}
+  [pattern-cfg
    & [fsm-state]
    ]
-  (let [fsm-map (-> profile-urls
-                    (->> (map get-profile)
-                         (map per/profile->fsms)
-                         (into {}))
-                    (cond->
-                        (not-empty pattern-ids)
-                      (select-keys pattern-ids)))]
+  (let [pred (pattern-filter-pred pattern-cfg)]
     (fn [xf]
       (let [fsm-state-v (volatile! fsm-state)]
         (fn
@@ -141,42 +223,16 @@
           ([result]
            (xf result))
           ([result input]
-           (let [last-state @fsm-state-v
-                 ?reg (get-in input [:statement "context" "registration"])
-                 ?subreg (get-in input [:statement "context" "extensions" per/subreg-iri])
-                 ?state-key (cond
-                              (and ?reg ?subreg) [?reg ?subreg]
-                              ?reg ?reg
-                              :else nil)
-                 hits (into []
-                            (when ?state-key
-                              (for [[pat-key fsm] fsm-map
-                                    :let [{:keys [accepted?]
-                                           :as hit} (fsm/read-next fsm
-                                                                   (get last-state ?state-key)
-                                                                   (:statement input))]
-                                    :when accepted?]
-                                [?state-key pat-key hit])))]
-             ;; TODO: How are registrations removed from this?
-             ;; What is final completion?
-             (let [new-state (cond-> (reduce
-                                      (fn [m [state-key pat-key state]]
-                                        (assoc-in m [state-key pat-key] state))
-                                      last-state
-                                      hits)
-                               ;; remove any active if we've failed
-                               (and (empty? hits) ?state-key)
-                               (dissoc ?state-key))]
-               (vreset! fsm-state-v
-                        new-state)
-               (if (not-empty hits)
-                 (xf result (assoc input
-                                   :fsm-state new-state))
-                 (do
-                   ;; Drop the input. We must delete any attachments
-                   (when-let [attachments (not-empty (:attachments input))]
-                     (mm/clean-tempfiles! attachments))
-                   result))))))))))
+           (let [[next-state keep?] (pred @fsm-state-v input)]
+             (vreset! fsm-state-v
+                      next-state)
+             (if keep?
+               (xf result (assoc input :fsm-state next-state))
+               (do
+                 ;; Drop the input. We must delete any attachments
+                 (when-let [attachments (not-empty (:attachments input))]
+                   (mm/clean-tempfiles! attachments))
+                 result)))))))))
 
 ;; Config map for all filtering
 (def filter-config-spec
@@ -194,3 +250,5 @@
            template
            (conj (template-filter-xf
                   template)))))
+
+;; TODO: end remove
