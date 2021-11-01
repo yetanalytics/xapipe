@@ -127,6 +127,27 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 200]
+   ;; Filter options
+   [nil "--template-profile-url URL" "Profile URL/location from which to apply statement template filters"
+    :id :filter-template-profile-urls
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--template-id IRI" "Statement template IRIs to filter on"
+    :id :filter-template-ids
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--pattern-profile-url URL" "Profile URL/location from which to apply statement pattern filters"
+    :id :filter-pattern-profile-urls
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--pattern-id IRI" "Pattern IRIs to filter on"
+    :id :filter-pattern-ids
+    :multi true
+    :default []
+    :update-fn conj]
    ;; No defaults, are set if not present
    job-id-option
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"

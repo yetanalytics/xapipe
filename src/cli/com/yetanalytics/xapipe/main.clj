@@ -132,6 +132,11 @@
            get-buffer-size
            batch-timeout
 
+           filter-template-profile-urls
+           filter-template-ids
+           filter-pattern-profile-urls
+           filter-pattern-ids
+
            statement-buffer-size
            batch-buffer-size]}
    source-req-config
@@ -167,11 +172,22 @@
               target-backoff-j-range
               (assoc :j-range target-backoff-j-range)
               target-backoff-initial
-              (assoc :initial target-backoff-initial))}}
+              (assoc :initial target-backoff-initial))}
+           :filter {}}
     statement-buffer-size
     (assoc :statement-buffer-size statement-buffer-size)
+
     batch-buffer-size
-    (assoc :batch-buffer-size batch-buffer-size)))
+    (assoc :batch-buffer-size batch-buffer-size)
+
+    (not-empty filter-template-profile-urls)
+    (assoc-in [:filter :template] {:profile-urls filter-template-profile-urls
+                                   :template-ids (into []
+                                                       filter-template-ids)})
+    (not-empty filter-pattern-profile-urls)
+    (assoc-in [:filter :pattern] {:profile-urls filter-pattern-profile-urls
+                                  :pattern-ids (into []
+                                                     filter-pattern-ids)})))
 
 ;; Verbs
 

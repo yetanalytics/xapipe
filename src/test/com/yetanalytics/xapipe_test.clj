@@ -261,7 +261,6 @@
           (let [{{:keys [status
                          cursor]
                   last-filter-state :filter} :state} (last all-states)]
-            (println (last all-states))
             (testing "successful completion"
               (is (= :complete status)))
             (testing "only calibration statements transferred"
