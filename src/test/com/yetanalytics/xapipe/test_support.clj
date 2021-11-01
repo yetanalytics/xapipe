@@ -79,8 +79,11 @@
   :dump - A function of no args that will dump memory LRS state
   :load - A function of two args, statements and attachments to load data
   :request-config - A request config ala xapipe.client"
-  [port & {:keys [seed-path]}]
-  (let [lrs (new-lrs
+  [& {:keys [seed-path
+             port]}]
+  (let [port (or port
+                 (get-free-port))
+        lrs (new-lrs
              (cond->
                  {:mode :sync}
                (not-empty seed-path) (assoc :init-state (fixture-state seed-path))))
@@ -128,11 +131,11 @@
    (let [{start-source :start
           stop-source :stop
           :as source} (if seed-path
-                        (lrs (get-free-port) :seed-path seed-path)
-                        (lrs (get-free-port)))
+                        (lrs :seed-path seed-path)
+                        (lrs))
          {start-target :start
           stop-target :stop
-          :as target} (lrs (get-free-port))]
+          :as target} (lrs)]
      (try
        ;; Start Em Up!
        (start-source)
