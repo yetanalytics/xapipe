@@ -148,7 +148,8 @@
                               :cursor (t/normalize-stamp until)
                               :errors []
                               :source {:errors []}
-                              :target {:errors []}})
+                              :target {:errors []}
+                              :filter {}})
                (a/<!! (store-states states store))
                (store/read-job store job-id)))))))
 

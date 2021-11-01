@@ -85,7 +85,10 @@
       :cursor (or ?since "1970-01-01T00:00:00Z")
       :source {:errors []}
       :target {:errors []}
-      :errors []}}))
+      :errors []
+      :filter (if (:pattern filter-config)
+                {:pattern {}}
+                {})}}))
 
 ;; Job-level state
 

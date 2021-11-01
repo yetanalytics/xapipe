@@ -221,3 +221,10 @@
   [{:keys [pattern]}]
   (cond-> {}
     pattern (assoc :pattern (pattern-filter-pred pattern))))
+
+;; Job State, when emitted
+(s/def :com.yetanalytics.xapipe.filter.state/pattern
+  pattern-filter-state-spec)
+
+(def filter-state-spec
+  (s/keys :opt-un [:com.yetanalytics.xapipe.filter.state/pattern]))
