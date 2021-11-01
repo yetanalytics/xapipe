@@ -4,25 +4,27 @@
             [clojure.core.async :as a]))
 
 (deftest batch-filter-test
-  (let [a-chan (a/chan 1000)
-        b-chan (a/chan 20)
-        _ (batch-filter
-           a-chan
-           b-chan
-           50
-           500)]
+  (testing "with no predicates"
+    (let [a-chan (a/chan 1000)
+          b-chan (a/chan 20)
+          _ (batch-filter
+             a-chan
+             b-chan
+             50
+             500)]
 
-    (a/onto-chan! a-chan (range 1000))
+      (a/onto-chan! a-chan (range 1000))
 
-    (let [batches (a/<!! (a/into [] b-chan))]
-      (testing "returns all records in order w/o filters"
-        (is (= (range 1000)
-               (mapcat :batch batches))))
-      (testing "Limits batch size"
-        (is
-         (every?
-          (comp (partial >= 50) count :batch)
-          batches)))))
+      (let [batches (a/<!! (a/into [] b-chan))]
+        (testing "returns all records in order w/o filters"
+          (is (= (range 1000)
+                 (mapcat :batch batches))))
+        (testing "Limits batch size"
+          (is
+           (every?
+            (comp (partial >= 50) count :batch)
+            batches))))))
+
   (testing "With stateless predicates"
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
