@@ -44,8 +44,14 @@
     (loop [state init-state]
       ;; Emit States
       (a/>! states-chan (assoc job :state state))
-      (if (state/errors? state)
+      (cond
+        (state/errors? state)
         (log/error "POST loop stopping with errors")
+
+        (not= :running (:status state))
+        (log/error "Stopping")
+
+        :else
         (do
           (log/debug "POST loop run")
           (let [[v p] (a/alts! [stop-chan batch-chan])]
@@ -56,15 +62,9 @@
                 ;; A stop is called!
                 (case status
                   :paused
-                  (do
-                    (log/info "Pausing.")
-                    (a/>! states-chan (assoc job :state
-                                             (state/set-status state :paused))))
+                  (recur (state/set-status state :paused))
                   :error
-                  (do
-                    (log/errorf "Stopping with error: %s" (:message error))
-                    (a/>! states-chan (assoc job :state
-                                             (state/add-error state error))))))
+                  (recur (state/add-error state error))))
               (if-some [{:keys [batch
                                 filter-state]
                          :or {filter-state {}}} v]
@@ -106,25 +106,14 @@
                                     (some-> x
                                             ex-data
                                             :body))
-                        ;; Recreate and log req body to file
-                        #_(-> (client/post-request
-                               post-req-config
-                               statements
-                               attachments)
-                              :body
-                              (io/copy (io/file (format "failures/%s_%s_%s.request"
-                                                        id
-                                                        (-> statements first (get "stored"))
-                                                        (-> statements last (get "stored"))))))
+
                         (mm/clean-tempfiles! attachments)
                         (let [error {:message (ex-message x)
                                      :type    :target}]
                           (a/>! stop-chan {:status :error
                                            :error error})
-                          (a/>! states-chan
-                                (assoc job :state
-                                       (state/add-error state error)))
-                          (log/error "Stopping on POST error"))))))
+                          (log/error "Stopping on POST error")
+                          (recur (state/add-error state error)))))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
@@ -135,8 +124,7 @@
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
-                    (a/>! states-chan (assoc job :state
-                                             (state/set-status state :complete)))))))))))
+                    (recur (state/set-status state :complete))))))))))
     ;; Post-loop, kill the HTTP client and close the states chan
     (client/shutdown conn-mgr)
     (.close ^CloseableHttpClient http-client)
