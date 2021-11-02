@@ -36,7 +36,7 @@
                    :xapi.statements.GET.request.params/format]))
 
 ;; helpers
-(defn- create-store
+(defn create-store
   [{:keys [storage
            redis-host
            redis-port]}]
@@ -54,7 +54,7 @@
                              {:type ::redis-config-required})))
     :mem (mem-store/new-store)))
 
-(defn- parse-lrs-url
+(defn parse-lrs-url
   [^String url]
   (try
     (let [^URL parsed (URL. url)]
@@ -66,14 +66,14 @@
     (catch Exception ex
       (throw (ex-info (format "Could not parse LRS URL %s" url))))))
 
-(defn- force-stop-job!
+(defn force-stop-job!
   "Given a stop-fn and states channel, finish and stop the job.
   *BLOCKING*"
   [stop-fn states]
   (when (stop-fn)
     (a/<!! (a/into [] states))))
 
-(defn- handle-job
+(defn handle-job
   "Actually execute a job, wrapping result"
   [store job client-opts]
   (try
@@ -96,7 +96,7 @@
       {:status 1
        :message (ex-message ex)})))
 
-(defn- options->client-opts
+(defn options->client-opts
   [{:keys [conn-timeout
            conn-threads
            conn-default-per-route
@@ -113,7 +113,7 @@
      (assoc-in [:io-config :io-thread-count]
                conn-io-thread-count))})
 
-(defn- options->config
+(defn options->config
   [{:keys [job-id
            source-batch-size
            source-poll-interval
@@ -193,7 +193,7 @@
                                   :pattern-ids (into []
                                                      filter-pattern-ids)})))
 
-(defn- create-job
+(defn create-job
   "Create a new job from options or throw"
   [{:keys [source-url
            target-url]
@@ -224,6 +224,98 @@
             job-id (or (:job-id options)
                        (.toString (java.util.UUID/randomUUID)))]
         (job/init-job job-id config)))))
+
+(defn reconfigure-job
+  "Given an extant job and CLI options, apply any overriding options"
+  [job
+   {:keys [source-url
+           source-username
+           source-password
+
+           source-batch-size
+           source-poll-interval
+           get-params
+
+           target-url
+           target-username
+           target-password
+
+           target-batch-size
+
+           get-buffer-size
+           batch-timeout
+
+           statement-buffer-size
+           batch-buffer-size]}]
+  (cond-> job
+    source-url
+    (update-in
+     [:config :source :request-config]
+     merge (parse-lrs-url source-url))
+
+    source-username
+    (assoc-in
+     [:config :source :request-config :username]
+     source-username)
+
+    source-password
+    (assoc-in
+     [:config :source :request-config :password]
+     source-password)
+
+    ;; if there's a default, only update on change
+    (not= source-batch-size
+          (get-in job [:config :source :batch-size]))
+    (assoc-in
+     [:config :source :batch-size]
+     source-batch-size)
+
+    (not= source-poll-interval
+          (get-in job [:config :source :poll-interval]))
+    (assoc-in
+     [:config :source :poll-interval]
+     source-poll-interval)
+
+    (and get-params
+         (not= get-params
+               (get-in job [:config :source :get-params])))
+    (assoc-in
+     [:config :source :get-params]
+     get-params)
+
+    target-url
+    (update-in
+     [:config :target :request-config]
+     merge (parse-lrs-url target-url))
+
+    target-username
+    (assoc-in
+     [:config :target :request-config :username]
+     target-username)
+
+    target-password
+    (assoc-in
+     [:config :target :request-config :password]
+     target-password)
+
+    target-batch-size
+    (assoc-in
+     [:config :target :batch-size]
+     target-batch-size)
+
+    (not= get-buffer-size
+          (get job :get-buffer-size))
+    (assoc :get-buffer-size get-buffer-size)
+
+    (not= batch-timeout
+          (get job :batch-timeout))
+    (assoc :batch-timeout batch-timeout)
+
+    statement-buffer-size
+    (assoc :statement-buffer-size statement-buffer-size)
+
+    batch-buffer-size
+    (assoc :batch-buffer-size batch-buffer-size)))
 
 (def usage
 "
@@ -271,7 +363,7 @@ Force Resume a job with errors:
                "Resuming job %s")
              (:id job))
             (handle-job store
-                        (cond-> job
+                        (cond-> (reconfigure-job job options)
                           (and
                            (not new?)
                            force-resume?)
