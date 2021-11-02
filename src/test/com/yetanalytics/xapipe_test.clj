@@ -49,12 +49,7 @@
                     stop-fn
                     states]} (init-run-job config)
             ;; Get all the states
-            all-states (a/<!! (a/go-loop [acc []]
-                                (if-let [state (a/<! states)]
-                                  (do
-                                    (log/debug "state" state)
-                                    (recur (conj acc state)))
-                                  acc)))]
+            all-states (a/<!! (a/into [] states))]
         ;; At this point we're done or have errored.
         (let [{{:keys [status
                        cursor]} :state} (last all-states)]
@@ -89,11 +84,7 @@
                     job
                     stop-fn
                     states]} (init-run-job config)
-            all-states (a/<!! (a/go-loop [acc []]
-                                (if-let [state (a/<! states)]
-                                  (do
-                                    (recur (conj acc state)))
-                                  acc)))]
+            all-states (a/<!! (a/into [] states))]
         (is (= [:init :running :error]
                (map
                 #(get-in % [:state :status])
@@ -124,11 +115,7 @@
                     job
                     stop-fn
                     states]} (init-run-job config)
-            all-states (a/<!! (a/go-loop [acc []]
-                                (if-let [state (a/<! states)]
-                                  (do
-                                    (recur (conj acc state)))
-                                  acc)))]
+            all-states (a/<!! (a/into [] states))]
         (is (= [:init :running :error]
                (map
                 #(get-in % [:state :status])
