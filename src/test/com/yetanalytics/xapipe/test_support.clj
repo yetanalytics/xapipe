@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.test-support
   (:require [clojure.java.io :as io]
             [clojure.spec.test.alpha :as st]
+            [clojure.template :as temp]
             [clojure.tools.logging :as log]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
@@ -244,3 +245,25 @@
       (f)
       (finally
         (st/unstrument sym-or-syms)))))
+
+(defmacro art
+  "Like clojure.test/are, but without the is.
+
+  Example: (art [x y]
+                (is (= x y))
+                2 (+ 1 1)
+                4 (* 2 2))
+  Expands to:
+           (do (is (= 2 (+ 1 1)))
+               (is (= 4 (* 2 2))))"
+  {:added "1.1"}
+  [argv expr & args]
+  (if (or
+       ;; (are [] true) is meaningless but ok
+       (and (empty? argv) (empty? args))
+       ;; Catch wrong number of args
+       (and (pos? (count argv))
+            (pos? (count args))
+            (zero? (mod (count args) (count argv)))))
+    `(temp/do-template ~argv ~expr ~@args)
+    (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))))

@@ -166,6 +166,7 @@
   [{:keys [id]
     {status-before :status
      cursor-before :cursor
+     filter-before :filter
      :as           state-before}      :state
     {{:keys [poll-interval]
       {?query-since :since
@@ -278,6 +279,7 @@
            (filt/stateless-predicates filter-config)
            :stateful-predicates
            (filt/stateful-predicates filter-config)
+           :init-states filter-before
            :cleanup-fn
            (fn [{:keys [attachments]}]
              (when (not-empty attachments)

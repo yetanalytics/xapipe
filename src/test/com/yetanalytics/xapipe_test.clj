@@ -161,305 +161,114 @@
                  (a/<!! (store-states states store))
                  (store/read-job store job-id))))))))
 
-;; TODO: filter-test works but filter-test-2 doesn't. Why?
+;; WIP combined filtering tests with are template
+(deftest filter-test
+  (sup/art [tag
+            target-statements
+            other-statements
+            config]
+           (sup/with-running [source (sup/lrs)
+                              target (sup/lrs)]
+             (testing (format "testing filter: %s" tag)
+               (doseq [s-batch (partition-all 25
+                                              (interleave
+                                               other-statements
+                                               target-statements))]
+                 ;; Bump stored time by at least 1 ms for each batch
+                 (Thread/sleep 1)
+                 ((:load source) s-batch))
+               (let [[since until] (sup/lrs-stored-range source)
+                     ;; Generate an ID
+                     job-id (.toString (java.util.UUID/randomUUID))
+                     ;; Initialize
+                     job (job/init-job
+                          job-id
+                          (-> config
+                              (assoc-in [:source :get-params] {:since since
+                                                               :until until})
+                              (assoc-in [:source :request-config]
+                                        (:request-config source))
+                              (assoc-in [:target :request-config]
+                                        (:request-config target))))
+                     ;; Run the transfer
+                     {:keys [stop-fn states]} (run-job job)
+                     ;; Get all the states
+                     all-states (a/<!! (a/into [] states))]
+                 (is (-> all-states last :state :status (= :complete)))
+                 (is (= (map #(get % "id") target-statements)
+                        (map #(get % "id") (sup/lrs-statements target)))))))
 
-#_(deftest filter-test
-    (are [n
-          gen-profile
-          config]
-        (sup/with-running [source (sup/lrs
-                                   :seed-path "dev-resources/lrs/after_conf.edn")
-                           target (sup/lrs)]
-          (let [calibration-statements (sup/gen-statements
-                                        n :profiles
-                                        [gen-profile])]
-            ((:load source) calibration-statements)
-            (let [[since until] (sup/lrs-stored-range source)
+           "templates in profile"
+           (into []
+                 (sup/gen-statements
+                  50
+                  :profiles
+                  ["dev-resources/profiles/calibration_a.jsonld"]
+                  :parameters {:seed 42}))
+           (into []
+                 (concat
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_b.jsonld"]
+                   :parameters {:seed 43})
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_c.jsonld"]
+                   :parameters {:seed 44})))
+           {:filter
+            {:template
+             {:profile-urls ["dev-resources/profiles/calibration_a.jsonld"]
+              :template-ids []}}}
 
-                  ;; Generate an ID
-                  job-id (.toString (java.util.UUID/randomUUID))
-                  ;; Initialize
-                  job (job/init-job
-                       job-id
-                       (-> config
-                           (assoc-in [:source :get-params] {:since since
-                                                            :until until})
-                           (assoc-in [:source :request-config]
-                                     (:request-config source))
-                           (assoc-in [:target :request-config]
-                                     (:request-config target))))
-                  ;; Run the transfer
-                  {:keys [stop-fn states]} (run-job job)
-                  ;; Get all the states
-                  all-states (a/<!! (a/go-loop [acc []]
-                                      (if-let [state (a/<! states)]
-                                        (do
-                                          (log/debug "state" state)
-                                          (recur (conj acc state)))
-                                        acc)))]
-              (and (-> all-states last :state :status (= :complete))
-                   (= n (sup/lrs-count target))
-                   (= (map #(get % "id") calibration-statements)
-                      (map #(get % "id") (sup/lrs-statements target)))))))
-      50
-      "dev-resources/profiles/calibration.jsonld"
-      {:filter
-       {:template
-        {:profile-urls ["dev-resources/profiles/calibration.jsonld"]
-         :template-ids []}}}
+           "patterns in profile"
+           (into []
+                 (sup/gen-statements
+                  50
+                  :profiles
+                  ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+                  :parameters {:seed 42}))
+           (into []
+                 (concat
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_a.jsonld"]
+                   :parameters {:seed 43})
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_b.jsonld"]
+                   :parameters {:seed 44})))
+           {:filter
+            {:pattern
+             {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+              :pattern-ids []}}}
 
-      ))
-
-
-#_(deftest filter-test-2
-    (are [target-statements
-          other-statements
-          config]
-        (sup/with-running [source (sup/lrs)
-                           target (sup/lrs)]
-          (do
-            (doseq [s-batch (partition-all 50
-                                           (interleave target-statements
-                                                       other-statements))]
-              ((:load source) s-batch))
-            (Thread/sleep 1000)
-            (let [[since until] (sup/lrs-stored-range source)
-
-                  ;; Generate an ID
-                  job-id (.toString (java.util.UUID/randomUUID))
-                  ;; Initialize
-                  job (job/init-job
-                       job-id
-                       (-> config
-                           (assoc-in [:source :get-params] {:since since
-                                                            :until until})
-                           (assoc-in [:source :request-config]
-                                     (:request-config source))
-                           (assoc-in [:target :request-config]
-                                     (:request-config target))))
-                  _ (println job)
-                  ;; Run the transfer
-                  {:keys [stop-fn states]} (run-job job)
-                  ;; Get all the states
-                  all-states (a/<!! (a/into [] states))]
-              (println (sup/lrs-count target))
-              (and (-> all-states last :state :status (= :complete))
-                   (= (map #(get % "id") target-statements)
-                      (map #(get % "id") (sup/lrs-statements target)))))))
-      (into []
-            (sup/gen-statements
-             50
-             :profiles
-             ["dev-resources/profiles/calibration.jsonld"]
-             :parameters {:seed 42}))
-      (into []
-            (sup/gen-statements
-             50
-             :profiles
-             ["dev-resources/profiles/tccc.jsonld"]
-             :parameters {:seed 24}))
-      {:filter
-       {:template
-        {:profile-urls ["dev-resources/profiles/calibration.jsonld"]
-         :template-ids []}}
-       :source
-       {:poll-interval  1000
-        :batch-size     50}
-       :target
-       {:batch-size     50}}
-
-      ))
-
-
-(deftest filter-template-test
-  (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
-                     target (sup/lrs)]
-    (testing "xapipe filters based on profile statement templates"
-      ;; To start, the fixture has placed the conf test statements
-      (is (= 453 (sup/lrs-count source)))
-      ;; We generate 50 statements from a profile.
-      (let [calibration-statements (sup/gen-statements
-                                    50 :profiles
-                                    ["dev-resources/profiles/calibration.jsonld"])]
-        ;; And load them
-        ((:load source) calibration-statements)
-        ;; for a total of 503:
-        (is (= 503 (sup/lrs-count source)))
-        ;; Set up and run the transfer
-        (let [[since until] (sup/lrs-stored-range source)
-              config {:filter
-                      {:template
-                       {:profile-urls ["dev-resources/profiles/calibration.jsonld"]
-                        :template-ids []}}
-                      :source
-                      {:request-config (:request-config source)
-                       :get-params     {:since since
-                                        :until until}
-                       :poll-interval  1000
-                       :batch-size     50}
-                      :target
-                      {:request-config (:request-config target)
-                       :batch-size     50}}
-              ;; Generate an ID
-              job-id (.toString (java.util.UUID/randomUUID))
-              ;; Initialize
-              job (job/init-job
-                   job-id
-                   config)
-              ;; Run the transfer
-              {:keys [stop-fn states]} (run-job job)
-              ;; Get all the states
-              all-states (a/<!! (a/go-loop [acc []]
-                                  (if-let [state (a/<! states)]
-                                    (do
-                                      (log/debug "state" state)
-                                      (recur (conj acc state)))
-                                    acc)))]
-          (let []
-            ;; At this point we're done or have errored.
-            (let [{{:keys [status
-                           cursor]} :state} (last all-states)]
-              (testing "successful completion"
-                (is (= :complete status)))
-              (testing "only calibration statements transferred"
-                (is (= 50 (sup/lrs-count target)))
-                (is (= (map #(get % "id") calibration-statements)
-                       (map #(get % "id") (sup/lrs-statements target))))))))))))
-
-(deftest filter-pattern-test
-  (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
-                     target (sup/lrs)]
-    (testing "xapipe filters based on profile patterns"
-      ;; To start, the fixture has placed the conf test statements, none of which
-      ;; should be included in result
-      (is (= 453 (sup/lrs-count source)))
-      ;; We generate 3 statements from a profile with a strict pattern
-      (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
-            calibration-statements (sup/gen-statements
-                                    3
-                                    :profiles [profile-url]
-                                    :personae [{:name "Test Subjects",
-                                                :objectType "Group",
-                                                :member
-                                                [{:name "alice",
-                                                  :mbox "mailto:alice@example.org",
-                                                  :objectType "Agent"}]}])]
-        ;; And load them
-        ((:load source) calibration-statements)
-        ;; for a total of 456:
-        (is (= 456 (sup/lrs-count source)))
-        ;; Set up and run the transfer
-        (let [[since until] (sup/lrs-stored-range source)
-              config {:filter
-                      {:pattern
-                       {:profile-urls [profile-url]
-                        :pattern-ids []}}
-                      :source
-                      {:request-config (:request-config source)
-                       :get-params     {:since since
-                                        :until until}
-                       :poll-interval  1000
-                       :batch-size     50}
-                      :target
-                      {:request-config (:request-config target)
-                       :batch-size     50}}
-              ;; Generate an ID
-              job-id (.toString (java.util.UUID/randomUUID))
-              ;; Initialize
-              job (job/init-job
-                   job-id
-                   config)
-              ;; Run the transfer
-              {:keys [stop-fn states]} (run-job job)
-              ;; Get all the states
-              all-states (a/<!! (a/go-loop [acc []]
-                                  (if-let [state (a/<! states)]
-                                    (do
-                                      (log/debug "state" state)
-                                      (recur (conj acc state)))
-                                    acc)))]
-          (let []
-            ;; At this point we're done or have errored.
-            (let [{{:keys [status
-                           cursor]
-                    last-filter-state :filter} :state} (last all-states)]
-              (testing "successful completion"
-                (is (= :complete status)))
-              (testing "only calibration statements transferred"
-                (is (= 3 (sup/lrs-count target)))
-                (is (= (map #(get % "id") calibration-statements)
-                       (map #(get % "id") (sup/lrs-statements target)))))
-              (testing "outputs state"
-                (testing "last is empty because reset"
-                  (is (= {:pattern {}}
-                         last-filter-state)))))))))))
-
-(deftest all-filter-test
-  (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
-                     target (sup/lrs)]
-    (testing "xapipe filters based on profile templates + patterns"
-      ;; To start, the fixture has placed the conf test statements, none of which
-      ;; should be included in result
-      (is (= 453 (sup/lrs-count source)))
-      ;; We generate 3 statements from a profile with a strict pattern
-      (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
-            calibration-statements (sup/gen-statements
-                                    3
-                                    :profiles [profile-url]
-                                    :personae [{:name "Test Subjects",
-                                                :objectType "Group",
-                                                :member
-                                                [{:name "alice",
-                                                  :mbox "mailto:alice@example.org",
-                                                  :objectType "Agent"}]}])]
-        ;; And load them
-        ((:load source) calibration-statements)
-        ;; for a total of 456:
-        (is (= 456 (sup/lrs-count source)))
-        ;; Set up and run the transfer
-        (let [[since until] (sup/lrs-stored-range source)
-              config {:filter
-                      {;; In this case the filters are redundant
-                       :template
-                       {:profile-urls [profile-url]
-                        :pattern-ids []}
-                       :pattern
-                       {:profile-urls [profile-url]
-                        :pattern-ids []}}
-                      :source
-                      {:request-config (:request-config source)
-                       :get-params     {:since since
-                                        :until until}
-                       :poll-interval  1000
-                       :batch-size     50}
-                      :target
-                      {:request-config (:request-config target)
-                       :batch-size     50}}
-              ;; Generate an ID
-              job-id (.toString (java.util.UUID/randomUUID))
-              ;; Initialize
-              job (job/init-job
-                   job-id
-                   config)
-              ;; Run the transfer
-              {:keys [stop-fn states]} (run-job job)
-              ;; Get all the states
-              all-states (a/<!! (a/go-loop [acc []]
-                                  (if-let [state (a/<! states)]
-                                    (do
-                                      (log/debug "state" state)
-                                      (recur (conj acc state)))
-                                    acc)))]
-          (let []
-            ;; At this point we're done or have errored.
-            (let [{{:keys [status
-                           cursor]} :state} (last all-states)]
-              (testing "successful completion"
-                (is (= :complete status)))
-              (testing "only calibration statements transferred"
-                (is (= 3 (sup/lrs-count target)))
-                (is (= (map #(get % "id") calibration-statements)
-                       (map #(get % "id") (sup/lrs-statements target))))))))))))
+           "templates and patterns in profile (redundant but possible)"
+           (into []
+                 (sup/gen-statements
+                  50
+                  :profiles
+                  ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+                  :parameters {:seed 42}))
+           (into []
+                 (concat
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_a.jsonld"]
+                   :parameters {:seed 43})
+                  (sup/gen-statements
+                   25
+                   :profiles
+                   ["dev-resources/profiles/calibration_b.jsonld"]
+                   :parameters {:seed 44})))
+           {:filter
+            {:template
+             {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+              :template-ids []}
+             :pattern
+             {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+              :pattern-ids []}}}))
