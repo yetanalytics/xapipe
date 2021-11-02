@@ -31,10 +31,12 @@
    {{{?since :since}  :get-params
      get-batch-size   :batch-size
      get-backoff-opts :backoff-opts
+     poll-interval    :poll-interval
      :as              source-config
      :or              {get-batch-size   50
                        get-backoff-opts {:budget      10000
-                                         :max-attempt 10}}}
+                                         :max-attempt 10}
+                       poll-interval    1000}}
     :source
     {post-batch-size   :batch-size
      post-backoff-opts :backoff-opts
@@ -73,7 +75,8 @@
       :source
       (-> source-config
           (assoc :batch-size get-batch-size
-                 :backoff-opts get-backoff-opts)
+                 :backoff-opts get-backoff-opts
+                 :poll-interval poll-interval)
           (assoc-in [:get-params :limit] get-batch-size))
       :target
       (assoc target-config
