@@ -318,7 +318,7 @@
     (assoc :batch-buffer-size batch-buffer-size)))
 
 (def usage
-"
+  "
 Run a new job:
     --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
 
