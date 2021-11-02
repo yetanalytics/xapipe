@@ -14,6 +14,8 @@
     ;; Default
     []
     {:help false,
+     :show-job false,
+     :force-resume false,
      :storage :noop,
      :redis-host "0.0.0.0",
      :redis-port 6379}
@@ -22,6 +24,8 @@
     ;; Redis store with a custom port
     ["-s" "redis" "--redis-port" "1234"]
     {:help false,
+     :show-job false,
+     :force-resume false,
      :storage :redis,
      :redis-host "0.0.0.0",
      :redis-port 1234}
@@ -83,8 +87,7 @@
            :filter-template-profile-urls [],
            :filter-template-ids [],
            :filter-pattern-profile-urls [],
-           :filter-pattern-ids [],
-           :show-job false},
+           :filter-pattern-ids []},
           :errors nil}
          (select-keys
           (cli/parse-opts [] job-options)

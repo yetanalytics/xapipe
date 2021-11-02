@@ -7,17 +7,17 @@
             [cheshire.core :as json]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.client :as client]
-            [com.yetanalytics.xapipe.cli.options :refer [common-options
-                                                         source-options
-                                                         target-options
-                                                         start-options
-                                                         resume-options
-                                                         retry-options]]
+            [com.yetanalytics.xapipe.cli.options :as opts
+             :refer [common-options
+                     source-options
+                     target-options
+                     job-options]]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
+            [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
             [xapi-schema.spec.resources :as xsr])
   (:import [java.net URL])
   (:gen-class))
@@ -42,13 +42,17 @@
            redis-port]}]
   (case storage
     :noop (noop-store/new-store)
-    :redis (redis-store/new-store
-            ;; TODO: Pool?
-            {:pool {}
-             :spec
-             {:uri (format "redis://%s:%d"
-                           redis-host
-                           redis-port)}})))
+    :redis (if (and redis-host redis-port)
+             (redis-store/new-store
+              ;; TODO: Pool?
+              {:pool {}
+               :spec
+               {:uri (format "redis://%s:%d"
+                             redis-host
+                             redis-port)}})
+             (throw (ex-info "Redis Config Required!"
+                             {:type ::redis-config-required})))
+    :mem (mem-store/new-store)))
 
 (defn- parse-lrs-url
   [^String url]
@@ -59,8 +63,8 @@
                   (.getProtocol parsed)
                   (.getAuthority parsed))
        :xapi-prefix (.getPath parsed)})
-    (catch Exception _
-      nil)))
+    (catch Exception ex
+      (throw (ex-info (format "Could not parse LRS URL %s" url))))))
 
 (defn- force-stop-job!
   "Given a stop-fn and states channel, finish and stop the job.
@@ -189,51 +193,28 @@
                                   :pattern-ids (into []
                                                      filter-pattern-ids)})))
 
-;; Verbs
-
-;; Start
-(defn- start
-  "Start a job, overwriting any previously with that id"
-  [args]
-  (let [{[source-url
-          target-url
-          & rest-args] :arguments
-         opts-summary  :summary
-         :keys         [options
-                        errors]} (cli/parse-opts
-                                  args
-                                  (into common-options
-                                        start-options))
-        summary
-        (str "start <source-url> <target-url> & options:\n"
-             opts-summary)
-        source-req-config (parse-lrs-url source-url)
+(defn- create-job
+  "Create a new job from options or throw"
+  [{:keys [source-url
+           target-url]
+    :as options}]
+  (when (empty? source-url)
+    (throw (ex-info "--source-lrs-url cannot be empty!"
+                    {:type ::no-source-url})))
+  (when (empty? target-url)
+    (throw (ex-info "--target-lrs-url cannot be empty!"
+                    {:type ::no-target-url})))
+  (let [source-req-config (parse-lrs-url source-url)
         target-req-config (parse-lrs-url target-url)]
     (cond
-      ;; param errors
-      (not-empty errors) {:status 1
-                          :message (cs/join \, errors)}
-      ;; user requested help
-      (:help options) {:status 0
-                       :message summary}
-      ;; no source
-      (nil? source-req-config)
-      {:status 1
-       :message (str "source-url not present or invalid\n"
-                     summary)}
-      ;; no target
-      (nil? target-req-config)
-      {:status 1
-       :message (str "target-url not present or invalid\n"
-                     summary)}
       ;; invalid xapi params
       (not (s/valid? ::partial-get-params
                      (:get-params options)))
-      {:status 1
-       :message (str "invalid xAPI params:\n"
-                     (s/explain-str
-                      ::partial-get-params
-                      (:get-params options)))}
+      (throw (ex-info (str "invalid xAPI params:\n"
+                           (s/explain-str
+                            ::partial-get-params
+                            (:get-params options)))
+                      {:type :invalid-get-params}))
       ;; Minimum required to try a job!
       :else
       (let [config (options->config
@@ -241,110 +222,62 @@
                     source-req-config
                     target-req-config)
             job-id (or (:job-id options)
-                       (.toString (java.util.UUID/randomUUID)))
-            job (job/init-job job-id config)]
-        (if (true? (:show-job options))
-          {:status 0
-           :message (pr-str job)}
-          (let [store (create-store options)]
-            (handle-job store job (options->client-opts options))))))))
+                       (.toString (java.util.UUID/randomUUID)))]
+        (job/init-job job-id config)))))
 
-(defn- resume
-  "Resume a job by ID, clearing errors"
-  [args]
-  (let [{[job-id] :arguments
-         opts-summary  :summary
-         :keys         [options
-                        errors]} (cli/parse-opts
-                                  args
-                                  (into common-options
-                                        resume-options))
-        summary (str "resume <job-id> & options:\n"
-                     opts-summary)]
-    (cond
-      (:help options) {:status 0
-                       :message summary}
-      (or (nil? job-id)
-          (empty? job-id))
-      {:status 1
-       :message summary}
+(def usage
+"
+Run a new job:
+    --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
 
-      (= (:storage options) :noop)
-      {:status 1
-       :message (str "resume not possible without storage. Use -s redis\n"
-                     opts-summary)}
-      :else
-      (let [store (create-store options)]
-        (if-let [job (store/read-job store job-id)]
-          (if (:show-job options)
-            {:status 0
-             :message (pr-str job)}
-            (handle-job store
-                        job
-                        (options->client-opts options)))
-          {:status 1
-           :message (format "Job %s not found!" job-id)})))))
+Resume a paused job:
+    --job-id <id>
 
-(defn- retry
-  "Resume a job by ID, clearing errors"
-  [args]
-  (let [{[job-id] :arguments
-         opts-summary  :summary
-         :keys         [options
-                        errors]} (cli/parse-opts
-                                  args
-                                  (into common-options
-                                        retry-options))
-        summary (str "retry <job-id> & options:\n"
-                     opts-summary)]
-    (cond
-      (:help options) {:status 0
-                       :message summary}
-      (or (nil? job-id)
-          (empty? job-id))
-      {:status 1
-       :message summary}
-
-      (= (:storage options) :noop)
-      {:status 1
-       :message (str "retry not possible without storage. Use -s redis\n"
-                     opts-summary)}
-      :else
-      (let [store (create-store options)]
-        (if-let [job (store/read-job store job-id)]
-          (if (:show-job options)
-            {:status 0
-             :message (pr-str job)}
-            (handle-job store
-                        (-> job
-                            (update :state state/clear-errors)
-                            (update :state state/set-status :paused))
-                        (options->client-opts options)))
-          {:status 1
-           :message (format "Job %s not found!" job-id)})))))
-
-(def top-level-summary
-  "usage: (start|resume|retry) (verb args) (--help)")
-
-(def bad-verb-resp
-  {:status 1
-   :message top-level-summary})
+Force Resume a job with errors:
+    --job-id <id> -f
+")
 
 (defn main*
-  ([] bad-verb-resp)
-  ([verb & args]
-   (case verb
-     "start" (start args)
-     "resume" (resume args)
-     "retry" (retry args)
-     "--help" {:status 0
-               :message
-               (cs/join "\n" (map :message
-                                  [(start ["--help"])
-                                   (resume ["--help"])
-                                   (retry ["--help"])]))}
-     nil bad-verb-resp
-     bad-verb-resp)))
+  [& args]
+  (let [{{help? :help
+          ?job-id :job-id
+          show-job? :show-job
+          force-resume? :force-resume
+          :as options} :options
+         :keys [summary]} (opts/args->options args)
+        ]
+    (if help?
+      {:status 0
+       :message (str
+                 usage
+                 "All options:\n"
+                 summary)}
+      (let [store (create-store options)
+            [new? job] (if-some [extant (and ?job-id
+                                             (store/read-job store ?job-id))]
+                         [false extant]
+                         [true (create-job
+                                options)])]
+        (if new?
+          (log/infof "Created new job %s: %s" (:id job) (pr-str job))
+          (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
+        (if show-job?
+          {:exit 0
+           :message (pr-str job)}
+          (do
+            (log/infof
+             (if new?
+               "Starting job %s"
+               "Resuming job %s")
+             (:id job))
+            (handle-job store
+                        (cond-> job
+                          (and
+                           (not new?)
+                           force-resume?)
+                          (-> (update :state state/clear-errors)
+                              (update :state state/set-status :paused)))
+                        (options->client-opts options))))))))
 
 (defn -main [& args]
   (let [{:keys [status message]}

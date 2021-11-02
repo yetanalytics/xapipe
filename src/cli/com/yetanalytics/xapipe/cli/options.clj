@@ -1,36 +1,47 @@
 (ns com.yetanalytics.xapipe.cli.options
   "clojure.tools.cli options for xapipe CLI"
-  (:require [clojure.string :as cs]))
+  (:require [clojure.string :as cs]
+            [clojure.tools.cli :as cli]))
 
-(def common-options
-  [["-h" "--help" "Show the help and options summary"
-    :default false]
-   ["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis"
+(def storage-options
+  [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis"
     :default :noop
     :parse-fn keyword
     :validate [#{:noop
-                 :redis} "Must be: noop | redis"]]
+                 :redis
+                 :mem} "Must be: noop | redis | mem"]]
    ;; Redis Backend Options
    ;; TODO: auth, or just let them pass the redis url
    [nil "--redis-host HOST" "Redis Host"
     :default "0.0.0.0"]
    [nil "--redis-port PORT" "Redis Port"
     :default 6379
-    :parse-fn #(Long/parseLong %)]
-   ;; Connection Manager Options
-   [nil "--conn-timeout TIMEOUT" "Connection Manager Connection Timeout"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
-   [nil "--conn-threads THREADS" "Connection Manager Max Threads"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
-   [nil "--conn-default-per-route CONNS" "Connection Manager Simultaneous Connections Per Host"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
-   [nil "--conn-insecure?" "Allow Insecure HTTPS Connections"]
-   [nil "--conn-io-thread-count THREADS" "Connection Manager I/O Thread Pool Size, default is number of processors"
-    :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]])
+    :parse-fn #(Long/parseLong %)]])
+
+(def common-options
+  (into
+   [["-h" "--help" "Show the help and options summary"
+     :default false]
+    [nil "--job-id ID" "Job ID"]
+    ;; Connection Manager Options
+    [nil "--conn-timeout TIMEOUT" "Connection Manager Connection Timeout"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]]
+    [nil "--conn-threads THREADS" "Connection Manager Max Threads"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]]
+    [nil "--conn-default-per-route CONNS" "Connection Manager Simultaneous Connections Per Host"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]]
+    [nil "--conn-insecure?" "Allow Insecure HTTPS Connections"]
+    [nil "--conn-io-thread-count THREADS" "Connection Manager I/O Thread Pool Size, default is number of processors"
+     :parse-fn #(Long/parseLong %)
+     :validate [pos-int? "Must be a positive integer"]]
+    [nil "--show-job" "Show the job and exit"
+     :default false]
+    ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
+     :default false]]
+   storage-options))
 
 (defn backoff-opts
   [tag]
@@ -72,7 +83,9 @@
 
 (def source-options
   (into
-   [[nil "--source-batch-size SIZE" "Source LRS GET limit param"
+   [[nil "--source-url URL" "Source LRS xAPI Endpoint"
+     :validate [not-empty "Source LRS URL Required"]]
+    [nil "--source-batch-size SIZE" "Source LRS GET limit param"
      :parse-fn #(Long/parseLong %)
      :validate [pos-int? "Must be a positive integer"]
      :default 50]
@@ -102,21 +115,15 @@
    (backoff-opts "source")))
 
 (def target-options
-  (into [[nil "--target-batch-size SIZE" "Target LRS POST desired batch size"
+  (into [[nil "--target-url URL" "Target LRS xAPI Endpoint"
+          :validate [not-empty "Target LRS URL Required"]]
+         [nil "--target-batch-size SIZE" "Target LRS POST desired batch size"
           :parse-fn #(Long/parseLong %)
           :validate [pos-int? "Must be a positive integer"]
           :default 50]
          [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
          [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
         (backoff-opts "target")))
-
-
-(def job-id-option
-  [nil "--job-id ID" "Job ID"])
-
-(def show-job-option
-  [nil "--show-job" "Show the job and exit"
-   :default false])
 
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
@@ -148,25 +155,25 @@
     :multi true
     :default []
     :update-fn conj]
-   ;; No defaults, are set if not present
-   job-id-option
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
    [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
-   show-job-option])
+    :validate [pos-int? "Must be a positive integer"]]])
 
-(def start-options
-  (into []
-        (concat
-         job-options
-         source-options
-         target-options)))
-
-(def resume-options
-  [show-job-option])
-
-(def retry-options
-  [show-job-option])
+(defn args->options
+  [args]
+  (let [{:keys [errors]
+         :as ret} (cli/parse-opts args
+                                  (concat
+                                   common-options
+                                   source-options
+                                   target-options
+                                   job-options))]
+    (if (not-empty errors)
+      (throw (ex-info (format "Options Error: %s"
+                              (cs/join \, errors))
+                      {:type ::options-error
+                       :ret ret}))
+      ret)))
