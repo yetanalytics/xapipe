@@ -17,13 +17,16 @@
         a-template-ids (-> a-profile get-profile :templates (->> (mapv :id)))
         a-statements (into []
                            (support/gen-statements
-                            50 :profiles [a-profile]))
+                            50
+                            :profiles [a-profile]
+                            :parameters {:seed 42}))
 
         b-profile "dev-resources/profiles/calibration_b.jsonld"
         b-template-ids (-> b-profile get-profile :templates (->> (mapv :id)))
         b-statements (into []
                            (support/gen-statements
-                            50 :profiles [b-profile]))
+                            50 :profiles [b-profile]
+                            :parameters {:seed 24}))
         all-statements (interleave a-statements b-statements)]
     (testing "Profile template filter filters by profile + template IDs"
       (are [profile-urls template-ids statements]
