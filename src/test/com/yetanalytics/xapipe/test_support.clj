@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.test-support
   (:require [clojure.java.io :as io]
             [clojure.spec.test.alpha :as st]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
             [com.yetanalytics.lrs :as lrs]
@@ -107,8 +108,12 @@
                    http/create-server)]
     {:lrs            lrs
      :port           port
-     :start          #(http/start server)
-     :stop           #(http/stop server)
+     :start          #(do
+                        (log/debugf "Starting LRS on port %d" port)
+                        (http/start server))
+     :stop           #(do
+                        (log/debugf "Stopping LRS on port %d" port)
+                        (http/stop server))
      :dump           #(mem/dump lrs)
      :load           (fn [statements & [attachments]]
                        (lrs/store-statements
@@ -118,6 +123,23 @@
                         (into [] attachments)))
      :request-config {:url-base    (format "http://0.0.0.0:%d" port)
                       :xapi-prefix "/xapi"}}))
+
+(defmacro with-running
+  "bindings => [name lrs ...]
+
+  Evaluates body in a try expression with names bound to the values
+  of the lrss, starts them, and finally stops them each in reverse order."
+  [bindings & body]
+  (cond
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                ((:start ~(bindings 0)))
+                                (with-running ~(subvec bindings 2) ~@body)
+                                (finally
+                                  ((:stop ~(bindings 0))))))
+    :else (throw (IllegalArgumentException.
+                  "with-open only allows Symbols in bindings"))))
 
 (def ^:dynamic *source-lrs* nil)
 (def ^:dynamic *target-lrs* nil)
