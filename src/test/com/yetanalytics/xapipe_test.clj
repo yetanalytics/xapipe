@@ -171,7 +171,8 @@
                     :target
                     {:request-config (:request-config target)
                      :batch-size 50}}
-            {:keys [states]} (init-run-job config)
+            {:keys [states
+                    stop-fn]} (init-run-job config)
             ;; take the first two to get it running
             head-states (a/<!! (a/into [] (a/take 2 states)))
             ;; Wait long enough for one GET + Post
@@ -182,11 +183,11 @@
                       head-states))))
         (testing "one batch gets through"
           (is (= 50 (sup/lrs-count target))))
-
+        (stop-fn)
         ;; Drain remaining states
         (a/<!! (a/into [] states))
-        (testing "then the rest"
-          (is (= 452 (sup/lrs-count target))))))))
+        (testing "Nothing else gets through"
+          (is (= 50 (sup/lrs-count target))))))))
 
 (deftest store-states-test
   (sup/with-running [source (sup/lrs

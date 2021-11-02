@@ -54,7 +54,7 @@
         :else
         (do
           (log/debug "POST loop run")
-          (let [[v p] (a/alts! [stop-chan batch-chan])]
+          (let [[v p] (a/alts! [stop-chan batch-chan] :priority true)]
             (if (= p stop-chan)
               (let [_ (log/debug "stop called...")
                     {:keys [status
