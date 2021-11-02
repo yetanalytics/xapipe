@@ -127,6 +127,37 @@
                 :errors
                 not-empty))))))
 
+(deftest run-job-stop-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (testing "xapipe can be stopped by the caller"
+      (let [[since until] (sup/lrs-stored-range source)
+            config {:source
+                    {:request-config (:request-config source)
+                     :get-params     {:since since
+                                      :until until}
+                     :poll-interval  1000
+                     :batch-size     50}
+                    :target
+                    {:request-config (:request-config target)
+                     :batch-size     50}}
+            {:keys [job-id
+                    job
+                    stop-fn
+                    states]} (init-run-job config)
+            ;; Immediately call the stop-fn!
+            _ (stop-fn)
+            all-states (a/<!! (a/into [] states))]
+        (testing "Initializes, runs once and pauses"
+          (is (= [:init :running :paused]
+                 (mapv #(get-in % [:state :status]) all-states))))
+        (testing "Nothing gets through"
+          (is (= 0 (sup/lrs-count target))))
+        (testing "Cursor is not moved"
+          (is (= (repeat 3 since)
+                 (map #(get-in % [:state :cursor]) all-states))))))))
+
 (deftest store-states-test
   (sup/with-running [source (sup/lrs
                              :seed-path "dev-resources/lrs/after_conf.edn")
