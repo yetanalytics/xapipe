@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.job.config
   (:require [clojure.spec.alpha :as s]
             [com.yetanalytics.xapipe.client :as client]
+            [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.util :as u]))
 
 (s/def ::batch-size pos-int?) ;; limit param for get, batch size for post
@@ -27,9 +28,6 @@
 ;; default: source batch-size * get-buffer-size
 (s/def ::statement-buffer-size pos-int?)
 
-;; Desired thread conc of response processing
-(s/def ::get-proc-conc pos-int?)
-
 ;; how many batches of (target batch size) to buffer
 ;; default: statement-buffer-size / target batch-size
 (s/def ::batch-buffer-size pos-int?)
@@ -37,11 +35,14 @@
 ;; How long will we wait for a batch to fill?
 (s/def ::batch-timeout pos-int?)
 
+;; Filter config
+(s/def ::filter filt/filter-config-spec)
+
 (def config-spec
   (s/keys :req-un [::source
                    ::target]
           :opt-un [::get-buffer-size
                    ::statement-buffer-size
-                   ::get-proc-conc
                    ::batch-buffer-size
-                   ::batch-timeout]))
+                   ::batch-timeout
+                   ::filter]))

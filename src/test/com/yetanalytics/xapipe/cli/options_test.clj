@@ -77,10 +77,14 @@
           [:options :errors]))))
 
 (deftest job-options-test
-  (is (= {:options {:get-buffer-size 10,
-                    :get-proc-conc 1,
-                    :batch-timeout 200,
-                    :show-job false}
+  (is (= {:options
+          {:get-buffer-size 10,
+           :batch-timeout 200,
+           :filter-template-profile-urls [],
+           :filter-template-ids [],
+           :filter-pattern-profile-urls [],
+           :filter-pattern-ids [],
+           :show-job false},
           :errors nil}
          (select-keys
           (cli/parse-opts [] job-options)

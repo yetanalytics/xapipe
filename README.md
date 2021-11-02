@@ -35,8 +35,11 @@ start <source-url> <target-url> & options:
       --conn-insecure?                           Allow Insecure HTTPS Connections
       --conn-io-thread-count THREADS             Connection Manager I/O Thread Pool Size, default is number of processors
       --get-buffer-size SIZE            10       Size of GET response buffer
-      --get-proc-conc SIZE              1        Concurrency of get req processing
       --batch-timeout TIMEOUT           200      Msecs to wait for a fully formed batch
+      --template-profile-url URL        []       Profile URL/location from which to apply statement template filters
+      --template-id IRI                 []       Statement template IRIs to filter on
+      --pattern-profile-url URL         []       Profile URL/location from which to apply statement pattern filters
+      --pattern-id IRI                  []       Pattern IRIs to filter on
       --job-id ID                                Job ID
       --statement-buffer-size SIZE               Desired size of statement buffer
       --batch-buffer-size SIZE                   Desired size of statement batch buffer

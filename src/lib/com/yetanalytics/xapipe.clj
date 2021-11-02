@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
+            [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
@@ -43,11 +44,17 @@
     (loop [state init-state]
       ;; Emit States
       (a/>! states-chan (assoc job :state state))
-      (if (state/errors? state)
+      (cond
+        (state/errors? state)
         (log/error "POST loop stopping with errors")
+
+        (not= :running (:status state))
+        (log/error "Stopping")
+
+        :else
         (do
           (log/debug "POST loop run")
-          (let [[v p] (a/alts! [stop-chan batch-chan])]
+          (let [[v p] (a/alts! [stop-chan batch-chan] :priority true)]
             (if (= p stop-chan)
               (let [_ (log/debug "stop called...")
                     {:keys [status
@@ -55,16 +62,12 @@
                 ;; A stop is called!
                 (case status
                   :paused
-                  (do
-                    (log/info "Pausing.")
-                    (a/>! states-chan (assoc job :state
-                                             (state/set-status state :paused))))
+                  (recur (state/set-status state :paused))
                   :error
-                  (do
-                    (log/errorf "Stopping with error: %s" (:message error))
-                    (a/>! states-chan (assoc job :state
-                                             (state/add-error state error))))))
-              (if-some [batch v]
+                  (recur (state/add-error state error))))
+              (if-some [{:keys [batch
+                                filter-state]
+                         :or {filter-state {}}} v]
                 (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
                       cursor (-> statements last (get "stored"))
@@ -92,7 +95,9 @@
                       :response
                       (do
                         (mm/clean-tempfiles! attachments)
-                        (recur (state/update-cursor state cursor)))
+                        (recur (-> state
+                                   (state/update-cursor cursor)
+                                   (state/update-filter filter-state))))
                       ;; If the post fails, Send the error to the stop channel
                       ;; emit and stop.
                       :exception
@@ -101,25 +106,14 @@
                                     (some-> x
                                             ex-data
                                             :body))
-                        ;; Recreate and log req body to file
-                        #_(-> (client/post-request
-                               post-req-config
-                               statements
-                               attachments)
-                              :body
-                              (io/copy (io/file (format "failures/%s_%s_%s.request"
-                                                        id
-                                                        (-> statements first (get "stored"))
-                                                        (-> statements last (get "stored"))))))
+
                         (mm/clean-tempfiles! attachments)
                         (let [error {:message (ex-message x)
                                      :type    :target}]
                           (a/>! stop-chan {:status :error
                                            :error error})
-                          (a/>! states-chan
-                                (assoc job :state
-                                       (state/add-error state error)))
-                          (log/error "Stopping on POST error"))))))
+                          (log/error "Stopping on POST error")
+                          (recur (state/add-error state error)))))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
@@ -130,8 +124,7 @@
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
-                    (a/>! states-chan (assoc job :state
-                                             (state/set-status state :complete)))))))))))
+                    (recur (state/set-status state :complete))))))))))
     ;; Post-loop, kill the HTTP client and close the states chan
     (client/shutdown conn-mgr)
     (.close ^CloseableHttpClient http-client)
@@ -161,6 +154,7 @@
   [{:keys [id]
     {status-before :status
      cursor-before :cursor
+     filter-before :filter
      :as           state-before}      :state
     {{:keys [poll-interval]
       {?query-since :since
@@ -172,9 +166,9 @@
       post-req-config     :request-config
       target-backoff-opts :backoff-opts
       :as                 target-config} :target
+     filter-config :filter
      :keys [get-buffer-size
             statement-buffer-size
-            get-proc-conc
             batch-buffer-size
             batch-timeout]} :config
     :as                     job-before}
@@ -231,34 +225,53 @@
                     {:conn-mgr conn-mgr
                      :http-client source-client})
           ;; A channel that holds statements + attachments
-          statement-chan (a/chan statement-buffer-size)
+          statement-chan
+          (a/chan statement-buffer-size)
 
           ;; Pipeline responses to statement chan, short circuiting errs
           _ (a/pipeline-blocking
-             get-proc-conc
+             1
              statement-chan
              (comp
+              ;; handle error resps
               (map (fn [[tag x]]
                      (case tag
                        :response x
-                       :exception (throw x))))
+                       :exception
+                       (throw (ex-info
+                               (format "Source Error: %s"
+                                       (ex-message x))
+                               {:type ::source}
+                               x)))))
+              ;; coerce resp to statements
               (mapcat xapi/response->statements))
              get-chan
              true
              (fn [ex]
-               (a/put! stop-chan {:status :error
-                                  :error {:message (ex-message ex)
-                                          :type :source}})
+               (a/put! stop-chan
+                       {:status :error
+                        :error {:message (ex-message ex)
+                                :type (case (some-> ex ex-data :type)
+                                        ::source :source
+                                        :job)}})
                nil))
           ;; A channel that will get batches
           ;; NOTE: Apply other filtering here
-          batch-chan (let [c (a/chan batch-buffer-size)]
-                       (ua/batch
-                        statement-chan
-                        c
-                        target-batch-size
-                        batch-timeout)
-                       c)
+          batch-chan
+          (ua/batch-filter
+           statement-chan
+           (a/chan batch-buffer-size)
+           target-batch-size
+           batch-timeout
+           :stateless-predicates
+           (filt/stateless-predicates filter-config)
+           :stateful-predicates
+           (filt/stateful-predicates filter-config)
+           :init-states filter-before
+           :cleanup-fn
+           (fn [{:keys [attachments]}]
+             (when (not-empty attachments)
+               (a/thread (mm/clean-tempfiles! attachments)))))
           ;; Send the init state
           _ (a/put! states-chan job-before)
           ;; Then set it as running for post

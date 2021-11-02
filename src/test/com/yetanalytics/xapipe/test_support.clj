@@ -1,5 +1,11 @@
 (ns com.yetanalytics.xapipe.test-support
   (:require [clojure.java.io :as io]
+            [clojure.spec.test.alpha :as st]
+            [clojure.template :as temp]
+            [clojure.tools.logging :as log]
+            [com.yetanalytics.datasim.input :as dsinput]
+            [com.yetanalytics.datasim.sim :as dsim]
+            [com.yetanalytics.lrs :as lrs]
             [com.yetanalytics.lrs.impl.memory :as mem :refer [new-lrs]]
             [com.yetanalytics.lrs.pedestal.routes :refer [build]]
             [com.yetanalytics.lrs.pedestal.interceptor :as i]
@@ -73,9 +79,13 @@
   :start - A function of no args that will start the LRS
   :stop - A function of no args that will stop the LRS
   :dump - A function of no args that will dump memory LRS state
+  :load - A function of two args, statements and attachments to load data
   :request-config - A request config ala xapipe.client"
-  [port & [seed-path]]
-  (let [lrs (new-lrs
+  [& {:keys [seed-path
+             port]}]
+  (let [port (or port
+                 (get-free-port))
+        lrs (new-lrs
              (cond->
                  {:mode :sync}
                (not-empty seed-path) (assoc :init-state (fixture-state seed-path))))
@@ -99,11 +109,38 @@
                    http/create-server)]
     {:lrs            lrs
      :port           port
-     :start          #(http/start server)
-     :stop           #(http/stop server)
+     :start          #(do
+                        (log/debugf "Starting LRS on port %d" port)
+                        (http/start server))
+     :stop           #(do
+                        (log/debugf "Stopping LRS on port %d" port)
+                        (http/stop server))
      :dump           #(mem/dump lrs)
+     :load           (fn [statements & [attachments]]
+                       (lrs/store-statements
+                        lrs
+                        {}
+                        (into [] statements)
+                        (into [] attachments)))
      :request-config {:url-base    (format "http://0.0.0.0:%d" port)
                       :xapi-prefix "/xapi"}}))
+
+(defmacro with-running
+  "bindings => [name lrs ...]
+
+  Evaluates body in a try expression with names bound to the values
+  of the lrss, starts them, and finally stops them each in reverse order."
+  [bindings & body]
+  (cond
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                ((:start ~(bindings 0)))
+                                (with-running ~(subvec bindings 2) ~@body)
+                                (finally
+                                  ((:stop ~(bindings 0))))))
+    :else (throw (IllegalArgumentException.
+                  "with-open only allows Symbols in bindings"))))
 
 (def ^:dynamic *source-lrs* nil)
 (def ^:dynamic *target-lrs* nil)
@@ -112,16 +149,16 @@
   "Populate *source-lrs* and *target-lrs* with started LRSs on two free ports.
   LRSs are empty by default unless seed-path is provided"
   ([f]
-   (source-target-fixture nil f))
-  ([seed-path f]
+   (source-target-fixture {} f))
+  ([{:keys [seed-path]} f]
    (let [{start-source :start
           stop-source :stop
           :as source} (if seed-path
-                        (lrs (get-free-port) seed-path)
-                        (lrs (get-free-port)))
+                        (lrs :seed-path seed-path)
+                        (lrs))
          {start-target :start
           stop-target :stop
-          :as target} (lrs (get-free-port))]
+          :as target} (lrs)]
      (try
        ;; Start Em Up!
        (start-source)
@@ -147,6 +184,14 @@
       :state/statements
       keys))
 
+(defn lrs-statements
+  "Get all ids in an LRS"
+  [{:keys [dump]}]
+  (-> (dump)
+      :state/statements
+      vals
+      reverse))
+
 (defn lrs-stored-range
   [{:keys [dump]}]
   (if-let [ss (-> (dump)
@@ -156,3 +201,69 @@
     [(-> ss last (get "stored"))
      (-> ss first (get "stored"))]
     []))
+
+(defn gen-statements
+  "Generate n statements with default profile and settings, or use provided"
+  [n & {:keys [profiles
+               personae
+               alignments
+               parameters]}]
+  (take n
+        (dsim/sim-seq
+         (dsinput/map->Input
+          (assoc
+           (dsinput/realize-subobjects
+            {:personae
+             (or personae
+                 [{:name "Test Subjects",
+                   :objectType "Group",
+                   :member
+                   [{:name "alice",
+                     :mbox "mailto:alice@example.org",
+                     :objectType "Agent"}
+                    {:name "bob",
+                     :mbox "mailto:bob@example.org",
+                     :objectType "Agent"}]}])
+             :parameters (or parameters
+                             {:from "2021-10-28T20:07:36.035431Z"
+                              :seed 42})
+             :alignments (or alignments [])})
+           :profiles
+           (into []
+                 (map
+                  (fn [loc]
+                    (dsinput/from-location
+                     :profile :json loc))
+                  (or profiles
+                      ["dev-resources/profiles/calibration.jsonld"]))))))))
+
+(defn instrument-fixture
+  [sym-or-syms]
+  (fn [f]
+    (st/instrument sym-or-syms)
+    (try
+      (f)
+      (finally
+        (st/unstrument sym-or-syms)))))
+
+(defmacro art
+  "Like clojure.test/are, but without the is.
+
+  Example: (art [x y]
+                (is (= x y))
+                2 (+ 1 1)
+                4 (* 2 2))
+  Expands to:
+           (do (is (= 2 (+ 1 1)))
+               (is (= 4 (* 2 2))))"
+  {:added "1.1"}
+  [argv expr & args]
+  (if (or
+       ;; (are [] true) is meaningless but ok
+       (and (empty? argv) (empty? args))
+       ;; Catch wrong number of args
+       (and (pos? (count argv))
+            (pos? (count args))
+            (zero? (mod (count args) (count argv)))))
+    `(temp/do-template ~argv ~expr ~@args)
+    (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))))

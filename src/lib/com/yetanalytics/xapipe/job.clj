@@ -31,10 +31,12 @@
    {{{?since :since}  :get-params
      get-batch-size   :batch-size
      get-backoff-opts :backoff-opts
+     poll-interval    :poll-interval
      :as              source-config
      :or              {get-batch-size   50
                        get-backoff-opts {:budget      10000
-                                         :max-attempt 10}}}
+                                         :max-attempt 10}
+                       poll-interval    1000}}
     :source
     {post-batch-size   :batch-size
      post-backoff-opts :backoff-opts
@@ -42,15 +44,14 @@
      :or               {post-backoff-opts {:budget      10000
                                            :max-attempt 10}}}
     :target
+    filter-config :filter
     :keys
     [get-buffer-size
      statement-buffer-size
-     get-proc-conc
      batch-buffer-size
      batch-timeout]
     :or
     {get-buffer-size 10
-     get-proc-conc   1
      batch-timeout   200}}]
   (let [post-batch-size
         (or post-batch-size
@@ -69,23 +70,28 @@
      :config
      {:get-buffer-size       get-buffer-size
       :statement-buffer-size statement-buffer-size
-      :get-proc-conc         get-proc-conc
       :batch-buffer-size     batch-buffer-size
       :batch-timeout         batch-timeout
       :source
       (-> source-config
           (assoc :batch-size get-batch-size
-                 :backoff-opts get-backoff-opts)
+                 :backoff-opts get-backoff-opts
+                 :poll-interval poll-interval)
           (assoc-in [:get-params :limit] get-batch-size))
       :target
       (assoc target-config
-             :batch-size post-batch-size)}
+             :batch-size post-batch-size)
+      :filter
+      (or filter-config {})}
      :state
      {:status :init
       :cursor (or ?since "1970-01-01T00:00:00Z")
       :source {:errors []}
       :target {:errors []}
-      :errors []}}))
+      :errors []
+      :filter (if (:pattern filter-config)
+                {:pattern {}}
+                {})}}))
 
 ;; Job-level state
 

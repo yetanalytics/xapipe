@@ -1,8 +1,8 @@
 (ns com.yetanalytics.xapipe.job.state
   (:require [clojure.spec.alpha :as s]
+            [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
             [com.yetanalytics.xapipe.util.time :as t]
-            [xapi-schema.spec :as xs]
             [xapi-schema.spec :as xs]))
 
 ;; Error vectors are stored at 3 levels for the source,
@@ -31,12 +31,16 @@
     :paused ;; manual stop/pause
     })
 
+(s/def ::filter
+  filt/filter-state-spec)
+
 (def state-spec
   (s/keys :req-un [::source
                    ::target
                    ::errors
                    ::cursor
-                   ::status]))
+                   ::status
+                   ::filter]))
 
 (s/fdef errors?
   :args (s/cat :state state-spec)
@@ -188,3 +192,17 @@
                 :message "Cannot start or pause job with errors."})
 
     :else (assoc state :status new-status)))
+
+(s/fdef update-filter
+  :args (s/cat :state state-spec
+               :filter-state ::filter)
+  :ret state-spec)
+
+(defn update-filter
+  "Update filter state"
+  [{:keys [status] :as state} filter-state]
+  (if (= :error status)
+    (add-error state
+               {:type :job
+                :message "Cannot update filter on job with errors"})
+    (assoc state :filter filter-state)))

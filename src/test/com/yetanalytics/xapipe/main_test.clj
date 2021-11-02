@@ -4,7 +4,7 @@
             [com.yetanalytics.xapipe.test-support :as support]))
 
 (use-fixtures :each (partial support/source-target-fixture
-                             "dev-resources/lrs/after_conf.edn"))
+                             {:seed-path "dev-resources/lrs/after_conf.edn"}))
 
 (deftest start-test
   (testing "start initializes and runs a job"
