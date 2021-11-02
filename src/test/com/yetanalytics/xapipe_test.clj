@@ -136,12 +136,9 @@
             config {:source
                     {:request-config (:request-config source)
                      :get-params     {:since since
-                                      :until until}
-                     :poll-interval  1000
-                     :batch-size     50}
+                                      :until until}}
                     :target
-                    {:request-config (:request-config target)
-                     :batch-size     50}}
+                    {:request-config (:request-config target)}}
             {:keys [job-id
                     job
                     stop-fn
@@ -149,14 +146,50 @@
             ;; Immediately call the stop-fn!
             _ (stop-fn)
             all-states (a/<!! (a/into [] states))]
-        (testing "Initializes, runs once and pauses"
+        (testing "initializes, runs once but pauses"
           (is (= [:init :running :paused]
                  (mapv #(get-in % [:state :status]) all-states))))
-        (testing "Nothing gets through"
+        (testing "nothing gets through"
           (is (= 0 (sup/lrs-count target))))
-        (testing "Cursor is not moved"
+        (testing "cursor is not moved"
           (is (= (repeat 3 since)
                  (map #(get-in % [:state :cursor]) all-states))))))))
+
+(deftest run-job-backpressure-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (testing "xapipe only continues when states are taken"
+      (let [[since until] (sup/lrs-stored-range source)
+            config {:source
+                    {:request-config (:request-config source)
+                     :get-params     {:since since
+                                      :until until}
+                     :batch-size 50}
+                    :target
+                    {:request-config (:request-config target)
+                     :batch-size 50}}
+            {:keys [job-id
+                    job
+                    stop-fn
+                    states]} (init-run-job config)
+            ;; take the first two states
+            head-states (a/<!! (a/into [] (a/take 2 states)))
+            ;; Wait for a bit so a get and post can happen
+            _ (Thread/sleep 1000)
+            ;; Then call the stop-fn. This should allow one batch
+            _ (stop-fn)
+            tail-states (a/<!! (a/into [] states))]
+        (testing "head states"
+          (is (= [:init :running]
+                 (map #(get-in % [:state :status])
+                      head-states))))
+        (testing "tail states"
+          (is (= [:running :paused]
+                 (map #(get-in % [:state :status])
+                      tail-states))))
+        (testing "one batch gets through"
+          (is (= 50 (sup/lrs-count target))))))))
 
 (deftest store-states-test
   (sup/with-running [source (sup/lrs
