@@ -10,6 +10,22 @@
             [com.yetanalytics.xapipe.util.time :as t])
   (:import [java.time Instant]))
 
+(defn- init-run-job
+  "Given a config, set up and start the job"
+  [config]
+  (let [;; Generate an ID
+        job-id (.toString (java.util.UUID/randomUUID))
+        ;; Initialize
+        job (job/init-job
+             job-id
+             config)
+        ;; Run the transfer
+        {:keys [stop-fn states]} (run-job job)]
+    {:job-id job-id
+     :job job
+     :states states
+     :stop-fn stop-fn}))
+
 (deftest run-job-test
   (sup/with-running [source (sup/lrs
                              :seed-path "dev-resources/lrs/after_conf.edn")
@@ -27,14 +43,11 @@
                     :target
                     {:request-config (:request-config target)
                      :batch-size     50}}
-            ;; Generate an ID
-            job-id (.toString (java.util.UUID/randomUUID))
-            ;; Initialize
-            job (job/init-job
-                 job-id
-                 config)
             ;; Run the transfer
-            {:keys [stop-fn states]} (run-job job)
+            {:keys [job-id
+                    job
+                    stop-fn
+                    states]} (init-run-job config)
             ;; Get all the states
             all-states (a/<!! (a/go-loop [acc []]
                                 (if-let [state (a/<! states)]
@@ -72,11 +85,10 @@
                     :target
                     {:request-config (:request-config target)
                      :batch-size     50}}
-            job-id (.toString (java.util.UUID/randomUUID))
-            job (job/init-job
-                 job-id
-                 config)
-            {:keys [states]} (run-job job)
+            {:keys [job-id
+                    job
+                    stop-fn
+                    states]} (init-run-job config)
             all-states (a/<!! (a/go-loop [acc []]
                                 (if-let [state (a/<! states)]
                                   (do
@@ -108,11 +120,10 @@
                     {:request-config {:url-base    "http://localhost:8123"
                                       :xapi-prefix "/foo"}
                      :batch-size     50}}
-            job-id (.toString (java.util.UUID/randomUUID))
-            job (job/init-job
-                 job-id
-                 config)
-            {:keys [states]} (run-job job)
+            {:keys [job-id
+                    job
+                    stop-fn
+                    states]} (init-run-job config)
             all-states (a/<!! (a/go-loop [acc []]
                                 (if-let [state (a/<! states)]
                                   (do
@@ -145,11 +156,9 @@
                     :target
                     {:request-config (:request-config target)
                      :batch-size     50}}
-            job-id (.toString (java.util.UUID/randomUUID))
-            job (job/init-job
-                 job-id
-                 config)
-            {:keys [states]} (run-job job)]
+            {:keys [job-id
+                    job
+                    states]} (init-run-job config)]
         (testing "result of store-states is the last state"
           (is (= (assoc job
                         :state {:status :complete
@@ -178,20 +187,18 @@
                  (Thread/sleep 1)
                  ((:load source) s-batch))
                (let [[since until] (sup/lrs-stored-range source)
-                     ;; Generate an ID
-                     job-id (.toString (java.util.UUID/randomUUID))
-                     ;; Initialize
-                     job (job/init-job
-                          job-id
-                          (-> config
-                              (assoc-in [:source :get-params] {:since since
-                                                               :until until})
-                              (assoc-in [:source :request-config]
-                                        (:request-config source))
-                              (assoc-in [:target :request-config]
-                                        (:request-config target))))
-                     ;; Run the transfer
-                     {:keys [stop-fn states]} (run-job job)
+                     {:keys [job-id
+                             job
+                             stop-fn
+                             states]}
+                     (init-run-job
+                      (-> config
+                          (assoc-in [:source :get-params] {:since since
+                                                           :until until})
+                          (assoc-in [:source :request-config]
+                                    (:request-config source))
+                          (assoc-in [:target :request-config]
+                                    (:request-config target))))
                      ;; Get all the states
                      all-states (a/<!! (a/into [] states))]
                  (is (-> all-states last :state :status (= :complete)))
