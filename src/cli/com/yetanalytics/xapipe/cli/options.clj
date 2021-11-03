@@ -12,7 +12,8 @@
     :parse-fn keyword
     :validate [#{:noop
                  :redis
-                 :mem} "Must be: noop | redis | mem"]]
+                 :mem
+                 :file} "Must be: noop | redis | mem | file"]]
    ;; Redis Backend Options
    ;; TODO: auth, or just let them pass the redis url
    [nil "--redis-host HOST" "Redis Host"
@@ -21,7 +22,9 @@
     :default 6379
     :parse-fn #(Long/parseLong %)]
    [nil "--redis-prefix" "Redis key prefix"
-    :default "xapipe"]])
+    :default "xapipe"]
+   [nil "--file-store-dir PATH" "Directory path for filesystem storage"
+    :default "store"]])
 
 (defn- keywordize-status
   [job]

@@ -20,7 +20,8 @@
      :storage :noop,
      :redis-host "0.0.0.0",
      :redis-port 6379,
-     :redis-prefix "xapipe"}
+     :redis-prefix "xapipe"
+     :file-store-dir "store"}
     nil
 
     ;; Redis store with a custom port
@@ -32,7 +33,8 @@
      :storage :redis,
      :redis-host "0.0.0.0",
      :redis-port 1234,
-     :redis-prefix "xapipe"}
+     :redis-prefix "xapipe"
+     :file-store-dir "store"}
     nil))
 
 (deftest source-options-test
