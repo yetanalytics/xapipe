@@ -74,7 +74,8 @@
     (a/<!! (a/into [] states))))
 
 (defn handle-job
-  "Actually execute a job, wrapping result"
+  "Actually execute a job, wrapping result
+  Redef this when testing for cooler output"
   [store job client-opts]
   (try
     (let [{:keys [states]
@@ -276,7 +277,8 @@
      [:config :source :poll-interval]
      source-poll-interval)
 
-    (and get-params
+    ;; With no args, get-params is an empty map, so ignore
+    (and (not-empty get-params)
          (not= get-params
                (get-in job [:config :source :get-params])))
     (assoc-in
