@@ -9,7 +9,9 @@
   (write-job [_store _job-id]
     true)
   (list-jobs [_]
-    []))
+    [])
+  (delete-job [_ _]
+    false))
 
 (defn new-store
   "Make a new noop store"

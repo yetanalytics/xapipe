@@ -52,7 +52,11 @@
           (log/errorf stat "Redis Exception")
           false))))
   (list-jobs [store]
-    (scan-seq conn prefix)))
+    (scan-seq conn prefix))
+  (delete-job [_ job-id]
+    (= 1
+       (car/wcar conn
+                 (car/del (format "%s:%s" prefix job-id))))))
 
 (defn new-store
   "Make a new redis store"

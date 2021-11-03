@@ -16,6 +16,10 @@
         (= job)))
   (list-jobs [store]
     (vals @state-atom))
+  (delete-job [store job-id]
+    (let [before @state-atom]
+      (swap! state-atom dissoc job-id)
+      (some? (get before job-id))))
   DumpableMemoryStore
   (dump [_]
     @state-atom))

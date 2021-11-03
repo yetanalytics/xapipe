@@ -26,6 +26,7 @@ Force Resume a job with errors:
           ?job-id :job-id
           show-job? :show-job
           list-jobs? :list-jobs
+          ?delete-job-id :delete-job
           force-resume? :force-resume
           ?json :json
           ?json-file :json-file
@@ -39,10 +40,20 @@ Force Resume a job with errors:
                  "All options:\n"
                  summary)}
       (let [store (cli/create-store options)]
-        (if list-jobs?
+        (cond
+          ?delete-job-id
+          (if (true? (store/delete-job store ?delete-job-id))
+            {:status 0
+             :message "Job Deleted"}
+            {:status 1
+             :message "Job Not Deleted"})
+
+          list-jobs?
           (do
             (cli/list-store-jobs store)
             {:status 0})
+
+          :else
           (let [[new? job'] (or
                              (and ?json [true ?json])
                              (and ?json-file [true ?json-file])
