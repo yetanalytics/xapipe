@@ -1,4 +1,4 @@
-(ns com.yetanalytics.xapipe.config-test
+(ns com.yetanalytics.xapipe.job.config-test
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer :all]
             [com.yetanalytics.xapipe.job.config :refer :all]))
