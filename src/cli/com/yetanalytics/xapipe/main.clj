@@ -1,7 +1,9 @@
 (ns com.yetanalytics.xapipe.main
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.cli.options :as opts]
+            [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.store :as store])
   (:gen-class))
@@ -39,26 +41,30 @@ Force Resume a job with errors:
                          [false extant]
                          [true (cli/create-job
                                 options)])]
-        (if new?
-          (log/infof "Created new job %s: %s" (:id job) (pr-str job))
-          (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
-        (if show-job?
-          {:exit 0
-           :message (pr-str job)}
+        (if (s/valid? job/job-spec job)
           (do
-            (log/infof
-             (if new?
-               "Starting job %s"
-               "Resuming job %s")
-             (:id job))
-            (cli/handle-job store
-                            (cond-> (cli/reconfigure-job job options)
-                              (and
-                               (not new?)
-                               force-resume?)
-                              (-> (update :state state/clear-errors)
-                                  (update :state state/set-status :paused)))
-                            (cli/options->client-opts options))))))))
+            (if new?
+              (log/infof "Created new job %s: %s" (:id job) (pr-str job))
+              (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
+            (if show-job?
+              {:status 0
+               :message (pr-str job)}
+              (do
+                (log/infof
+                 (if new?
+                   "Starting job %s"
+                   "Resuming job %s")
+                 (:id job))
+                (cli/handle-job store
+                                (cond-> (cli/reconfigure-job job options)
+                                  (and
+                                   (not new?)
+                                   force-resume?)
+                                  (-> (update :state state/clear-errors)
+                                      (update :state state/set-status :paused)))
+                                (cli/options->client-opts options)))))
+          {:status 1
+           :message (s/explain-str job/job-spec job)})))))
 
 (defn -main [& args]
   (let [{:keys [status message]}
