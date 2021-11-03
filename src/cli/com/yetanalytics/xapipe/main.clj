@@ -18,6 +18,13 @@ Resume a paused job:
 
 Force Resume a job with errors:
     --job-id <id> -f
+
+List All Jobs:
+    --list-jobs
+
+Delete a Job:
+    --delete-job <id>
+
 ")
 
 (defn main*

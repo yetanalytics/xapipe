@@ -33,6 +33,12 @@ INFO: Page 0
 | d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00Z |
 ```
 
+### Delete Job
+
+``` shell
+clojure -Mcli -m com.yetanalytics.xapipe.main -s redis --delete-job d24de6cc-ade6-48e9-a23c-c7ee48ed53f9
+```
+
 ## CLI Options
 
 ```
@@ -44,6 +50,13 @@ Resume a paused job:
 
 Force Resume a job with errors:
     --job-id <id> -f
+
+List All Jobs:
+    --list-jobs
+
+Delete a Job:
+    --delete-job <id>
+
 All options:
   -h, --help                                     Show the help and options summary
       --job-id ID                                Job ID
@@ -54,6 +67,7 @@ All options:
       --conn-io-thread-count THREADS             Connection Manager I/O Thread Pool Size, default is number of processors
       --show-job                                 Show the job and exit
       --list-jobs                                List jobs in persistent storage
+      --delete-job ID                            Delete the job specified and exit.
   -f, --force-resume                             If resuming a job, clear any errors and force it to resume.
       --json JSON                                Take a job specification as a JSON string
       --json-file FILE                           Take a job specification from a JSON file
