@@ -26,6 +26,8 @@ Force Resume a job with errors:
           ?job-id :job-id
           show-job? :show-job
           force-resume? :force-resume
+          ?json :json
+          ?json-file :json-file
           :as options} :options
          :keys [summary]} (opts/args->options args)
         ]
@@ -36,11 +38,22 @@ Force Resume a job with errors:
                  "All options:\n"
                  summary)}
       (let [store (cli/create-store options)
-            [new? job] (if-some [extant (and ?job-id
-                                             (store/read-job store ?job-id))]
-                         [false extant]
-                         [true (cli/create-job
-                                options)])]
+            [new? job'] (or
+                         (and ?json [true ?json])
+                         (and ?json-file [true ?json-file])
+                         (if-some [extant (and ?job-id
+                                               (store/read-job store ?job-id))]
+                           [false extant]
+                           [true (cli/create-job
+                                  options)]))
+            job (cond-> job'
+                  (not new?)
+                  (->
+                   (cli/reconfigure-job options)
+                   (cond->
+                       force-resume?
+                     (-> (update :state state/clear-errors)
+                         (update :state state/set-status :paused)))))]
         (if (s/valid? job/job-spec job)
           (do
             (if new?
@@ -56,12 +69,7 @@ Force Resume a job with errors:
                    "Resuming job %s")
                  (:id job))
                 (cli/handle-job store
-                                (cond-> (cli/reconfigure-job job options)
-                                  (and
-                                   (not new?)
-                                   force-resume?)
-                                  (-> (update :state state/clear-errors)
-                                      (update :state state/set-status :paused)))
+                                job
                                 (cli/options->client-opts options)))))
           {:status 1
            :message (s/explain-str job/job-spec job)})))))

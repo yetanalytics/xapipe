@@ -85,7 +85,8 @@
                   :xapi-prefix "/xapi"},
                  :get-params
                  {:since "2021-10-25T15:05:00.537746000Z",
-                  :until "2021-10-25T15:05:32.595885000Z"},
+                  :until "2021-10-25T15:05:32.595885000Z",
+                  :limit 50},
                  :poll-interval 1000,
                  :batch-size 50,
                  :backoff-opts {:budget 10000, :max-attempt 10}},
@@ -103,9 +104,7 @@
                 :source {:errors []},
                 :target {:errors []},
                 :errors [],
-                :filter {}},
-               :get-buffer-size 10,
-               :batch-timeout 200}}
+                :filter {}}}}
              (mem/dump store)))
       ;; Resume from cli
       (testing "xapipe resumes a paused job"
@@ -174,7 +173,8 @@
                   :xapi-prefix "/xapi"},
                  :get-params
                  {:since "2021-10-25T15:05:00.537746000Z",
-                  :until "2021-10-25T15:05:32.595885000Z"},
+                  :until "2021-10-25T15:05:32.595885000Z",
+                  :limit 50},
                  :poll-interval 1000,
                  :batch-size 50,
                  :backoff-opts {:budget 10000, :max-attempt 10}},
@@ -190,9 +190,7 @@
                 :source {:errors []},
                 :target {:errors [{:type :target, :message "Connection refused"}]},
                 :errors [],
-                :filter {}},
-               :get-buffer-size 10,
-               :batch-timeout 200}}
+                :filter {}}}}
              (mem/dump store)))
       (with-redefs [cli/create-store (constantly store)]
         (testing "xapipe normally can't resume with errors"
