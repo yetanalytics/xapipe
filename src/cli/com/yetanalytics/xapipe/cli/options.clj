@@ -19,7 +19,9 @@
     :default "0.0.0.0"]
    [nil "--redis-port PORT" "Redis Port"
     :default 6379
-    :parse-fn #(Long/parseLong %)]])
+    :parse-fn #(Long/parseLong %)]
+   [nil "--redis-prefix" "Redis key prefix"
+    :default "xapipe"]])
 
 (defn- keywordize-status
   [job]

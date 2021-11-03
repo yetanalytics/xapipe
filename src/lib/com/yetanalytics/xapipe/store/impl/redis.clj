@@ -3,16 +3,18 @@
             [com.yetanalytics.xapipe.store :as store]
             [taoensso.carmine :as car]))
 
-(deftype RedisStore [conn]
+(deftype RedisStore [conn
+                     prefix]
   store/XapipeStore
   (read-job [store job-id]
     (car/wcar conn
-              (car/get job-id)))
+              (car/get (format "%s:%s" prefix job-id))))
   (write-job [store {job-id :id
                      :as job}]
-    (let [[stat ret-job] (car/wcar conn
-                                   (car/set job-id job)
-                                   (car/get job-id))]
+    (let [k (format "%s:%s" prefix job-id)
+          [stat ret-job] (car/wcar conn
+                                   (car/set k job)
+                                   (car/get k))]
       (if (= "OK" stat)
         (= job ret-job)
         (do
@@ -21,5 +23,7 @@
 
 (defn new-store
   "Make a new redis store"
-  [conn]
-  (->RedisStore conn))
+  [conn & [?prefix]]
+  (->RedisStore conn
+                (or ?prefix
+                    "xapipe")))
