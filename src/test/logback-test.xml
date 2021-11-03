@@ -7,6 +7,6 @@
   <root level="INFO">
     <appender-ref ref="STDOUT" />
   </root>
-  <logger name="io.pedestal" level="WARN" />
+  <logger name="io.pedestal" level="ERROR" />
   <logger name="org.eclipse.jetty" level="WARN" />
 </configuration>
