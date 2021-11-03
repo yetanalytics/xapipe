@@ -15,6 +15,7 @@
     []
     {:help false,
      :show-job false,
+     :list-jobs false,
      :force-resume false,
      :storage :noop,
      :redis-host "0.0.0.0",
@@ -26,6 +27,7 @@
     ["-s" "redis" "--redis-port" "1234"]
     {:help false,
      :show-job false,
+     :list-jobs false,
      :force-resume false,
      :storage :redis,
      :redis-host "0.0.0.0",

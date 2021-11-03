@@ -48,6 +48,9 @@
      :validate [pos-int? "Must be a positive integer"]]
     [nil "--show-job" "Show the job and exit"
      :default false]
+    [nil "--list-jobs" "List jobs in persistent storage"
+     :default false]
+    [nil "--delete-job ID" "Delete the job specified and exit."]
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
      :default false]
     [nil "--json JSON" "Take a job specification as a JSON string"
