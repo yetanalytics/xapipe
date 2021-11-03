@@ -439,17 +439,23 @@
                 :get-buffer-size 10,
                 :batch-timeout 200}}
              (mem/dump store)))
-      ;; Resume from cli
-      (testing "xapipe force resumes an errored job"
-        (let [job-id (-> tail-states last :id)]
-          (is (-> (with-redefs [create-store (constantly store)]
-                    (main*
-                     "--job-id" job-id
-                     "-s" "mem"
-                     "--target-url" (format "http://0.0.0.0:%d/xapi"
-                                            (:port target))
-                     "-f" ;; force arg
-                     ))
-                  :status
-                  (= 0)))
+      (with-redefs [create-store (constantly store)]
+        (testing "xapipe normally can't resume with errors"
+          (is (= 1
+                 (:status
+                  (main*
+                   "--job-id" job-id
+                   "-s" "mem"
+                   "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                          (:port target)))))))
+        (testing "xapipe force resumes an errored job"
+          (is (= 0
+                 (:status
+                  (main*
+                   "--job-id" job-id
+                   "-s" "mem"
+                   "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                          (:port target))
+                   "-f" ;; force arg
+                   ))))
           (is (= 452 (sup/lrs-count target))))))))
