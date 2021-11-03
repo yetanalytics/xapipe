@@ -3,7 +3,8 @@
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as cs]
-            [clojure.tools.cli :as cli]))
+            [clojure.tools.cli :as cli]
+            [com.yetanalytics.xapipe.job.config :as config]))
 
 (def storage-options
   [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis, mem is for testing only"
@@ -48,13 +49,15 @@
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
      :default false]
     [nil "--json JSON" "Take a job specification as a JSON string"
-     :parse-fn #(keywordize-status
-                 (json/parse-string ^String % (partial keyword nil)))]
+     :parse-fn #(-> (json/parse-string ^String % (partial keyword nil))
+                    keywordize-status
+                    (update :config config/ensure-defaults))]
     [nil "--json-file FILE" "Take a job specification from a JSON file"
      :parse-fn (fn [filepath]
-                 (keywordize-status
-                  (with-open [r (io/reader (io/file filepath))]
-                    (json/parse-stream r (partial keyword nil)))))]]
+                 (-> (with-open [r (io/reader (io/file filepath))]
+                       (json/parse-stream r (partial keyword nil)))
+                     keywordize-status
+                     (update :config config/ensure-defaults)))]]
    storage-options))
 
 (defn backoff-opts
