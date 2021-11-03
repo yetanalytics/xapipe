@@ -1,12 +1,15 @@
 (ns com.yetanalytics.xapipe.main-test
-  (:require [clojure.test :refer :all]
+  (:require [cheshire.core :as json]
+            [clojure.test :refer :all]
             [clojure.core.async :as a]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.cli :as cli]
+            [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.main :refer :all]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
-            [com.yetanalytics.xapipe.test-support :as sup]))
+            [com.yetanalytics.xapipe.test-support :as sup])
+  (:import [java.io File]))
 
 (deftest start-test
   (sup/with-running [source (sup/lrs
@@ -212,3 +215,53 @@
                    "-f" ;; force arg
                    ))))
           (is (= 452 (sup/lrs-count target))))))))
+
+(deftest json-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path
+                             "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (testing "cli runs job with minimal args"
+      (let [job-id "foo"
+            [since until] (sup/lrs-stored-range source)
+            job (job/init-job
+                 job-id
+                 {:source
+                  {:request-config (:request-config source)
+                   :get-params     {:since since
+                                    :until until}}
+                  :target
+                  {:request-config (:request-config target)}})]
+        (is (-> (main* ;; we test this because it doesn't exit!
+                 "--json" (json/generate-string job))
+                :status
+                (= 0)))
+        (is (= 452 (sup/lrs-count target)))))))
+
+(deftest json-file-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path
+                             "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (testing "cli runs job with minimal args"
+      (let [job-id "foo"
+            [since until] (sup/lrs-stored-range source)
+            job (job/init-job
+                 job-id
+                 {:source
+                  {:request-config (:request-config source)
+                   :get-params     {:since since
+                                    :until until}}
+                  :target
+                  {:request-config (:request-config target)}})
+            ;; Put it in a file
+            ^File tempfile (File/createTempFile "xapipe" "test")]
+        (spit tempfile (json/generate-string job))
+        (try
+          (is (-> (main* ;; we test this because it doesn't exit!
+                   "--json-file" (.getPath tempfile))
+                  :status
+                  (= 0)))
+          (is (= 452 (sup/lrs-count target)))
+          (finally
+            (.delete tempfile)))))))

@@ -1,10 +1,12 @@
 (ns com.yetanalytics.xapipe.cli.options
   "clojure.tools.cli options for xapipe CLI"
-  (:require [clojure.string :as cs]
+  (:require [cheshire.core :as json]
+            [clojure.java.io :as io]
+            [clojure.string :as cs]
             [clojure.tools.cli :as cli]))
 
 (def storage-options
-  [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis"
+  [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis, mem is for testing only"
     :default :noop
     :parse-fn keyword
     :validate [#{:noop
@@ -17,6 +19,10 @@
    [nil "--redis-port PORT" "Redis Port"
     :default 6379
     :parse-fn #(Long/parseLong %)]])
+
+(defn- keywordize-status
+  [job]
+  (update-in job [:state :status] (partial keyword nil)))
 
 (def common-options
   (into
@@ -40,7 +46,15 @@
     [nil "--show-job" "Show the job and exit"
      :default false]
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
-     :default false]]
+     :default false]
+    [nil "--json JSON" "Take a job specification as a JSON string"
+     :parse-fn #(keywordize-status
+                 (json/parse-string ^String % (partial keyword nil)))]
+    [nil "--json-file FILE" "Take a job specification from a JSON file"
+     :parse-fn (fn [filepath]
+                 (keywordize-status
+                  (with-open [r (io/reader (io/file filepath))]
+                    (json/parse-stream r (partial keyword nil)))))]]
    storage-options))
 
 (defn backoff-opts

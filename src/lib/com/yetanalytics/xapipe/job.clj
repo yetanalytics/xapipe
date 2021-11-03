@@ -80,7 +80,8 @@
           (assoc-in [:get-params :limit] get-batch-size))
       :target
       (assoc target-config
-             :batch-size post-batch-size)
+             :batch-size post-batch-size
+             :backoff-opts post-backoff-opts)
       :filter
       (or filter-config {})}
      :state
@@ -113,31 +114,3 @@
   "Check if a job has any errors"
   [{:keys [state]}]
   (state/errors? state))
-
-(s/fdef update-job
-  :args (s/cat
-         :job job-spec
-         :cursor (s/nilable ::state/cursor)
-         :errors ::state/errors
-         :command (s/? #{:complete :paused})))
-
-(defn update-job
-  "Attempt to update the job with the given cursor, errors,
-  completion/pause status"
-  [{:keys [state] :as job}
-   ?cursor
-   errors
-   & [?command]]
-  (assoc
-   job
-   :state
-   (-> state
-       ;; Update the cursor or set an error
-       (cond->
-           ?cursor (state/update-cursor ?cursor))
-       ;; Add any passed-in errors
-       (state/add-errors errors)
-       ;; attempt to set desired command state or :running
-       ;; will not happen with errors
-       (state/set-status
-        (or ?command :running)))))

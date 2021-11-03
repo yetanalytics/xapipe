@@ -42,7 +42,9 @@ All options:
       --conn-io-thread-count THREADS             Connection Manager I/O Thread Pool Size, default is number of processors
       --show-job                                 Show the job and exit
   -f, --force-resume                             If resuming a job, clear any errors and force it to resume.
-  -s, --storage STORAGE                 :noop    Select storage backend, noop (default) or redis
+      --json JSON                                Take a job specification as a JSON string
+      --json-file FILE                           Take a job specification from a JSON file
+  -s, --storage STORAGE                 :noop    Select storage backend, noop (default) or redis, mem is for testing only
       --redis-host HOST                 0.0.0.0  Redis Host
       --redis-port PORT                 6379     Redis Port
       --source-url URL                           Source LRS xAPI Endpoint

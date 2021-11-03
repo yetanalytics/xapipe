@@ -9,15 +9,15 @@
 (s/def ::backoff-opts u/backoff-opts-spec)
 
 (s/def ::source
-  (s/keys :req-un [::client/request-config
+  (s/keys :req-un [::client/request-config]
+          :opt-un [::client/get-params
                    ::client/poll-interval
                    ::batch-size
-                   ::backoff-opts]
-          :opt-un [::client/get-params]))
+                   ::backoff-opts]))
 
 (s/def ::target
-  (s/keys :req-un [::client/request-config
-                   ::batch-size
+  (s/keys :req-un [::client/request-config]
+          :opt-un [::batch-size
                    ::backoff-opts]))
 
 ;; How many get requests to read-ahead
