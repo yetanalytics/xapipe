@@ -1,10 +1,12 @@
 (ns com.yetanalytics.xapipe.cli
   "CLI helper functions"
   (:require [clojure.core.async :as a]
+            [clojure.pprint :as pprint]
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
@@ -359,3 +361,19 @@
 
     batch-buffer-size
     (assoc :batch-buffer-size batch-buffer-size)))
+
+(defn list-store-jobs
+  [store]
+  (doseq [[page batch] (->> (store/list-jobs store)
+                           (partition-all 100)
+                           (map-indexed vector))]
+    (log/infof "Page %d%s"
+               page
+               (with-out-str
+                 (pprint/print-table
+                  (for [{{:keys [status
+                                 cursor]} :state
+                         job-id :id} batch]
+                    {"job-id" job-id
+                     "status" (name status)
+                     "cursor" cursor}))))))

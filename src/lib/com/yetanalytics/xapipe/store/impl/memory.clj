@@ -14,6 +14,8 @@
     (-> (swap! state-atom assoc job-id job)
         (get job-id)
         (= job)))
+  (list-jobs [store]
+    (vals @state-atom))
   DumpableMemoryStore
   (dump [_]
     @state-atom))

@@ -25,6 +25,7 @@ Force Resume a job with errors:
   (let [{{help? :help
           ?job-id :job-id
           show-job? :show-job
+          list-jobs? :list-jobs
           force-resume? :force-resume
           ?json :json
           ?json-file :json-file
@@ -37,42 +38,46 @@ Force Resume a job with errors:
                  usage
                  "All options:\n"
                  summary)}
-      (let [store (cli/create-store options)
-            [new? job'] (or
-                         (and ?json [true ?json])
-                         (and ?json-file [true ?json-file])
-                         (if-some [extant (and ?job-id
-                                               (store/read-job store ?job-id))]
-                           [false extant]
-                           [true (cli/create-job
-                                  options)]))
-            job (cond-> job'
-                  (not new?)
-                  (->
-                   (cli/reconfigure-job options)
-                   (cond->
-                       force-resume?
-                     (-> (update :state state/clear-errors)
-                         (update :state state/set-status :paused)))))]
-        (if (s/valid? job/job-spec job)
+      (let [store (cli/create-store options)]
+        (if list-jobs?
           (do
-            (if new?
-              (log/infof "Created new job %s: %s" (:id job) (pr-str job))
-              (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
-            (if show-job?
-              {:status 0
-               :message (pr-str job)}
+            (cli/list-store-jobs store)
+            {:status 0})
+          (let [[new? job'] (or
+                             (and ?json [true ?json])
+                             (and ?json-file [true ?json-file])
+                             (if-some [extant (and ?job-id
+                                                   (store/read-job store ?job-id))]
+                               [false extant]
+                               [true (cli/create-job
+                                      options)]))
+                job (cond-> job'
+                      (not new?)
+                      (->
+                       (cli/reconfigure-job options)
+                       (cond->
+                           force-resume?
+                         (-> (update :state state/clear-errors)
+                             (update :state state/set-status :paused)))))]
+            (if (s/valid? job/job-spec job)
               (do
-                (log/infof
-                 (if new?
-                   "Starting job %s"
-                   "Resuming job %s")
-                 (:id job))
-                (cli/handle-job store
-                                job
-                                (cli/options->client-opts options)))))
-          {:status 1
-           :message (s/explain-str job/job-spec job)})))))
+                (if new?
+                  (log/infof "Created new job %s: %s" (:id job) (pr-str job))
+                  (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
+                (if show-job?
+                  {:status 0
+                   :message (pr-str job)}
+                  (do
+                    (log/infof
+                     (if new?
+                       "Starting job %s"
+                       "Resuming job %s")
+                     (:id job))
+                    (cli/handle-job store
+                                    job
+                                    (cli/options->client-opts options)))))
+              {:status 1
+               :message (s/explain-str job/job-spec job)})))))))
 
 (defn -main [& args]
   (let [{:keys [status message]}
