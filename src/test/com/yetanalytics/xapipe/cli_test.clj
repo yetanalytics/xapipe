@@ -173,7 +173,7 @@
             :poll-interval 3000,
             :batch-size 100,
             :backoff-opts
-            {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+            {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
            :target
            {:request-config
             {:url-base "http://0.0.0.0:8083",
@@ -182,7 +182,7 @@
              :password "quxx"},
             :batch-size 100,
             :backoff-opts
-            {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+            {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
            :filter {}},
           :state
           {:status :init,
@@ -237,11 +237,19 @@
            :get-params {:format "exact"}
            :source-username "baz"
            :source-password "quxx"
+           :source-backoff-budget 999
+           :source-backoff-max-attempt 9
+           :source-backoff-j-range 9
+           :source-backoff-initial 2
 
            :target-url "http://0.0.0.0:8083/xapi2"
            :target-batch-size 100
            :target-username "baz"
            :target-password "quxx"
+           :target-backoff-budget 999
+           :target-backoff-max-attempt 9
+           :target-backoff-j-range 9
+           :target-backoff-initial 2
 
            :get-buffer-size 200
            :batch-timeout 300

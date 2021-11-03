@@ -223,10 +223,18 @@
            source-batch-size
            source-poll-interval
            get-params
+           source-backoff-budget
+           source-backoff-max-attempt
+           source-backoff-j-range
+           source-backoff-initial
 
            target-url
            target-username
            target-password
+           target-backoff-budget
+           target-backoff-max-attempt
+           target-backoff-j-range
+           target-backoff-initial
 
            target-batch-size
 
@@ -272,6 +280,28 @@
      [:config :source :get-params]
      get-params)
 
+    (not= source-backoff-budget
+          (get-in job [:config :source :backoff-opts :budget]))
+    (assoc-in
+     [:config :source :backoff-opts :budget]
+     source-backoff-budget)
+
+    (not= source-backoff-max-attempt
+          (get-in job [:config :source :backoff-opts :max-attempt]))
+    (assoc-in
+     [:config :source :backoff-opts :max-attempt]
+     source-backoff-max-attempt)
+
+    source-backoff-j-range
+    (assoc-in
+     [:config :source :backoff-opts :j-range]
+     source-backoff-j-range)
+
+    source-backoff-initial
+    (assoc-in
+     [:config :source :backoff-opts :initial]
+     source-backoff-initial)
+
     target-url
     (update-in
      [:config :target :request-config]
@@ -291,6 +321,28 @@
     (assoc-in
      [:config :target :batch-size]
      target-batch-size)
+
+    (not= target-backoff-budget
+          (get-in job [:config :target :backoff-opts :budget]))
+    (assoc-in
+     [:config :target :backoff-opts :budget]
+     target-backoff-budget)
+
+    (not= target-backoff-max-attempt
+          (get-in job [:config :target :backoff-opts :max-attempt]))
+    (assoc-in
+     [:config :target :backoff-opts :max-attempt]
+     target-backoff-max-attempt)
+
+    target-backoff-j-range
+    (assoc-in
+     [:config :target :backoff-opts :j-range]
+     target-backoff-j-range)
+
+    target-backoff-initial
+    (assoc-in
+     [:config :target :backoff-opts :initial]
+     target-backoff-initial)
 
     (not= get-buffer-size
           (get job :get-buffer-size))
