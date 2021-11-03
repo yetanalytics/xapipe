@@ -10,44 +10,39 @@
             [com.yetanalytics.xapipe.util.time :as t])
   (:import [java.time Instant]))
 
-(defn- init-run-job
-  "Given a config, set up and start the job"
-  [config]
-  (let [;; Generate an ID
-        job-id (.toString (java.util.UUID/randomUUID))
-        ;; Initialize
-        job (job/init-job
-             job-id
-             config)
-        ;; Run the transfer
-        {:keys [stop-fn states]} (run-job job)]
-    {:job-id job-id
-     :job job
-     :states states
-     :stop-fn stop-fn}))
-
 (deftest run-job-test
   (sup/with-running [source (sup/lrs
                              :seed-path "dev-resources/lrs/after_conf.edn")
                      target (sup/lrs)]
     (testing "xapipe transfers conf test data from source to target"
-      ;; Make sure it's in there
       (is (= 453 (sup/lrs-count source)))
       (let [[since until] (sup/lrs-stored-range source)
-            config {:source
-                    {:request-config (:request-config source)
-                     :get-params     {:since since
-                                      :until until}
-                     :poll-interval  1000
-                     :batch-size     50}
-                    :target
-                    {:request-config (:request-config target)
-                     :batch-size     50}}
-            ;; Run the transfer
-            {:keys [job-id
-                    job
-                    stop-fn
-                    states]} (init-run-job config)
+            job-id (.toString (java.util.UUID/randomUUID))
+            ;; This test uses a "raw" job from scratch
+            job {:id job-id,
+                 :config
+                 {:source
+                  {:request-config
+                   {:url-base (format "http://0.0.0.0:%d"
+                                      (:port source)),
+                    :xapi-prefix "/xapi"},
+                   :get-params
+                   {:since since
+                    :until until}},
+                  :target
+                  {:request-config
+                   {:url-base (format "http://0.0.0.0:%d"
+                                      (:port target)),
+                    :xapi-prefix "/xapi"}}},
+                 :state
+                 {:status :init,
+                  :cursor "1970-01-01T00:00:00Z",
+                  :source {:errors []},
+                  :target {:errors []},
+                  :errors [],
+                  :filter {}}}
+            ;; Run the job
+            {:keys [stop-fn states]} (run-job job)
             ;; Get all the states
             all-states (a/<!! (a/into [] states))]
         ;; At this point we're done or have errored.
@@ -65,6 +60,23 @@
             (let [source-idset (into #{} (sup/lrs-ids source))]
               (is (every? #(contains? source-idset %)
                           (sup/lrs-ids target))))))))))
+
+;; For brevity, we use a helper to do the job gen for other tests
+(defn- init-run-job
+  "Given a config, set up and start the job"
+  [config]
+  (let [;; Generate an ID
+        job-id (.toString (java.util.UUID/randomUUID))
+        ;; Initialize
+        job (job/init-job
+             job-id
+             config)
+        ;; Run the transfer
+        {:keys [stop-fn states]} (run-job job)]
+    {:job-id job-id
+     :job job
+     :states states
+     :stop-fn stop-fn}))
 
 (deftest run-job-source-error-test
   (sup/with-running [source (sup/lrs)

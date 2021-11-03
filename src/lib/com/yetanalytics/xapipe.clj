@@ -7,6 +7,7 @@
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
             [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
             [com.yetanalytics.xapipe.store :as store]
@@ -151,27 +152,7 @@
 
   Note that the states channel is unbuffered, so you will need to consume it in
   order for job processing to continue."
-  [{:keys [id]
-    {status-before :status
-     cursor-before :cursor
-     filter-before :filter
-     :as           state-before}      :state
-    {{:keys [poll-interval]
-      {?query-since :since
-       :as          get-params}    :get-params
-      get-req-config      :request-config
-      source-backoff-opts :backoff-opts
-      :as                 source-config} :source
-     {target-batch-size   :batch-size
-      post-req-config     :request-config
-      target-backoff-opts :backoff-opts
-      :as                 target-config} :target
-     filter-config :filter
-     :keys [get-buffer-size
-            statement-buffer-size
-            batch-buffer-size
-            batch-timeout]} :config
-    :as                     job-before}
+  [job
    & [{:keys [conn-mgr
               http-client
               conn-mgr-opts
@@ -180,114 +161,137 @@
        :or {conn-mgr-opts {}
             source-client-opts {}
             target-client-opts {}}}]]
-  (case status-before
-    :running  (throw (ex-info "Job already running!"
-                              {:type ::already-running
-                               :job  job-before}))
-    :error    (throw (ex-info "Cannot start a job with errors"
-                              {:type ::cannot-start-with-errors
-                               :job  job-before}))
-    :complete (throw (ex-info "Cannot start a completed job"
-                              {:type ::cannot-start-completed
-                               :job  job-before}))
-    (let [;; Http async conn pool + client
-          conn-mgr (or conn-mgr
-                       (client/init-conn-mgr
-                        conn-mgr-opts))
-          source-client (or http-client
-                            (client/init-client
-                             conn-mgr source-client-opts))
-          target-client (or http-client
-                            (client/init-client
-                             conn-mgr target-client-opts))
-          ;; set up channels and start
-          states-chan (a/chan)
-          stop-chan (a/promise-chan)
-          stop-fn   #(a/put! stop-chan {:status :paused})
+  (let [{:keys [id]
+         {status-before :status
+          cursor-before :cursor
+          filter-before :filter
+          :as           state-before}      :state
+         {{:keys [poll-interval]
+           {?query-since :since
+            :as          get-params}    :get-params
+           get-req-config      :request-config
+           source-backoff-opts :backoff-opts
+           :as                 source-config} :source
+          {target-batch-size   :batch-size
+           post-req-config     :request-config
+           target-backoff-opts :backoff-opts
+           :as                 target-config} :target
+          filter-config :filter
+          :keys [get-buffer-size
+                 statement-buffer-size
+                 batch-buffer-size
+                 batch-timeout]} :config
+         :as                     job-before}
 
-          ;; Derive a since point for the query
-          get-since (if ?query-since
-                      (t/latest-stamp cursor-before
-                                      ?query-since)
-                      cursor-before)
-          ;; A channel that will produce get responses
-          get-chan (client/get-chan
-                    (a/chan
-                     get-buffer-size)
-                    stop-chan
-                    get-req-config
-                    (assoc get-params :since get-since)
-                    poll-interval
-                    ;; kwargs
-                    :backoff-opts
-                    source-backoff-opts
-                    :conn-opts
-                    {:conn-mgr conn-mgr
-                     :http-client source-client})
-          ;; A channel that holds statements + attachments
-          statement-chan
-          (a/chan statement-buffer-size)
+        (update job :config config/ensure-defaults)]
+    (case status-before
+      :running  (throw (ex-info "Job already running!"
+                                {:type ::already-running
+                                 :job  job-before}))
+      :error    (throw (ex-info "Cannot start a job with errors"
+                                {:type ::cannot-start-with-errors
+                                 :job  job-before}))
+      :complete (throw (ex-info "Cannot start a completed job"
+                                {:type ::cannot-start-completed
+                                 :job  job-before}))
+      (let [;; Http async conn pool + client
+            conn-mgr (or conn-mgr
+                         (client/init-conn-mgr
+                          conn-mgr-opts))
+            source-client (or http-client
+                              (client/init-client
+                               conn-mgr source-client-opts))
+            target-client (or http-client
+                              (client/init-client
+                               conn-mgr target-client-opts))
+            ;; set up channels and start
+            states-chan (a/chan)
+            stop-chan (a/promise-chan)
+            stop-fn   #(a/put! stop-chan {:status :paused})
 
-          ;; Pipeline responses to statement chan, short circuiting errs
-          _ (a/pipeline-blocking
-             1
+            ;; Derive a since point for the query
+            get-since (if ?query-since
+                        (t/latest-stamp cursor-before
+                                        ?query-since)
+                        cursor-before)
+            ;; A channel that will produce get responses
+            get-chan (client/get-chan
+                      (a/chan
+                       get-buffer-size)
+                      stop-chan
+                      get-req-config
+                      (assoc get-params :since get-since)
+                      poll-interval
+                      ;; kwargs
+                      :backoff-opts
+                      source-backoff-opts
+                      :conn-opts
+                      {:conn-mgr conn-mgr
+                       :http-client source-client})
+            ;; A channel that holds statements + attachments
+            statement-chan
+            (a/chan statement-buffer-size)
+
+            ;; Pipeline responses to statement chan, short circuiting errs
+            _ (a/pipeline-blocking
+               1
+               statement-chan
+               (comp
+                ;; handle error resps
+                (map (fn [[tag x]]
+                       (case tag
+                         :response x
+                         :exception
+                         (throw (ex-info
+                                 (format "Source Error: %s"
+                                         (ex-message x))
+                                 {:type ::source}
+                                 x)))))
+                ;; coerce resp to statements
+                (mapcat xapi/response->statements))
+               get-chan
+               true
+               (fn [ex]
+                 (a/put! stop-chan
+                         {:status :error
+                          :error {:message (ex-message ex)
+                                  :type (case (some-> ex ex-data :type)
+                                          ::source :source
+                                          :job)}})
+                 nil))
+            ;; A channel that will get batches
+            ;; NOTE: Apply other filtering here
+            batch-chan
+            (ua/batch-filter
              statement-chan
-             (comp
-              ;; handle error resps
-              (map (fn [[tag x]]
-                     (case tag
-                       :response x
-                       :exception
-                       (throw (ex-info
-                               (format "Source Error: %s"
-                                       (ex-message x))
-                               {:type ::source}
-                               x)))))
-              ;; coerce resp to statements
-              (mapcat xapi/response->statements))
-             get-chan
-             true
-             (fn [ex]
-               (a/put! stop-chan
-                       {:status :error
-                        :error {:message (ex-message ex)
-                                :type (case (some-> ex ex-data :type)
-                                        ::source :source
-                                        :job)}})
-               nil))
-          ;; A channel that will get batches
-          ;; NOTE: Apply other filtering here
-          batch-chan
-          (ua/batch-filter
-           statement-chan
-           (a/chan batch-buffer-size)
-           target-batch-size
-           batch-timeout
-           :stateless-predicates
-           (filt/stateless-predicates filter-config)
-           :stateful-predicates
-           (filt/stateful-predicates filter-config)
-           :init-states filter-before
-           :cleanup-fn
-           (fn [{:keys [attachments]}]
-             (when (not-empty attachments)
-               (a/thread (mm/clean-tempfiles! attachments)))))
-          ;; Send the init state
-          _ (a/put! states-chan job-before)
-          ;; Then set it as running for post
-          running-state (state/set-status state-before :running)]
-      ;; Post loop transfers statements until it reaches until or an error
-      (post-loop
-       (merge job-before
-              {:state running-state})
-       states-chan
-       stop-chan
-       batch-chan
-       {:conn-mgr conn-mgr
-        :http-client target-client})
-      ;; Return the state emitter and stop fn
-      {:states states-chan
-       :stop-fn stop-fn})))
+             (a/chan batch-buffer-size)
+             target-batch-size
+             batch-timeout
+             :stateless-predicates
+             (filt/stateless-predicates filter-config)
+             :stateful-predicates
+             (filt/stateful-predicates filter-config)
+             :init-states filter-before
+             :cleanup-fn
+             (fn [{:keys [attachments]}]
+               (when (not-empty attachments)
+                 (a/thread (mm/clean-tempfiles! attachments)))))
+            ;; Send the init state
+            _ (a/put! states-chan job-before)
+            ;; Then set it as running for post
+            running-state (state/set-status state-before :running)]
+        ;; Post loop transfers statements until it reaches until or an error
+        (post-loop
+         (merge job-before
+                {:state running-state})
+         states-chan
+         stop-chan
+         batch-chan
+         {:conn-mgr conn-mgr
+          :http-client target-client})
+        ;; Return the state emitter and stop fn
+        {:states states-chan
+         :stop-fn stop-fn}))))
 
 (s/fdef log-states
   :args (s/cat

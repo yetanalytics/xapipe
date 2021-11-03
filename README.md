@@ -6,44 +6,48 @@ Pipe data between conformant xAPI Learning Record Stores
 ### Start a New Job
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main start http://0.0.0.0:8080/xapi http://0.0.0.0:8081/xapi
+clojure -Mcli -m com.yetanalytics.xapipe.main --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
 ```
 
 ### Resume a Paused Job (Redis Only)
 
 ``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main resume c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis
+clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis
 ```
 
-### Retry a Job with Errors (Redis Only)
+### Force-Resume a Job with Errors (Redis Only)
 
 ``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main retry c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis
+clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis -f
 ```
 
 ## CLI Options
 
 ```
-start <source-url> <target-url> & options:
+Run a new job:
+    --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
+
+Resume a paused job:
+    --job-id <id>
+
+Force Resume a job with errors:
+    --job-id <id> -f
+All options:
   -h, --help                                     Show the help and options summary
-  -s, --storage STORAGE                 :noop    Select storage backend, noop (default) or redis
-      --redis-host HOST                 0.0.0.0  Redis Host
-      --redis-port PORT                 6379     Redis Port
+      --job-id ID                                Job ID
       --conn-timeout TIMEOUT                     Connection Manager Connection Timeout
       --conn-threads THREADS                     Connection Manager Max Threads
       --conn-default-per-route CONNS             Connection Manager Simultaneous Connections Per Host
       --conn-insecure?                           Allow Insecure HTTPS Connections
       --conn-io-thread-count THREADS             Connection Manager I/O Thread Pool Size, default is number of processors
-      --get-buffer-size SIZE            10       Size of GET response buffer
-      --batch-timeout TIMEOUT           200      Msecs to wait for a fully formed batch
-      --template-profile-url URL        []       Profile URL/location from which to apply statement template filters
-      --template-id IRI                 []       Statement template IRIs to filter on
-      --pattern-profile-url URL         []       Profile URL/location from which to apply statement pattern filters
-      --pattern-id IRI                  []       Pattern IRIs to filter on
-      --job-id ID                                Job ID
-      --statement-buffer-size SIZE               Desired size of statement buffer
-      --batch-buffer-size SIZE                   Desired size of statement batch buffer
       --show-job                                 Show the job and exit
+  -f, --force-resume                             If resuming a job, clear any errors and force it to resume.
+      --json JSON                                Take a job specification as a JSON string
+      --json-file FILE                           Take a job specification from a JSON file
+  -s, --storage STORAGE                 :noop    Select storage backend, noop (default) or redis, mem is for testing only
+      --redis-host HOST                 0.0.0.0  Redis Host
+      --redis-port PORT                 6379     Redis Port
+      --source-url URL                           Source LRS xAPI Endpoint
       --source-batch-size SIZE          50       Source LRS GET limit param
       --source-poll-interval INTERVAL   1000     Source LRS GET poll timeout
   -p, --xapi-get-param KEY=VALUE        {}       xAPI GET Parameters
@@ -53,6 +57,7 @@ start <source-url> <target-url> & options:
       --source-backoff-max-attempt MAX  10       Source LRS Retry Backoff Max Attempts, set to -1 for no retry
       --source-backoff-j-range RANGE             Source LRS Retry Backoff Jitter Range in ms
       --source-backoff-initial INITIAL           Source LRS Retry Backoff Initial Delay
+      --target-url URL                           Target LRS xAPI Endpoint
       --target-batch-size SIZE          50       Target LRS POST desired batch size
       --target-username USERNAME                 Target LRS BASIC Auth username
       --target-password PASSWORD                 Target LRS BASIC Auth password
@@ -60,26 +65,12 @@ start <source-url> <target-url> & options:
       --target-backoff-max-attempt MAX  10       Target LRS Retry Backoff Max Attempts, set to -1 for no retry
       --target-backoff-j-range RANGE             Target LRS Retry Backoff Jitter Range in ms
       --target-backoff-initial INITIAL           Target LRS Retry Backoff Initial Delay
-resume <job-id> & options:
-  -h, --help                                   Show the help and options summary
-  -s, --storage STORAGE               :noop    Select storage backend, noop (default) or redis
-      --redis-host HOST               0.0.0.0  Redis Host
-      --redis-port PORT               6379     Redis Port
-      --conn-timeout TIMEOUT                   Connection Manager Connection Timeout
-      --conn-threads THREADS                   Connection Manager Max Threads
-      --conn-default-per-route CONNS           Connection Manager Simultaneous Connections Per Host
-      --conn-insecure?                         Allow Insecure HTTPS Connections
-      --conn-io-thread-count THREADS           Connection Manager I/O Thread Pool Size, default is number of processors
-      --show-job                               Show the job and exit
-retry <job-id> & options:
-  -h, --help                                   Show the help and options summary
-  -s, --storage STORAGE               :noop    Select storage backend, noop (default) or redis
-      --redis-host HOST               0.0.0.0  Redis Host
-      --redis-port PORT               6379     Redis Port
-      --conn-timeout TIMEOUT                   Connection Manager Connection Timeout
-      --conn-threads THREADS                   Connection Manager Max Threads
-      --conn-default-per-route CONNS           Connection Manager Simultaneous Connections Per Host
-      --conn-insecure?                         Allow Insecure HTTPS Connections
-      --conn-io-thread-count THREADS           Connection Manager I/O Thread Pool Size, default is number of processors
-      --show-job                               Show the job and exit
+      --get-buffer-size SIZE            10       Size of GET response buffer
+      --batch-timeout TIMEOUT           200      Msecs to wait for a fully formed batch
+      --template-profile-url URL        []       Profile URL/location from which to apply statement template filters
+      --template-id IRI                 []       Statement template IRIs to filter on
+      --pattern-profile-url URL         []       Profile URL/location from which to apply statement pattern filters
+      --pattern-id IRI                  []       Pattern IRIs to filter on
+      --statement-buffer-size SIZE               Desired size of statement buffer
+      --batch-buffer-size SIZE                   Desired size of statement batch buffer
 ```
