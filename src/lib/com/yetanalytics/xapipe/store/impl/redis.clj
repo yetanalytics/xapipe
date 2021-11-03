@@ -28,8 +28,8 @@
    (scan-seq conn prefix "0"))
   ([conn prefix cursor]
    (lazy-seq
-    (let [[next-cursor jobs] (scan-seg! conn prefix (or cursor
-                                                        "0"))]
+    (when-let [[next-cursor jobs] (scan-seg! conn prefix (or cursor
+                                                             "0"))]
       (concat jobs
               (when (not= next-cursor "0")
                 (scan-seq conn prefix next-cursor)))))))
