@@ -24,8 +24,7 @@
    any?))
 
 (s/def ::cleanup-fn
-  (s/fspec :args (s/cat :record any?)
-           :ret any?))
+  fn?)
 
 (s/fdef batch-filter
   :args (s/cat :a channel?

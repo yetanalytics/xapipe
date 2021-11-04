@@ -2,11 +2,9 @@
   (:require [clojure.test :refer :all]
             [com.yetanalytics.xapipe.util.async :refer :all]
             [clojure.core.async :as a]
-            [com.yetanalytics.xapipe.test-support :as support]))
+            [com.yetanalytics.xapipe.test-support :as sup]))
 
-;; TODO: this seems to be doing more than checking args. maybe doesn't work yet
-#_(use-fixtures :once (support/instrument-fixture
-                     `[batch-filter]))
+(use-fixtures :once (sup/instrument-fixture))
 
 (deftest batch-filter-test
   (testing "with no predicates"
