@@ -28,23 +28,17 @@
 
 (defn create-store
   [{:keys [storage
-           redis-host
-           redis-port
+           redis-uri
            redis-prefix
            file-store-dir]}]
   (case storage
     :noop (noop-store/new-store)
-    :redis (if (and redis-host redis-port)
-             (redis-store/new-store
-              ;; TODO: Pool?
-              {:pool {}
-               :spec
-               {:uri (format "redis://%s:%d"
-                             redis-host
-                             redis-port)}}
-              redis-prefix)
-             (throw (ex-info "Redis Config Required!"
-                             {:type ::redis-config-required})))
+    :redis (redis-store/new-store
+            ;; TODO: Pool?
+            {:pool {}
+             :spec
+             {:uri redis-uri}}
+            redis-prefix)
     :mem (mem-store/new-store)
     :file (file-store/new-store file-store-dir)))
 

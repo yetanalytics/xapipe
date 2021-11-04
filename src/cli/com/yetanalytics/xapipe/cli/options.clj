@@ -15,12 +15,8 @@
                  :mem
                  :file} "Must be: noop | redis | mem | file"]]
    ;; Redis Backend Options
-   ;; TODO: auth, or just let them pass the redis url
-   [nil "--redis-host HOST" "Redis Host"
-    :default "0.0.0.0"]
-   [nil "--redis-port PORT" "Redis Port"
-    :default 6379
-    :parse-fn #(Long/parseLong %)]
+   [nil "--redis-uri URI" "Redis Connection URI"
+    :default "redis://0.0.0.0:6379"]
    [nil "--redis-prefix" "Redis key prefix"
     :default "xapipe"]
    [nil "--file-store-dir PATH" "Directory path for filesystem storage"
