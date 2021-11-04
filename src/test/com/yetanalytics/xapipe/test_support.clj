@@ -238,13 +238,17 @@
                       ["dev-resources/profiles/calibration.jsonld"]))))))))
 
 (defn instrument-fixture
-  [sym-or-syms]
-  (fn [f]
-    (st/instrument sym-or-syms)
-    (try
-      (f)
-      (finally
-        (st/unstrument sym-or-syms)))))
+  ([]
+   (instrument-fixture (st/instrumentable-syms)))
+  ([sym-or-syms]
+   (fn [f]
+     (st/instrument sym-or-syms)
+     (try
+       (f)
+       (finally
+         (st/unstrument sym-or-syms))))))
+
+
 
 (defmacro art
   "Like clojure.test/are, but without the is.
