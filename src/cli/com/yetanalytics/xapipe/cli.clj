@@ -10,6 +10,7 @@
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
+            [com.yetanalytics.xapipe.store.impl.file :as file-store]
             [xapi-schema.spec.resources :as xsr])
   (:import [java.net URL]))
 
@@ -29,7 +30,8 @@
   [{:keys [storage
            redis-host
            redis-port
-           redis-prefix]}]
+           redis-prefix
+           file-store-dir]}]
   (case storage
     :noop (noop-store/new-store)
     :redis (if (and redis-host redis-port)
@@ -43,7 +45,8 @@
               redis-prefix)
              (throw (ex-info "Redis Config Required!"
                              {:type ::redis-config-required})))
-    :mem (mem-store/new-store)))
+    :mem (mem-store/new-store)
+    :file (file-store/new-store file-store-dir)))
 
 (defn parse-lrs-url
   [^String url]

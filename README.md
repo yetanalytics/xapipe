@@ -9,19 +9,19 @@ Pipe data between conformant xAPI Learning Record Stores
 clojure -Mcli -m com.yetanalytics.xapipe.main --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
 ```
 
-### Resume a Paused Job (Redis Only)
+### Resume a Paused Job (Redis/File Only)
 
 ``` shell
 clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis
 ```
 
-### Force-Resume a Job with Errors (Redis Only)
+### Force-Resume a Job with Errors (Redis/File Only)
 
 ``` shell
 clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis -f
 ```
 
-### List Persisted Jobs
+### List Persisted Jobs (Redis/File Only)
 
 ``` shell
 clojure -Mcli -m com.yetanalytics.xapipe.main --list-jobs -s redis
@@ -33,7 +33,7 @@ INFO: Page 0
 | d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00Z |
 ```
 
-### Delete Job
+### Delete Job (Redis/File Only)
 
 ``` shell
 clojure -Mcli -m com.yetanalytics.xapipe.main -s redis --delete-job d24de6cc-ade6-48e9-a23c-c7ee48ed53f9
@@ -75,6 +75,7 @@ All options:
       --redis-host HOST                 0.0.0.0  Redis Host
       --redis-port PORT                 6379     Redis Port
       --redis-prefix                             Redis key prefix
+      --file-store-dir PATH             store    Directory path for filesystem storage
       --source-url URL                           Source LRS xAPI Endpoint
       --source-batch-size SIZE          50       Source LRS GET limit param
       --source-poll-interval INTERVAL   1000     Source LRS GET poll timeout

@@ -231,6 +231,40 @@
                  (a/<!! (store-states states store))
                  (store/read-job store job-id))))))))
 
+(deftest resume-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (testing "xapipe can resume a stopped job"
+      (let [store (mem/new-store)
+            [since until] (sup/lrs-stored-range source)
+            config {:source
+                    {:request-config (:request-config source)
+                     :get-params     {:since since
+                                      :until until}}
+                    :target
+                    {:request-config (:request-config target)}}
+            {:keys [job-id
+                    job
+                    states
+                    stop-fn]} (init-run-job config)
+            ;; Immediately stop the job
+            _ (stop-fn)
+            ;; Drain all states into the store
+            last-state (a/<!! (store-states states store))]
+        (testing "job is paused"
+          (is (= :paused
+                 (-> last-state :state :status))))
+        (let [;; resume the job
+              {:keys [states
+                      stop-fn]} (run-job last-state)
+              ;; Drain this into the store
+              last-state (a/<!! (store-states states store))]
+          (testing "job is complete"
+            (is (= :complete
+                   (-> last-state :state :status)))
+            (is (= 452 (sup/lrs-count target)))))))))
+
 ;; WIP combined filtering tests with are template
 (deftest filter-test
   (sup/art [tag
