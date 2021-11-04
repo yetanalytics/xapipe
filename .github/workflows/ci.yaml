@@ -16,6 +16,8 @@ jobs:
         with:
           path: |
             .cpcache
-          key: ${{ runner.os }}-${{ hashFiles('deps.edn') }}
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
       - name: Run make target ${{ matrix.target }}
         run: make ${{ matrix.target }}
