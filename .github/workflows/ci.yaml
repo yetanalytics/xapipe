@@ -11,6 +11,11 @@ jobs:
     steps:
       - name: Setup CI Environment
         uses: yetanalytics/actions/setup-env@v0
-
+      - name: Cache Deps
+        uses: actions/cache@v2
+        with:
+          path: |
+            .cpcache
+          key: ${{ runner.os }}-${{ hashFiles('deps.edn') }}
       - name: Run make target ${{ matrix.target }}
         run: make ${{ matrix.target }}
