@@ -1,10 +1,61 @@
 (ns com.yetanalytics.xapipe.cli.options
   "clojure.tools.cli options for xapipe CLI"
   (:require [cheshire.core :as json]
+            [clojure.spec.alpha :as s]
             [clojure.java.io :as io]
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
             [com.yetanalytics.xapipe.job.config :as config]))
+
+(defn option-spec->spec-def
+  [[short-command long-command desc
+    & {:keys [id
+              default
+              parse-fn
+              multi
+              validate]}]]
+  (let [[long-command-name
+         ?argname] (-> long-command
+                       (subs 2)
+                       (cs/split #"\s"))
+        option-name (or (and id (name id))
+                        long-command-name)
+        spec-kw (keyword (str (ns-name *ns*))
+                         option-name)]
+    `(s/def ~spec-kw
+       ~(cond
+          (and parse-fn validate)
+          `(s/and
+            (s/conformer (fn [x#]
+                           (try
+                             (~parse-fn x#)
+                             (catch Exception _#
+                               x#))))
+            ~(first validate))
+          validate
+          `(s/and
+            string?
+            ~(first validate))
+          (not ?argname)
+          `boolean?
+          :else
+          `string?))))
+
+(defmacro def-option-specs
+  "Given a vector of option-specs, def specs for each option and a summative map
+  spec"
+  [options-sym]
+  (let [options @(resolve options-sym)
+        spec-defs (map option-spec->spec-def
+                       options)
+        spec-keys (map second spec-defs)]
+    `(do
+       ;; Write out the defs
+       ~@spec-defs
+       ;; followed by a map spec
+       (s/def ~(keyword (str (ns-name *ns*)) (name options-sym))
+         (s/keys :opt-un ~(into []
+                                spec-keys))))))
 
 (def storage-options
   [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis, mem is for testing only"
@@ -63,6 +114,8 @@
                      keywordize-status
                      (update :config config/ensure-defaults)))]]
    storage-options))
+
+(def-option-specs common-options)
 
 (defn backoff-opts
   [tag]
@@ -135,6 +188,8 @@
     [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
    (backoff-opts "source")))
 
+(def-option-specs source-options)
+
 (def target-options
   (into [[nil "--target-url URL" "Target LRS xAPI Endpoint"
           :validate [not-empty "Target LRS URL Required"]]
@@ -145,6 +200,8 @@
          [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
          [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
         (backoff-opts "target")))
+
+(def-option-specs target-options)
 
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
@@ -182,6 +239,18 @@
    [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]])
+
+(def-option-specs job-options)
+
+(s/def ::all-options
+  (s/merge ::common-options
+           ::source-options
+           ::target-options
+           ::job-options))
+
+(s/fdef args->options
+  :args (s/cat :args (s/every string?))
+  :ret ::all-options)
 
 (defn args->options
   [args]
