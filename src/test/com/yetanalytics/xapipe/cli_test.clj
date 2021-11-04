@@ -6,8 +6,8 @@
 (deftest create-store-test
   (is (satisfies? store/XapipeStore (create-store {:storage :noop})))
   (is (satisfies? store/XapipeStore (create-store {:storage :redis
-                                                   :redis-host "localhost"
-                                                   :redis-port 1234})))
+                                                   :redis-uri "redis://0.0.0.0:6379"
+                                                   :refis-prefix "whatever"})))
   (is (satisfies? store/XapipeStore (create-store {:storage :mem}))))
 
 (deftest parse-lrs-url-test

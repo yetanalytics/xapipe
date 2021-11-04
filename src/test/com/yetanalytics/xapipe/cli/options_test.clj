@@ -18,21 +18,19 @@
      :list-jobs false,
      :force-resume false,
      :storage :noop,
-     :redis-host "0.0.0.0",
-     :redis-port 6379,
+     :redis-uri "redis://0.0.0.0:6379",
      :redis-prefix "xapipe"
      :file-store-dir "store"}
     nil
 
-    ;; Redis store with a custom port
-    ["-s" "redis" "--redis-port" "1234"]
+    ;; Redis store with a custom uri
+    ["-s" "redis" "--redis-uri" "redis://localhost:1234"]
     {:help false,
      :show-job false,
      :list-jobs false,
      :force-resume false,
      :storage :redis,
-     :redis-host "0.0.0.0",
-     :redis-port 1234,
+     :redis-uri "redis://localhost:1234",
      :redis-prefix "xapipe"
      :file-store-dir "store"}
     nil))
