@@ -15,9 +15,10 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            .cpcache
+            ~/.m2
+            ~/.gitlibs
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
-            ${{ runner.os }}-deps-
+            ${{ runner.os }}-cljdeps-
       - name: Run make target ${{ matrix.target }}
         run: make ${{ matrix.target }}
