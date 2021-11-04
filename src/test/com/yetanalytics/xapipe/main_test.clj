@@ -1,7 +1,9 @@
 (ns com.yetanalytics.xapipe.main-test
   (:require [cheshire.core :as json]
-            [clojure.test :refer :all]
             [clojure.core.async :as a]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.test :refer :all]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.job :as job]
@@ -265,3 +267,73 @@
           (is (= 452 (sup/lrs-count target)))
           (finally
             (.delete tempfile)))))))
+
+(deftest file-store-test
+  (sup/with-running [source (sup/lrs
+                             :seed-path
+                             "dev-resources/lrs/after_conf.edn")
+                     target (sup/lrs)]
+    (try
+      (.delete ^File (io/file ".test_store/foo.edn"))
+      (.delete ^File (io/file ".test_store"))
+      (let [[since until] (sup/lrs-stored-range source)
+            job-id "foo"]
+        (testing "runs against the file store"
+          (is (= 0
+                 (:status
+                  (main*
+                   "--job-id" job-id
+                   "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                          (:port source))
+                   "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                          (:port target))
+                   "-p" (format "since=%s" since)
+                   "-p" (format "until=%s" until)
+                   ;; use the fs
+                   "-s" "file"
+                   "--file-store-dir" ".test_store"))))
+          (testing "retrieves job state"
+            (let [{:keys [status message]} (main*
+                                            "--job-id" job-id
+                                            "--show-job"
+                                            "-s" "file"
+                                            "--file-store-dir" ".test_store")]
+              (is (= 0 status))
+              (is (= {:id "foo",
+                      :config
+                      {:get-buffer-size 10,
+                       :statement-buffer-size 500,
+                       :batch-buffer-size 10,
+                       :batch-timeout 200,
+                       :source
+                       {:request-config
+                        {:url-base (format "http://0.0.0.0:%d"
+                                           (:port source)), :xapi-prefix "/xapi"},
+                        :get-params
+                        {:since "2021-10-25T15:05:00.537746000Z",
+                         :until "2021-10-25T15:05:32.595885000Z",
+                         :limit 50},
+                        :poll-interval 1000,
+                        :batch-size 50,
+                        :backoff-opts {:budget 10000, :max-attempt 10}},
+                       :target
+                       {:request-config
+                        {:url-base (format "http://0.0.0.0:%d"
+                                           (:port target)),
+                         :xapi-prefix "/xapi"},
+                        :batch-size 50,
+                        :backoff-opts {:budget 10000, :max-attempt 10}},
+                       :filter {}},
+                      :state
+                      {:status :complete,
+                       :cursor "2021-10-25T15:05:32.595885Z",
+                       :source {:errors []},
+                       :target {:errors []},
+                       :errors [],
+                       :filter {}},
+                      :get-buffer-size 10,
+                      :batch-timeout 200}
+                     (edn/read-string message)))))))
+      (finally
+        (.delete ^File (io/file ".test_store/foo.edn"))
+        (.delete ^File (io/file ".test_store"))))))
