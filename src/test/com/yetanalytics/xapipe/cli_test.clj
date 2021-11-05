@@ -1,7 +1,10 @@
 (ns com.yetanalytics.xapipe.cli-test
   (:require [clojure.test :refer :all]
             [com.yetanalytics.xapipe.cli :refer :all]
-            [com.yetanalytics.xapipe.store :as store]))
+            [com.yetanalytics.xapipe.store :as store]
+            [com.yetanalytics.xapipe.test-support :as sup]))
+
+(use-fixtures :once (sup/instrument-fixture))
 
 (deftest create-store-test
   (is (satisfies? store/XapipeStore (create-store {:storage :noop})))
