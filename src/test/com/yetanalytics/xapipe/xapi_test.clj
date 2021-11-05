@@ -2,8 +2,7 @@
   (:require [clojure.test :refer :all]
             [com.yetanalytics.xapipe.xapi :refer :all]
             [com.yetanalytics.xapipe.test-support :as sup]
-            [clojure.spec.test.alpha :as st]
-            [clojure.spec.gen.alpha :as sgen]))
+            [clojure.spec.test.alpha :as st]))
 
 (sup/deftest-check-ns
   xapi-check-test
