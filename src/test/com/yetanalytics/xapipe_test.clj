@@ -7,8 +7,102 @@
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
             [com.yetanalytics.xapipe.test-support :as sup]
-            [com.yetanalytics.xapipe.util.time :as t])
+            [com.yetanalytics.xapipe.util.time :as t]
+            [clojure.spec.test.alpha :as st])
   (:import [java.time Instant]))
+
+(use-fixtures :once (sup/instrument-fixture
+                     ;; These are the known indiviual fixtures that are OK to run.
+                     ;; this is basically the output of instrumentable-syms but
+                     ;; with LRS + datasim removed
+                     ;; TODO: simplify + globalize
+                     '(com.yetanalytics.pathetic/apply-value*
+                       com.yetanalytics.pathetic/excise*
+                       com.yetanalytics.pathetic/get-path-value-map*
+                       com.yetanalytics.pathetic/get-paths*
+                       com.yetanalytics.pathetic/get-values*
+                       com.yetanalytics.pathetic/select-keys-at*
+                       com.yetanalytics.pathetic.json/jassoc
+                       com.yetanalytics.pathetic.json/jassoc-in
+                       com.yetanalytics.pathetic.json/recursive-descent
+                       com.yetanalytics.pathetic.json-path/is-parse-failure?
+                       com.yetanalytics.pathetic.json-path/parse
+                       com.yetanalytics.pathetic.json-path/parse-first
+                       com.yetanalytics.pathetic.json-path/path->string
+                       com.yetanalytics.pathetic.json-path/path-seqs
+                       com.yetanalytics.pathetic.json-path/speculative-path-seqs
+                       com.yetanalytics.pathetic.json-path/test-strict-path
+                       com.yetanalytics.persephone.pattern.fsm/alphatize-states
+                       com.yetanalytics.persephone.pattern.fsm/alphatize-states-fsm
+                       com.yetanalytics.persephone.pattern.fsm/concat-nfa
+                       com.yetanalytics.persephone.pattern.fsm/kleene-nfa
+                       com.yetanalytics.persephone.pattern.fsm/minimize-dfa
+                       com.yetanalytics.persephone.pattern.fsm/nfa->dfa
+                       com.yetanalytics.persephone.pattern.fsm/optional-nfa
+                       com.yetanalytics.persephone.pattern.fsm/plus-nfa
+                       com.yetanalytics.persephone.pattern.fsm/transition-nfa
+                       com.yetanalytics.persephone.pattern.fsm/union-nfa
+                       com.yetanalytics.xapipe/log-states
+                       com.yetanalytics.xapipe/run-job
+                       com.yetanalytics.xapipe/store-states
+                       com.yetanalytics.xapipe.client/get-chan
+                       com.yetanalytics.xapipe.client/get-request
+                       com.yetanalytics.xapipe.client/init-client
+                       com.yetanalytics.xapipe.client/init-conn-mgr
+                       com.yetanalytics.xapipe.client/post-request
+                       com.yetanalytics.xapipe.client/shutdown
+                       com.yetanalytics.xapipe.client.multipart-mixed/clean-tempfiles!
+                       com.yetanalytics.xapipe.client.multipart-mixed/create-tempfile!
+                       com.yetanalytics.xapipe.client.multipart-mixed/duplicate-attachment
+                       com.yetanalytics.xapipe.client.multipart-mixed/parse-head
+                       com.yetanalytics.xapipe.client.multipart-mixed/parse-headers
+                       com.yetanalytics.xapipe.client.multipart-mixed/parse-multipart-body
+                       com.yetanalytics.xapipe.client.multipart-mixed/parse-response
+                       com.yetanalytics.xapipe.client.multipart-mixed/parse-tail
+                       com.yetanalytics.xapipe.client.multipart-mixed/post-body
+                       com.yetanalytics.xapipe.filter/get-profile
+                       com.yetanalytics.xapipe.filter/get-state-key
+                       com.yetanalytics.xapipe.filter/pattern-filter-pred
+                       com.yetanalytics.xapipe.filter/stateful-predicates
+                       com.yetanalytics.xapipe.filter/stateless-predicates
+                       com.yetanalytics.xapipe.filter/template-filter-pred
+                       com.yetanalytics.xapipe.job/errors?
+                       com.yetanalytics.xapipe.job/get-status
+                       com.yetanalytics.xapipe.job/init-job
+                       com.yetanalytics.xapipe.job.config/ensure-defaults
+                       com.yetanalytics.xapipe.job.state/add-error
+                       com.yetanalytics.xapipe.job.state/add-errors
+                       com.yetanalytics.xapipe.job.state/clear-errors
+                       com.yetanalytics.xapipe.job.state/errors?
+                       com.yetanalytics.xapipe.job.state/get-errors
+                       com.yetanalytics.xapipe.job.state/set-status
+                       com.yetanalytics.xapipe.job.state/update-cursor
+                       com.yetanalytics.xapipe.job.state/update-filter
+                       com.yetanalytics.xapipe.util/backoff-ms
+                       com.yetanalytics.xapipe.util.async/batch-filter
+                       com.yetanalytics.xapipe.util.time/latest-stamp
+                       com.yetanalytics.xapipe.util.time/parse-inst
+                       com.yetanalytics.xapipe.util.time/stamp-cmp
+                       com.yetanalytics.xapipe.xapi/attachment-hashes
+                       com.yetanalytics.xapipe.xapi/response->statements
+                       expound.alpha/custom-printer
+                       expound.alpha/defmsg
+                       expound.alpha/error-message
+                       expound.alpha/explain-result
+                       expound.alpha/explain-result-str
+                       expound.alpha/explain-results
+                       expound.alpha/explain-results-str
+                       expound.alpha/expound
+                       expound.alpha/expound-str
+                       expound.alpha/printer
+                       expound.alpha/specs
+                       expound.alpha/value-in-context
+                       expound.printer/indent
+                       expound.printer/no-trailing-whitespace
+                       expound.printer/pprint-str
+                       expound.printer/print-table
+                       expound.printer/summary-form
+                       expound.problems/ptype)))
 
 (deftest run-job-test
   (sup/with-running [source (sup/lrs

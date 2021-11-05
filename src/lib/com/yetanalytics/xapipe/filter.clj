@@ -82,9 +82,9 @@
 (s/def ::pattern-id ::pat/id)
 
 (def state-key-spec
-  (s/or :registration :statement/registration
-        :subreg (s/tuple :statement/registration
-                         :statement/registration)))
+  (s/or :registration :context/registration
+        :subreg (s/tuple :context/registration
+                         :context/registration)))
 
 (s/fdef get-state-key
   :args (s/cat :statement ::xs/statement)

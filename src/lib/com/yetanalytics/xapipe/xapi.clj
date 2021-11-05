@@ -79,7 +79,8 @@
 (defn find-attachments
   [{a-i :atts-in
     a-o :atts-out
-    aa :atts-acc} [sha2 file-url?]]
+    aa :atts-acc
+    :as acc-map} [sha2 file-url?]]
   (or
    ;; Match in unused attachments
    (when-let [att (some-> a-i (get sha2) first)]
@@ -101,15 +102,37 @@
       :atts-acc aa})
    (throw (ex-info "Invalid Multipart Response - No attachment found."
                    {:type ::attachment-not-found
-                    :sha2 sha2}))))
+                    :sha2 sha2
+                    :acc-map acc-map}))))
 
 (s/fdef response->statements
-  :args (s/cat :response ::client/get-response)
+  :args
+  (s/cat :response
+         (s/with-gen
+           (s/keys :req-un [::multipart/body])
+           (fn []
+             (sgen/fmap
+              (fn [[s {:keys [sha2 contentType] :as att}]]
+                {:body {:statement-result
+                        {:statements
+                         [(-> s
+                              (assoc
+                               "attachments"
+                               [{"usageType" "http://example.com/foo"
+                                 "display" {"en-US" "Generated"}
+                                 "contentType" contentType
+                                 "sha2" sha2
+                                 "length" 0}])
+                              (update "object" dissoc "attachments"))]}
+                        :attachments [att]}})
+              (sgen/tuple
+               (s/gen ::xs/lrs-statement)
+               (s/gen ::multipart/attachment))))))
   :ret (s/every ::source-statement))
 
 (defn response->statements
   "Break a response down into statements paired with one or more attachments"
-  [{{{:strs [statements]} :statement-result
+  [{{{:keys [statements]} :statement-result
      :keys [attachments]} :body}]
   (let [grouped (group-by :sha2 attachments)]
     (:acc

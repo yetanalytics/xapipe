@@ -20,9 +20,10 @@
     #(instance? File %)
     (fn []
       (sgen/return
-       (File/createTempFile
-        "xapipe_gen_attachment_"
-        "")))))
+       (doto (File/createTempFile
+              "xapipe_gen_attachment_"
+              "")
+         .deleteOnExit)))))
 
 (s/fdef create-tempfile!
   :args (s/cat :sha2 string?)
@@ -31,9 +32,10 @@
 (defn create-tempfile!
   "Create a unique but identifiable tempfile"
   [sha2]
-  (File/createTempFile
-   "xapipe_attachment_"
-   (format "_%s" sha2)))
+  (doto (File/createTempFile
+         "xapipe_attachment_"
+         (format "_%s" sha2))
+    .deleteOnExit))
 
 (s/fdef parse-headers
   :args (s/cat :headers string?)
@@ -101,8 +103,14 @@
     ;; write the body to the output stream
     (.readBodyData stream result-baos)
     ;; Return the statement result always
-    (with-open [r (io/reader (.toByteArray result-baos))]
-      (json/parse-stream r))))
+    (let [ss-result
+          (with-open [r (io/reader (.toByteArray result-baos))]
+            (json/parse-stream r))]
+      (reduce-kv
+       (fn [m k v]
+         (assoc m (keyword k) v))
+       {}
+       ss-result))))
 
 (s/fdef parse-tail
   :args (s/cat :stream #(instance? MultipartStream %))

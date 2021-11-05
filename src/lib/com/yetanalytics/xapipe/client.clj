@@ -295,7 +295,7 @@
                 :response
                 (let [{{consistent-through "X-Experience-API-Consistent-Through"}
                        :headers
-                       {{:strs [statements more]} :statement-result}
+                       {{:keys [statements more]} :statement-result}
                        :body}      resp
                       ?last-stored (some-> statements
                                            peek
@@ -358,7 +358,8 @@
     out-chan))
 
 (s/def ::get-response
-  (s/keys :req-un [::last-stored ::multipart/body]))
+  (s/keys :req-un [::multipart/body]
+          :opt-un [::last-stored]))
 
 (s/def ::get-success
   (s/tuple :response
