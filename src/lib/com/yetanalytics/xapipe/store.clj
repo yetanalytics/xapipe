@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.store
-  "Persistent job state storage")
+  "Persistent job state storage"
+  (:require [clojure.spec.alpha :as s]))
 
 (defprotocol XapipeStore
   (read-job [store job-id]
@@ -10,3 +11,6 @@
     "Return a list of jobs")
   (delete-job [store job-id]
     "Delete the job from the store, returning true/false"))
+
+(s/def :com.yetanalytics.xapipe/store
+  #(satisfies? XapipeStore %))
