@@ -68,7 +68,7 @@
    ;; Redis Backend Options
    [nil "--redis-uri URI" "Redis Connection URI"
     :default "redis://0.0.0.0:6379"]
-   [nil "--redis-prefix" "Redis key prefix"
+   [nil "--redis-prefix PREFIX" "Redis key prefix"
     :default "xapipe"]
    [nil "--file-store-dir PATH" "Directory path for filesystem storage"
     :default "store"]])
