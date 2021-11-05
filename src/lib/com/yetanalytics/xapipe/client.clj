@@ -13,6 +13,8 @@
             [com.yetanalytics.xapipe.util.time :as t])
   (:import [org.apache.http.impl.client CloseableHttpClient]))
 
+(s/def ::last-stored ::xs/timestamp)
+
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
   [_ resp]
@@ -126,7 +128,7 @@
 (s/fdef post-request
   :args (s/cat :config ::request-config
                :statements (s/every ::xs/statement)
-               :attachments (s/every ::multipart/attachment))
+               :attachments ::multipart/attachments)
   :ret map?)
 
 (defn post-request

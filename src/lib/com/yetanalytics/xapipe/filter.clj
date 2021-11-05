@@ -1,7 +1,6 @@
 (ns com.yetanalytics.xapipe.filter
   "Apply profile-based filtering to statement streams."
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as sgen]
             [xapi-schema.spec :as xs]
             [cheshire.core :as json]
             [com.yetanalytics.persephone :as per]
@@ -32,18 +31,11 @@
 
                          ex)))))
 
-;; MM attachments w/o gen
-(s/def ::attachments
-  (s/with-gen
-    (s/get-spec ::mm/attachments)
-    (fn []
-      (sgen/return []))))
-
 ;; The record we filter
 
 (def record-spec
   (s/keys :req-un [::xs/statement
-                   ::attachments]))
+                   ::mm/attachments]))
 
 ;; A (stateless) predicate
 (def filter-pred-spec

@@ -1,11 +1,13 @@
 (ns com.yetanalytics.xapipe.xapi
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]))
 
 (s/fdef attachment-hashes
-  :args (s/cat :statement ::xs/statement)
+  :args (s/cat :statement
+               ::xs/statement)
   :ret (s/every (s/tuple :attachment/sha2 boolean?)))
 
 (defn attachment-hashes

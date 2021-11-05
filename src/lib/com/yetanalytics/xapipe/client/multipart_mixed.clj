@@ -5,6 +5,7 @@
             [clj-http.util :as hutil]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [clojure.string :as cs]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr])
@@ -15,7 +16,13 @@
     MultipartStream$MalformedStreamException]))
 
 (s/def ::tempfile
-  #(instance? File %))
+  (s/with-gen
+    #(instance? File %)
+    (fn []
+      (sgen/return
+       (File/createTempFile
+        "xapipe_gen_attachment_"
+        "")))))
 
 (s/fdef create-tempfile!
   :args (s/cat :sha2 string?)
@@ -48,7 +55,7 @@
            :attachment/contentType
            ::tempfile]))
 
-(s/def ::attachments (s/every ::attachment))
+(s/def ::attachments (s/every ::attachment :gen-max 1))
 
 (s/fdef duplicate-attachment
   :args (s/cat :attachment ::attachment)

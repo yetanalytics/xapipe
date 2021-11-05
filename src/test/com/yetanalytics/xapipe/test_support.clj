@@ -1,5 +1,7 @@
 (ns com.yetanalytics.xapipe.test-support
-  (:require [clojure.java.io :as io]
+  (:require [clojure.test :as test]
+            [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
             [clojure.template :as temp]
             [clojure.tools.logging :as log]
@@ -271,3 +273,49 @@
             (zero? (mod (count args) (count argv)))))
     `(temp/do-template ~argv ~expr ~@args)
     (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))))
+
+;; Spec Auto-testing fns from LRS
+(alias 'stc 'clojure.spec.test.check)
+
+(def stc-ret :clojure.spec.test.check/ret)
+
+(def stc-opts :clojure.spec.test.check/opts)
+
+(defn failures [check-results]
+  (mapv
+   (fn [{:keys [sym] :as x}]
+     [sym (-> x
+              (update :spec s/describe)
+              (dissoc :sym)
+              ;; Dissoc the top level trace, leave the shrunken one
+              (update stc-ret dissoc :result-data))])
+   (remove #(-> %
+                stc-ret
+                :result
+                true?)
+           check-results)))
+
+(defmacro deftest-check-ns
+  "Check all instrumented symbols in an ns. A map of overrides
+      can provide options & a default:
+      {`foo     {::stc/ret {:num-tests 100}}
+       :default {::stc/ret {:num-tests 500}}}"
+  [test-sym ns-sym & [overrides]]
+  (let [default-opts# (get overrides :default {})
+        overrides#    (into {} ; Qualified overrides
+                            (map
+                             (fn [[fn-sym fn-opts]]
+                               [(symbol (name ns-sym) (name fn-sym))
+                                fn-opts])
+                             (or (dissoc overrides :default) {})))
+        syms-opts#    (into {}
+                            (map (fn [fn-sym]
+                                   [fn-sym
+                                    (get overrides# fn-sym default-opts#)]))
+                            (st/enumerate-namespace ns-sym))]
+    `(test/deftest ~test-sym
+       ~@(for [[sym opts] syms-opts#]
+           `(test/testing ~(name sym)
+              (test/is
+               ~(list 'empty?
+                      `(failures (st/check (quote ~sym) ~opts)))))))))
