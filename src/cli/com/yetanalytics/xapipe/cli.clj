@@ -89,7 +89,8 @@
 
 (s/fdef handle-job
   :args (s/cat :store :com.yetanalytics.xapipe/store
-               :job ::xapipe/job)
+               :job ::xapipe/job
+               :client-opts ::client/http-client-opts)
   :ret ::exit)
 
 (defn handle-job
