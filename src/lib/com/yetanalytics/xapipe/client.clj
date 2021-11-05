@@ -10,7 +10,8 @@
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
-            [com.yetanalytics.xapipe.util.time :as t])
+            [com.yetanalytics.xapipe.util.time :as t]
+            [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]))
 
 (s/def ::last-stored ::xs/timestamp)
@@ -244,8 +245,8 @@
 (s/def ::backoff-opts u/backoff-opts-spec)
 
 (s/fdef get-chan
-  :args (s/cat :out-chan any?
-               :stop-chan any?
+  :args (s/cat :out-chan ::cspec/channel
+               :stop-chan ::cspec/channel
                :config ::request-config
                :init-params ::get-params
                :poll-interval ::poll-interval
@@ -254,7 +255,7 @@
                 :opt-un
                 [::backoff-opts
                  ::conn-opts]))
-  :ret any?)
+  :ret ::cspec/channel)
 
 (defn get-chan
   "Returns a channel that will return responses from an LRS forever or until it
