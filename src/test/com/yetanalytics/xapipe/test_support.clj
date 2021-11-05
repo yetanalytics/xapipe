@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
+            [clojure.string :as cs]
             [clojure.template :as temp]
             [clojure.tools.logging :as log]
             [com.yetanalytics.datasim.input :as dsinput]
@@ -241,7 +242,17 @@
 
 (defn instrument-fixture
   ([]
-   (instrument-fixture (st/instrumentable-syms)))
+   (instrument-fixture
+    (remove
+     (fn [sym]
+       (let [sym-ns (namespace sym)]
+         (or
+          ;; Datasim and LRS are only used in testing, and are not called
+          ;; by the lib or cli.
+          ;; Therefore we can omit them.
+          (cs/starts-with? sym-ns "com.yetanalytics.datasim")
+          (cs/starts-with? sym-ns "com.yetanalytics.lrs"))))
+     (st/instrumentable-syms))))
   ([sym-or-syms]
    (fn [f]
      (st/instrument sym-or-syms)
@@ -249,8 +260,6 @@
        (f)
        (finally
          (st/unstrument sym-or-syms))))))
-
-
 
 (defmacro art
   "Like clojure.test/are, but without the is.
@@ -262,7 +271,6 @@
   Expands to:
            (do (is (= 2 (+ 1 1)))
                (is (= 4 (* 2 2))))"
-  {:added "1.1"}
   [argv expr & args]
   (if (or
        ;; (are [] true) is meaningless but ok
