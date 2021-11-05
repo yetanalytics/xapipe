@@ -21,33 +21,44 @@
         option-name (or (and id (name id))
                         long-command-name)
         spec-kw (keyword (str (ns-name *ns*))
-                         option-name)]
-    `(s/def ~spec-kw
-       ~(cond
-          (and parse-fn validate)
-          `(s/and
-            (s/conformer (fn [x#]
-                           (try
-                             (~parse-fn x#)
-                             (catch Exception _#
-                               x#))))
-            ~(first validate))
-          validate
-          `(s/and
-            string?
-            ~(first validate))
-          (not ?argname)
-          `boolean?
-          :else
-          `string?))))
+                         option-name)
+        bool? (not ?argname)
+        spec (cond
+               (and parse-fn validate)
+               `(s/and
+                 (s/conformer (fn [x#]
+                                (try
+                                  (~parse-fn x#)
+                                  (catch Exception _#
+                                    x#))))
+                 ~(first validate))
+               validate
+               `(s/and
+                 string?
+                 ~(first validate))
+               bool?
+               `boolean?
+               :else
+               `string?)]
+    `(list
+      ;; actual key spec
+      (s/def ~spec-kw
+        ~spec)
+      ;; Option Sequence spec
+      ~(if bool?
+         `(s/cat :arg #{ ~(format "--%s" long-command-name) })
+         `(s/cat :arg #{ ~(format "--%s" long-command-name) }
+                 :val ~spec-kw)))))
 
 (defmacro def-option-specs
   "Given a vector of option-specs, def specs for each option and a summative map
   spec"
   [options-sym]
   (let [options @(resolve options-sym)
-        spec-defs (map option-spec->spec-def
-                       options)
+        spec-defs-and-args (map option-spec->spec-def
+                                options)
+        spec-defs (map second spec-defs-and-args)
+        arg-specs (map #(nth % 2) spec-defs-and-args)
         spec-keys (map second spec-defs)]
     `(do
        ;; Write out the defs
@@ -55,7 +66,17 @@
        ;; followed by a map spec
        (s/def ~(keyword (str (ns-name *ns*)) (name options-sym))
          (s/keys :opt-un ~(into []
-                                spec-keys))))))
+                                spec-keys)))
+       ;; followed by an args spec
+       (s/def ~(keyword (str (ns-name *ns*)) (format "%s-args"
+                                                     (name options-sym)))
+         (s/alt
+          ~@(mapcat
+             (fn [k spec]
+               [(keyword nil (name k))
+                spec])
+             spec-keys
+             arg-specs))))))
 
 (def storage-options
   [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis, mem is for testing only"
@@ -248,8 +269,15 @@
            ::target-options
            ::job-options))
 
+(s/def ::all-args
+  (s/*
+   (s/alt :common ::common-options-args
+          :source ::source-options-args
+          :target ::target-options-args
+          :job    ::job-options-args)))
+
 (s/fdef args->options
-  :args (s/cat :args (s/every string?))
+  :args (s/cat :args (s/spec ::all-args))
   :ret ::all-options)
 
 (defn args->options
