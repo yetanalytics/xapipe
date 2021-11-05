@@ -24,6 +24,10 @@
                          option-name)
         bool? (not ?argname)
         spec (cond
+               (and multi default)
+               (case default
+                 [] `(s/every string?)
+                 {} `map?)
                (and parse-fn validate)
                `(s/and
                  (s/conformer (fn [x#]
@@ -48,7 +52,10 @@
       ~(if bool?
          `(s/cat :arg #{ ~(format "--%s" long-command-name) })
          `(s/cat :arg #{ ~(format "--%s" long-command-name) }
-                 :val ~spec-kw)))))
+                 :val
+                 ~(if multi
+                    `string?
+                    spec-kw))))))
 
 (defmacro def-option-specs
   "Given a vector of option-specs, def specs for each option and a summative map
