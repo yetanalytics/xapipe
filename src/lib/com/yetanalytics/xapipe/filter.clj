@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.filter
   "Apply profile-based filtering to statement streams."
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [xapi-schema.spec :as xs]
             [cheshire.core :as json]
             [com.yetanalytics.persephone :as per]
@@ -31,10 +32,18 @@
 
                          ex)))))
 
+;; MM attachments w/o gen
+(s/def ::attachments
+  (s/with-gen
+    (s/get-spec ::mm/attachments)
+    (fn []
+      (sgen/return []))))
+
 ;; The record we filter
+
 (def record-spec
   (s/keys :req-un [::xs/statement
-                   ::mm/attachments]))
+                   ::attachments]))
 
 ;; A (stateless) predicate
 (def filter-pred-spec
@@ -43,8 +52,7 @@
            :ret boolean?))
 
 (s/def ::profile-urls
-  (s/every ::profile-url
-           :min-count 1))
+  (s/every ::profile-url))
 
 (s/def ::template-ids
   (s/every ::profile-url))
@@ -73,10 +81,11 @@
                 (per/template->validator template)))]
     (fn [{:keys [statement
                  attachments]}]
-      (some (fn [v]
-              (per/validate-statement-vs-template
-               v statement))
-            validators))))
+      (some?
+       (some (fn [v]
+               (per/validate-statement-vs-template
+                v statement))
+             validators)))))
 
 (s/def ::pattern-id ::pat/id)
 
@@ -86,7 +95,7 @@
                          :statement/registration)))
 
 (s/fdef get-state-key
-  :args (s/keys :statement ::xs/statement)
+  :args (s/cat :statement ::xs/statement)
   :ret (s/nilable state-key-spec))
 
 (defn get-state-key

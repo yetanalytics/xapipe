@@ -1,9 +1,21 @@
 (ns com.yetanalytics.xapipe.filter-test
   (:require [clojure.test :refer :all]
             [com.yetanalytics.xapipe.filter :refer :all]
-            [com.yetanalytics.xapipe.test-support :as support]
-            [clojure.set :as cset]))
+            [com.yetanalytics.xapipe.test-support :as sup]
+            [clojure.set :as cset]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as st]
+            [com.yetanalytics.pan.objects.profile :as prof]))
 
+;; We restrict instrumentation here because we don't want to test the libs
+(use-fixtures :once (sup/instrument-fixture
+                     (st/enumerate-namespace 'com.yetanalytics.xapipe.filter)))
+
+(deftest get-profile-test
+  (testing "slurps the profile from wherever"
+    (is
+     (s/valid? ::prof/profile
+               (get-profile "dev-resources/profiles/calibration.jsonld")))))
 
 (deftest template-filter-xf-test
   (let [;; Turn into a transducer to show sequence behavior
@@ -16,7 +28,7 @@
         a-profile "dev-resources/profiles/calibration_a.jsonld"
         a-template-ids (-> a-profile get-profile :templates (->> (mapv :id)))
         a-statements (into []
-                           (support/gen-statements
+                           (sup/gen-statements
                             50
                             :profiles [a-profile]
                             :parameters {:seed 42}))
@@ -24,7 +36,7 @@
         b-profile "dev-resources/profiles/calibration_b.jsonld"
         b-template-ids (-> b-profile get-profile :templates (->> (mapv :id)))
         b-statements (into []
-                           (support/gen-statements
+                           (sup/gen-statements
                             50 :profiles [b-profile]
                             :parameters {:seed 24}))
         all-statements (interleave a-statements b-statements)]
@@ -87,7 +99,7 @@
 (deftest pattern-filter-pred-test
   (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
         ;; This strict pattern expects activities 1, 2 and 3, in order
-        [a b c] (support/gen-statements
+        [a b c] (sup/gen-statements
                  3
                  :profiles [profile-url]
                  :personae [{:name "Test Subjects",
@@ -129,3 +141,22 @@
                 true]
                ;; c drops
                [{} false]])))
+
+(deftest stateless-predicates-test
+  (testing "transforms config into stateless predicates"
+    (is (s/valid?
+         (s/keys :opt-un
+                 [:com.yetanalytics.xapipe.filter.stateless-predicates/template])
+         (stateless-predicates
+          {:template {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+                      :template-ids []}})))))
+
+(deftest stateful-predicates-test
+  (testing "transforms config into stateful predicates"
+    ;; Cannot test this pred because of gen failure in PAN
+    (is (function?
+         (:pattern
+          (stateful-predicates
+          {:pattern
+           {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
+            :pattern-ids []}}))))))
