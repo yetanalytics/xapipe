@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.xapi
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]))
@@ -25,11 +26,57 @@
   (s/keys :req-un [::xs/statement
                    ::multipart/attachments]))
 
-(s/fdef response->statements
-  :args (s/cat :response ::client/get-response)
-  :ret (s/every ::source-statement))
+(s/def ::atts-in
+  (s/map-of ::xs/sha2
+            (s/every ::multipart/attachment
+                     :gen-max 1)
+            :gen-max 1))
 
-(defn- find-attachments
+(s/def ::atts-out
+  (s/map-of ::xs/sha2
+            (s/every ::multipart/attachment
+                     :gen-max 1)
+            :gen-max 1))
+
+(s/def ::atts-acc
+  ::multipart/attachments)
+
+(def attachment-args-spec
+  (s/with-gen
+    (s/cat :acc-map (s/keys :req-un [::atts-in
+                                     ::atts-out
+                                     ::atts-acc])
+           :query (s/tuple ::xs/sha2 boolean?))
+    (fn []
+      (sgen/fmap (fn [[sha2 att]]
+                   [{:atts-in {sha2 [att]}
+                     :atts-out {}
+                     :atts-acc []}
+                    [sha2 false]])
+                 (sgen/tuple
+                  (s/gen ::xs/sha2)
+                  (s/gen ::multipart/attachment))))))
+
+(s/fdef find-attachments
+  :args (s/with-gen
+          (s/cat :acc-map (s/keys :req-un [::atts-in
+                                           ::atts-out
+                                           ::atts-acc])
+                 :query (s/tuple ::xs/sha2 boolean?))
+          (fn []
+            (sgen/fmap (fn [[sha2 att]]
+                         [{:atts-in {sha2 [att]}
+                           :atts-out {}
+                           :atts-acc []}
+                          [sha2 false]])
+                       (sgen/tuple
+                        (s/gen ::xs/sha2)
+                        (s/gen ::multipart/attachment)))))
+  :ret (s/keys :req-un [::atts-in
+                        ::atts-out
+                        ::atts-acc]))
+
+(defn find-attachments
   [{a-i :atts-in
     a-o :atts-out
     aa :atts-acc} [sha2 file-url?]]
@@ -55,6 +102,10 @@
    (throw (ex-info "Invalid Multipart Response - No attachment found."
                    {:type ::attachment-not-found
                     :sha2 sha2}))))
+
+(s/fdef response->statements
+  :args (s/cat :response ::client/get-response)
+  :ret (s/every ::source-statement))
 
 (defn response->statements
   "Break a response down into statements paired with one or more attachments"
