@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.job.state
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
             [com.yetanalytics.xapipe.util.time :as t]
@@ -32,7 +33,9 @@
     })
 
 (s/def ::filter
-  filt/filter-state-spec)
+  (s/with-gen filt/filter-state-spec
+    (fn []
+      (sgen/return {}))))
 
 (def state-spec
   (s/keys :req-un [::source
