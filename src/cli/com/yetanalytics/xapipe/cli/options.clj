@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
+            [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.job.config :as config]))
 
 (defn option-spec->spec-def
@@ -13,7 +14,8 @@
               default
               parse-fn
               multi
-              validate]}]]
+              validate]}]
+   overrides]
   (let [[long-command-name
          ?argname] (-> long-command
                        (subs 2)
@@ -23,11 +25,16 @@
         spec-kw (keyword (str (ns-name *ns*))
                          option-name)
         bool? (not ?argname)
+        override-spec (get overrides spec-kw)
         spec (cond
+               override-spec
+               override-spec
+
                (and multi default)
                (case default
                  [] `(s/every string?)
                  {} `map?)
+
                (and parse-fn validate)
                `(s/and
                  (s/conformer (fn [x#]
@@ -36,33 +43,41 @@
                                   (catch Exception _#
                                     x#))))
                  ~(first validate))
+
                validate
                `(s/and
                  string?
                  ~(first validate))
+
                bool?
                `boolean?
                :else
-               `string?)]
+               `string?)
+        arg-spec `#{
+                    ~(format "--%s" long-command-name)
+                    ~@(if short-command
+                        [short-command]
+                        [])
+                    }]
     `(list
       ;; actual key spec
       (s/def ~spec-kw
         ~spec)
       ;; Option Sequence spec
       ~(if bool?
-         `(s/cat :arg #{ ~(format "--%s" long-command-name) })
-         `(s/cat :arg #{ ~(format "--%s" long-command-name) }
-                 :val
-                 ~(if multi
-                    `string?
-                    spec-kw))))))
+         `(s/cat :arg ~arg-spec)
+         `(s/cat :arg ~arg-spec
+                 :val (s/and string?
+                             not-empty))))))
 
 (defmacro def-option-specs
   "Given a vector of option-specs, def specs for each option and a summative map
   spec"
-  [options-sym]
-  (let [options @(resolve options-sym)
-        spec-defs-and-args (map option-spec->spec-def
+  [options-sym
+   & [overrides]]
+  (let [overrides (or overrides {})
+        options @(resolve options-sym)
+        spec-defs-and-args (map #(option-spec->spec-def % overrides)
                                 options)
         spec-defs (map second spec-defs-and-args)
         arg-specs (map #(nth % 2) spec-defs-and-args)
@@ -143,7 +158,8 @@
                      (update :config config/ensure-defaults)))]]
    storage-options))
 
-(def-option-specs common-options)
+(def-option-specs common-options {::json ::xapipe/job
+                                  ::json-file ::xapipe/job})
 
 (defn backoff-opts
   [tag]
