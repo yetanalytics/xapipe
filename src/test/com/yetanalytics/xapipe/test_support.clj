@@ -306,34 +306,54 @@
 
 (defmacro deftest-check-ns
   "Check all instrumented symbols in an ns. A map of overrides
-      can provide options & a default:
-      {`foo     {::stc/opts {:num-tests 100}}
+      can provide options (or ::skip keyword) & a default:
+      {foo/bar  {::stc/opts {:num-tests 100}}
+       foo/baz  ::skip ;; Skip this one.
        :default {::stc/opts {:num-tests 500}}}"
   [test-sym ns-sym & [overrides]]
-  (let [default-opts# (get overrides :default {})
-        overrides#    (into {} ; Qualified overrides
-                            (map
-                             (fn [[fn-sym fn-opts]]
-                               [(symbol (name ns-sym) (name fn-sym))
-                                fn-opts])
-                             (or (dissoc overrides :default) {})))
-        syms-opts#    (into {}
-                            (map (fn [fn-sym]
-                                   [fn-sym
-                                    (get overrides# fn-sym default-opts#)]))
-                            (st/enumerate-namespace ns-sym))]
+  (let [default-opts (get overrides :default {})
+        overrides (into {} ; Qualified overrides
+                        (map
+                         (fn [[fn-sym fn-opts]]
+                           [(symbol (name ns-sym) (name fn-sym))
+                            fn-opts])
+                         (or (dissoc overrides :default) {})))
+        syms-opts (into {}
+                        (keep (fn [fn-sym]
+                                (let [fn-opts (get overrides fn-sym default-opts)]
+                                  (when (not= fn-opts ::skip)
+                                    [fn-sym
+                                     fn-opts]))))
+                        (st/enumerate-namespace ns-sym))
+        skip-syms (into []
+                        (keep
+                         (fn [[fn-sym fn-opts]]
+                           (when (= ::skip fn-opts)
+                             fn-sym))
+                         overrides))]
     `(test/deftest ~test-sym
-       ~@(for [[sym opts] syms-opts#]
+       ~@(when (not-empty skip-syms)
+           `[(printf "\n%s auto-test skipping syms: %s"
+                     ~(name test-sym)
+                     ~(cs/join \, (map name skip-syms)))])
+       ~@(for [[sym opts] syms-opts]
            `(test/testing ~(name sym)
               (let [failures# (failures (st/check (quote ~sym) ~opts))]
                 ;; Log failures in an actionable way
+                (test/testing "no failing syms"
+                  (test/is
+                   (= []
+                      (map first failures#))))
                 (doseq [[sym#
                          {spec# :spec
                           {result# :result
                            fail# :fail
+                           num-tests# :num-tests
                            {} :shrunk} ~stc-ret}] failures#]
-                  (printf "\nfailing sym %s\n\nreason: %s\n\n"
-                          sym# (ex-message result#))
+                  (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
+                          sym#
+                          num-tests#
+                          (ex-message result#))
 
                   (print "failing spec:\n\n")
                   (pprint/pprint
@@ -342,8 +362,4 @@
                   (when fail#
                     (print "\nfailing value:\n\n")
                     (pprint/pprint
-                     fail#)))
-                (test/testing "no failing syms"
-                  (test/is
-                   (= []
-                      (map first failures#))))))))))
+                     fail#)))))))))
