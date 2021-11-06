@@ -6,6 +6,7 @@
             [clojure.string :as cs]
             [clojure.template :as temp]
             [clojure.tools.logging :as log]
+            [clojure.pprint :as pprint]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
             [com.yetanalytics.lrs :as lrs]
@@ -306,8 +307,8 @@
 (defmacro deftest-check-ns
   "Check all instrumented symbols in an ns. A map of overrides
       can provide options & a default:
-      {`foo     {::stc/ret {:num-tests 100}}
-       :default {::stc/ret {:num-tests 500}}}"
+      {`foo     {::stc/opts {:num-tests 100}}
+       :default {::stc/opts {:num-tests 500}}}"
   [test-sym ns-sym & [overrides]]
   (let [default-opts# (get overrides :default {})
         overrides#    (into {} ; Qualified overrides
@@ -324,6 +325,25 @@
     `(test/deftest ~test-sym
        ~@(for [[sym opts] syms-opts#]
            `(test/testing ~(name sym)
-              (test/is
-               ~(list 'empty?
-                      `(failures (st/check (quote ~sym) ~opts)))))))))
+              (let [failures# (failures (st/check (quote ~sym) ~opts))]
+                ;; Log failures in an actionable way
+                (doseq [[sym#
+                         {spec# :spec
+                          {result# :result
+                           fail# :fail
+                           {} :shrunk} ~stc-ret}] failures#]
+                  (printf "\nfailing sym %s\n\nreason: %s\n\n"
+                          sym# (ex-message result#))
+
+                  (print "failing spec:\n\n")
+                  (pprint/pprint
+                   spec#)
+
+                  (when fail#
+                    (print "\nfailing value:\n\n")
+                    (pprint/pprint
+                     fail#)))
+                (test/testing "no failing syms"
+                  (test/is
+                   (= []
+                      (map first failures#))))))))))
