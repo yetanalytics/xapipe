@@ -6,11 +6,12 @@
         cheshire/cheshire {:mvn/version "5.10.0"}
         com.taoensso/carmine {:mvn/version "3.1.0"}
         commons-fileupload/commons-fileupload {:mvn/version "1.4"}
-        com.yetanalytics/xapi-schema {:git/url "https://github.com/yetanalytics/xapi-schema.git"
-                                      :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"
-                                      :exclusions [org.clojure/clojure
-                                                   org.clojure/clojurescript
-                                                   org.clojure/data.json]}
+        com.yetanalytics/xapi-schema
+        {:git/url "https://github.com/yetanalytics/xapi-schema.git"
+         :sha "5cb168a1af2e0d4e465db067ba2e44bcde71bdc9"
+         :exclusions [org.clojure/clojure
+                      org.clojure/clojurescript
+                      org.clojure/data.json]}
         org.clojure/tools.logging {:mvn/version "1.1.0"}
         com.yetanalytics/project-persephone
         {:git/url "https://github.com/yetanalytics/project-persephone.git"
@@ -18,12 +19,9 @@
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
-                     ch.qos.logback/logback-classic {:mvn/version "1.2.3"
-                                                     :exclusions [org.slf4j/slf4j-api]}}}
-  :run-m {:main-opts ["-m" "com.yetanalytics.xapipe"]}
-  :run-x {:ns-default com.yetanalytics.xapipe
-          :exec-fn greet
-          :exec-args {:name "Clojure"}}
+                     ch.qos.logback/logback-classic
+                     {:mvn/version "1.2.3"
+                      :exclusions [org.slf4j/slf4j-api]}}}
   :test {:extra-paths ["src/test"]
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}
                       io.github.cognitect-labs/test-runner
@@ -42,6 +40,9 @@
                                     com.yetanalytics/project-pan
                                     com.yetanalytics/xapi-schema]}}
          :exec-fn cognitect.test-runner.api/test}
+  :bench {:extra-paths ["src/bench"]
+          :ns-default com.yetanalytics.xapipe.bench
+          :exec-fn run-bench}
   :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn hf.depstar/uberjar
             :exec-args {:aot true
