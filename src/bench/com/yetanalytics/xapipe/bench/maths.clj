@@ -3,7 +3,7 @@
             [clojure.spec.gen.alpha :as sgen]
             [clojure.set :as cset]))
 
-;; Origninally Cribbed from Ryan and Jean
+;; Origninally Cribbed from Avery and Jean
 ;; https://github.com/clojure-cookbook/clojure-cookbook/blob/master/01_primitive-data/1-20_simple-statistics.asciidoc
 
 (defn mean ^Double [coll]
