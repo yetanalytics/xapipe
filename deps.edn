@@ -46,6 +46,7 @@
   :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
             :exec-fn hf.depstar/uberjar
             :exec-args {:aot true
-                        :jar "xapipe.jar"
-                        :main-class "com.yetanalytics.xapipe"
-                        :sync-pom true}}}}
+                        :jar "target/xapipe.jar"
+                        :main-class "com.yetanalytics.xapipe.main"
+                        :sync-pom true
+                        :aliases [:cli]}}}}
