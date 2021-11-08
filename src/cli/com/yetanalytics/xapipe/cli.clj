@@ -5,7 +5,10 @@
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [com.yetanalytics.xapipe :as xapipe]
+            [com.yetanalytics.xapipe.client :as client]
+            [com.yetanalytics.xapipe.cli.options :as opts]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
@@ -26,6 +29,10 @@
                    :xapi.statements.GET.request.params/until
                    :xapi.statements.GET.request.params/format]))
 
+(s/fdef create-store
+  :args (s/cat :options ::opts/all-options)
+  :ret :com.yetanalytics.xapipe/store)
+
 (defn create-store
   [{:keys [storage
            redis-uri
@@ -42,6 +49,10 @@
     :mem (mem-store/new-store)
     :file (file-store/new-store file-store-dir)))
 
+(s/fdef parse-lrs-url
+  :args (s/cat :url string?)
+  :ret ::client/request-config)
+
 (defn parse-lrs-url
   [^String url]
   (try
@@ -54,12 +65,33 @@
     (catch Exception ex
       (throw (ex-info (format "Could not parse LRS URL %s" url))))))
 
+(s/fdef force-stop-job!
+  :args (s/cat :stop-fn fn?
+               :states ::cspec/channel)
+  :ret ::client/request-config)
+
 (defn force-stop-job!
   "Given a stop-fn and states channel, finish and stop the job.
   *BLOCKING*"
   [stop-fn states]
   (when (stop-fn)
     (a/<!! (a/into [] states))))
+
+;; Command exit status
+(s/def ::status #{0 1})
+
+;; Message, a string
+(s/def ::message (s/nilable string?))
+
+(s/def ::exit
+  (s/keys :req-un [::status]
+          :opt-un [::message]))
+
+(s/fdef handle-job
+  :args (s/cat :store :com.yetanalytics.xapipe/store
+               :job ::xapipe/job
+               :client-opts ::client/http-client-opts)
+  :ret ::exit)
 
 (defn handle-job
   "Actually execute a job, wrapping result
@@ -85,6 +117,10 @@
       {:status 1
        :message (ex-message ex)})))
 
+(s/fdef options->client-opts
+  :args (s/cat :options ::opts/all-options)
+  :ret (s/keys :req-un [::client/conn-mgr-opts]))
+
 (defn options->client-opts
   [{:keys [conn-timeout
            conn-threads
@@ -101,6 +137,12 @@
      conn-io-thread-count
      (assoc-in [:io-config :io-thread-count]
                conn-io-thread-count))})
+
+(s/fdef options->config
+  :args (s/cat :options ::opts/all-options
+               :source-req-cfg ::client/request-config
+               :target-req-cfg ::client/request-config)
+  :ret ::job/config)
 
 (defn options->config
   [{:keys [job-id
@@ -182,6 +224,10 @@
                                   :pattern-ids (into []
                                                      filter-pattern-ids)})))
 
+(s/fdef create-job
+  :args (s/cat :options ::opts/all-options)
+  :ret ::xapipe/job)
+
 (defn create-job
   "Create a new job from options or throw"
   [{:keys [source-url
@@ -213,6 +259,11 @@
             job-id (or (:job-id options)
                        (.toString (java.util.UUID/randomUUID)))]
         (job/init-job job-id config)))))
+
+(s/fdef reconfigure-job
+  :args (s/cat :job ::xapipe/job
+               :options ::opts/all-options)
+  :ret ::xapipe/job)
 
 (defn reconfigure-job
   "Given an extant job and CLI options, apply any overriding options"
@@ -358,6 +409,10 @@
 
     batch-buffer-size
     (assoc :batch-buffer-size batch-buffer-size)))
+
+(s/fdef list-store-jobs
+  :args (s/cat :store :com.yetanalytics.xapipe/store)
+  :ret nil?)
 
 (defn list-store-jobs
   [store]

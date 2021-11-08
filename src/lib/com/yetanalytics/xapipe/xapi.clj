@@ -1,11 +1,13 @@
 (ns com.yetanalytics.xapipe.xapi
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]))
 
 (s/fdef attachment-hashes
-  :args (s/cat :statement ::xs/statement)
+  :args (s/cat :statement
+               ::xs/statement)
   :ret (s/every (s/tuple :attachment/sha2 boolean?)))
 
 (defn attachment-hashes
@@ -24,14 +26,61 @@
   (s/keys :req-un [::xs/statement
                    ::multipart/attachments]))
 
-(s/fdef response->statements
-  :args (s/cat :response ::client/get-response)
-  :ret (s/every ::source-statement))
+(s/def ::atts-in
+  (s/map-of ::xs/sha2
+            (s/every ::multipart/attachment
+                     :gen-max 1)
+            :gen-max 1))
 
-(defn- find-attachments
+(s/def ::atts-out
+  (s/map-of ::xs/sha2
+            (s/every ::multipart/attachment
+                     :gen-max 1)
+            :gen-max 1))
+
+(s/def ::atts-acc
+  ::multipart/attachments)
+
+(def attachment-args-spec
+  (s/with-gen
+    (s/cat :acc-map (s/keys :req-un [::atts-in
+                                     ::atts-out
+                                     ::atts-acc])
+           :query (s/tuple ::xs/sha2 boolean?))
+    (fn []
+      (sgen/fmap (fn [[sha2 att]]
+                   [{:atts-in {sha2 [att]}
+                     :atts-out {}
+                     :atts-acc []}
+                    [sha2 false]])
+                 (sgen/tuple
+                  (s/gen ::xs/sha2)
+                  (s/gen ::multipart/attachment))))))
+
+(s/fdef find-attachments
+  :args (s/with-gen
+          (s/cat :acc-map (s/keys :req-un [::atts-in
+                                           ::atts-out
+                                           ::atts-acc])
+                 :query (s/tuple ::xs/sha2 boolean?))
+          (fn []
+            (sgen/fmap (fn [[sha2 att]]
+                         [{:atts-in {sha2 [att]}
+                           :atts-out {}
+                           :atts-acc []}
+                          [sha2 false]])
+                       (sgen/tuple
+                        (s/gen ::xs/sha2)
+                        (s/gen ::multipart/attachment)))))
+  :ret (s/keys :req-un [::atts-in
+                        ::atts-out
+                        ::atts-acc]))
+
+(defn find-attachments
   [{a-i :atts-in
     a-o :atts-out
-    aa :atts-acc} [sha2 file-url?]]
+    aa :atts-acc
+    :as acc-map} [sha2 file-url?]]
   (or
    ;; Match in unused attachments
    (when-let [att (some-> a-i (get sha2) first)]
@@ -53,11 +102,37 @@
       :atts-acc aa})
    (throw (ex-info "Invalid Multipart Response - No attachment found."
                    {:type ::attachment-not-found
-                    :sha2 sha2}))))
+                    :sha2 sha2
+                    :acc-map acc-map}))))
+
+(s/fdef response->statements
+  :args
+  (s/cat :response
+         (s/with-gen
+           (s/keys :req-un [::multipart/body])
+           (fn []
+             (sgen/fmap
+              (fn [[s {:keys [sha2 contentType] :as att}]]
+                {:body {:statement-result
+                        {:statements
+                         [(-> s
+                              (assoc
+                               "attachments"
+                               [{"usageType" "http://example.com/foo"
+                                 "display" {"en-US" "Generated"}
+                                 "contentType" contentType
+                                 "sha2" sha2
+                                 "length" 0}])
+                              (update "object" dissoc "attachments"))]}
+                        :attachments [att]}})
+              (sgen/tuple
+               (s/gen ::xs/lrs-statement)
+               (s/gen ::multipart/attachment))))))
+  :ret (s/every ::source-statement))
 
 (defn response->statements
   "Break a response down into statements paired with one or more attachments"
-  [{{{:strs [statements]} :statement-result
+  [{{{:keys [statements]} :statement-result
      :keys [attachments]} :body}]
   (let [grouped (group-by :sha2 attachments)]
     (:acc

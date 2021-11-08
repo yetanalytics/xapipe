@@ -1,7 +1,10 @@
 (ns com.yetanalytics.xapipe.job.config-test
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer :all]
-            [com.yetanalytics.xapipe.job.config :refer :all]))
+            [com.yetanalytics.xapipe.job.config :refer :all]
+            [com.yetanalytics.xapipe.test-support :as sup]))
+
+(use-fixtures :once (sup/instrument-fixture))
 
 (def minimal-config
   {:source

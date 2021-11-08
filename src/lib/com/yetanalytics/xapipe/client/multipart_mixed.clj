@@ -5,6 +5,7 @@
             [clj-http.util :as hutil]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [clojure.string :as cs]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr])
@@ -15,7 +16,14 @@
     MultipartStream$MalformedStreamException]))
 
 (s/def ::tempfile
-  #(instance? File %))
+  (s/with-gen
+    #(instance? File %)
+    (fn []
+      (sgen/return
+       (doto (File/createTempFile
+              "xapipe_gen_attachment_"
+              "")
+         .deleteOnExit)))))
 
 (s/fdef create-tempfile!
   :args (s/cat :sha2 string?)
@@ -24,9 +32,10 @@
 (defn create-tempfile!
   "Create a unique but identifiable tempfile"
   [sha2]
-  (File/createTempFile
-   "xapipe_attachment_"
-   (format "_%s" sha2)))
+  (doto (File/createTempFile
+         "xapipe_attachment_"
+         (format "_%s" sha2))
+    .deleteOnExit))
 
 (s/fdef parse-headers
   :args (s/cat :headers string?)
@@ -48,7 +57,7 @@
            :attachment/contentType
            ::tempfile]))
 
-(s/def ::attachments (s/every ::attachment))
+(s/def ::attachments (s/every ::attachment :gen-max 1))
 
 (s/fdef duplicate-attachment
   :args (s/cat :attachment ::attachment)
@@ -94,8 +103,14 @@
     ;; write the body to the output stream
     (.readBodyData stream result-baos)
     ;; Return the statement result always
-    (with-open [r (io/reader (.toByteArray result-baos))]
-      (json/parse-stream r))))
+    (let [ss-result
+          (with-open [r (io/reader (.toByteArray result-baos))]
+            (json/parse-stream r))]
+      (reduce-kv
+       (fn [m k v]
+         (assoc m (keyword k) v))
+       {}
+       ss-result))))
 
 (s/fdef parse-tail
   :args (s/cat :stream #(instance? MultipartStream %))

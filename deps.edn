@@ -28,7 +28,7 @@
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}
                       io.github.cognitect-labs/test-runner
                       {:git/url "https://github.com/cognitect-labs/test-runner"
-                       :sha "62ef1de18e076903374306060ac0e8a752e57c86"}
+                       :sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
                       com.yetanalytics/lrs {:git/url "https://github.com/yetanalytics/lrs.git"
                                             :sha "f58af8f7a096f91ecffeb320ed0e2a4386e026da"}
                       io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}

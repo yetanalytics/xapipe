@@ -13,6 +13,8 @@
             [com.yetanalytics.xapipe.test-support :as sup])
   (:import [java.io File]))
 
+(use-fixtures :once (sup/instrument-fixture))
+
 (deftest start-test
   (sup/with-running [source (sup/lrs
                              :seed-path

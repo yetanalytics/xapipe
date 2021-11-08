@@ -1,8 +1,13 @@
 (ns com.yetanalytics.xapipe.test-support
-  (:require [clojure.java.io :as io]
+  (:require [clojure.test :as test]
+            [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
+            [clojure.stacktrace :as stack]
+            [clojure.string :as cs]
             [clojure.template :as temp]
             [clojure.tools.logging :as log]
+            [clojure.pprint :as pprint]
             [com.yetanalytics.datasim.input :as dsinput]
             [com.yetanalytics.datasim.sim :as dsim]
             [com.yetanalytics.lrs :as lrs]
@@ -238,13 +243,25 @@
                       ["dev-resources/profiles/calibration.jsonld"]))))))))
 
 (defn instrument-fixture
-  [sym-or-syms]
-  (fn [f]
-    (st/instrument sym-or-syms)
-    (try
-      (f)
-      (finally
-        (st/unstrument sym-or-syms)))))
+  ([]
+   (instrument-fixture
+    (remove
+     (fn [sym]
+       (let [sym-ns (namespace sym)]
+         (or
+          ;; Datasim and LRS are only used in testing, and are not called
+          ;; by the lib or cli.
+          ;; Therefore we can omit them.
+          (cs/starts-with? sym-ns "com.yetanalytics.datasim")
+          (cs/starts-with? sym-ns "com.yetanalytics.lrs"))))
+     (st/instrumentable-syms))))
+  ([sym-or-syms]
+   (fn [f]
+     (st/instrument sym-or-syms)
+     (try
+       (f)
+       (finally
+         (st/unstrument sym-or-syms))))))
 
 (defmacro art
   "Like clojure.test/are, but without the is.
@@ -256,7 +273,6 @@
   Expands to:
            (do (is (= 2 (+ 1 1)))
                (is (= 4 (* 2 2))))"
-  {:added "1.1"}
   [argv expr & args]
   (if (or
        ;; (are [] true) is meaningless but ok
@@ -267,3 +283,124 @@
             (zero? (mod (count args) (count argv)))))
     `(temp/do-template ~argv ~expr ~@args)
     (throw (IllegalArgumentException. "The number of args doesn't match are's argv."))))
+
+;; Spec Auto-testing fns from LRS
+(alias 'stc 'clojure.spec.test.check)
+
+(def stc-ret :clojure.spec.test.check/ret)
+
+(def stc-opts :clojure.spec.test.check/opts)
+
+(defn failures [check-results]
+  (mapv
+   (fn [{:keys [sym] :as x}]
+     [sym (-> x
+              (update :spec s/describe)
+              (dissoc :sym)
+              ;; Dissoc the top level trace, leave the shrunken one
+              (update stc-ret dissoc :result-data))])
+   (remove #(-> %
+                stc-ret
+                :result
+                true?)
+           check-results)))
+
+(defn- stacktrace-file-and-line
+  [stacktrace]
+  (if (seq stacktrace)
+    (let [^StackTraceElement s (first stacktrace)]
+      {:file (.getFileName s) :line (.getLineNumber s)})
+    {:file nil :line nil}))
+
+(defn file-and-line
+  "File and line utils copied from clojure.test"
+  [stacktrace]
+  (stacktrace-file-and-line
+   (drop-while
+    #(let [cl-name (.getClassName ^StackTraceElement %)]
+       (or (cs/starts-with? cl-name "java.lang.")
+           (cs/starts-with? cl-name "clojure.test$")
+           (cs/starts-with? cl-name "clojure.core$ex_info")))
+    stacktrace)))
+
+(defmethod test/report
+  :spec-check-fail
+  [{:keys [test-sym
+           sym
+           failures] :as m}]
+  (test/with-test-out
+    (println "\nFAIL in" (test/testing-vars-str m))
+    (test/inc-report-counter :fail)
+    (doseq [[sym
+             {:keys [spec failure]
+              {:keys [result fail num-tests]} stc-ret}] failures]
+      (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
+              sym
+              num-tests
+              (ex-message result))
+
+      ;; When we have a non-spec failure related ex, print the trace
+      (when-not (some-> result
+                        ex-data
+                        :clojure.spec.alpha/failure
+                        (= :check-failed))
+        (when (instance? Throwable result)
+          (stack/print-cause-trace result test/*stack-trace-depth*)))
+
+      (print "\nfailing spec:\n\n")
+      (pprint/pprint
+       spec)
+
+      (when fail
+        (print "\nfailing value:\n\n")
+        (pprint/pprint
+         fail)))))
+
+(defmethod test/report
+  :spec-check-skip
+  [{:keys [test-sym sym] :as m}]
+  (test/with-test-out
+    (test/inc-report-counter :pass)
+    (printf "\n%s auto-test skipping sym: %s\n"
+            test-sym
+            sym)))
+
+(defmacro def-ns-check-tests
+  "Check all instrumented symbols in an ns, in individual test functions.
+   A map of overrides can provide options (or ::skip keyword) & a default:
+   {foo/bar  {::stc/opts {:num-tests 100}}
+    foo/baz  ::skip ;; Skip this one.
+    :default {::stc/opts {:num-tests 500}}}"
+  [ns-sym & [overrides]]
+  (let [default-opts (get overrides :default {})
+        overrides (into {} ; Qualified overrides
+                        (map
+                         (fn [[fn-sym fn-opts]]
+                           [(symbol (name ns-sym) (name fn-sym))
+                            fn-opts])
+                         (or (dissoc overrides :default) {})))
+        syms-opts (into {}
+                        (keep (fn [fn-sym]
+                                (let [fn-opts (get overrides fn-sym default-opts)]
+                                  [fn-sym
+                                   fn-opts])))
+                        (st/enumerate-namespace ns-sym))]
+    `(do
+       ~@(for [[sym opts] syms-opts
+               :let [test-sym (symbol nil (str (name sym) "-test"))]]
+           `(test/deftest ~(symbol nil (str (name sym) "-test"))
+              (test/do-report
+               (merge
+                (file-and-line
+                 (.getStackTrace (Thread/currentThread)))
+                ~(if (= ::skip opts)
+                   `{:type :spec-check-skip
+                     :test-sym '~test-sym
+                     :sym '~sym}
+                   `(let [failures# (failures (st/check (quote ~sym) ~opts))]
+                      (if (empty? failures#)
+                        {:type :pass}
+                        {:type :spec-check-fail
+                         :failures failures#
+                         :test-sym '~test-sym
+                         :sym '~sym}))))))))))

@@ -10,8 +10,11 @@
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
-            [com.yetanalytics.xapipe.util.time :as t])
+            [com.yetanalytics.xapipe.util.time :as t]
+            [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]))
+
+(s/def ::last-stored ::xs/timestamp)
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
@@ -126,7 +129,7 @@
 (s/fdef post-request
   :args (s/cat :config ::request-config
                :statements (s/every ::xs/statement)
-               :attachments (s/every ::multipart/attachment))
+               :attachments ::multipart/attachments)
   :ret map?)
 
 (defn post-request
@@ -242,8 +245,8 @@
 (s/def ::backoff-opts u/backoff-opts-spec)
 
 (s/fdef get-chan
-  :args (s/cat :out-chan any?
-               :stop-chan any?
+  :args (s/cat :out-chan ::cspec/channel
+               :stop-chan ::cspec/channel
                :config ::request-config
                :init-params ::get-params
                :poll-interval ::poll-interval
@@ -252,7 +255,7 @@
                 :opt-un
                 [::backoff-opts
                  ::conn-opts]))
-  :ret any?)
+  :ret ::cspec/channel)
 
 (defn get-chan
   "Returns a channel that will return responses from an LRS forever or until it
@@ -293,7 +296,7 @@
                 :response
                 (let [{{consistent-through "X-Experience-API-Consistent-Through"}
                        :headers
-                       {{:strs [statements more]} :statement-result}
+                       {{:keys [statements more]} :statement-result}
                        :body}      resp
                       ?last-stored (some-> statements
                                            peek
@@ -356,7 +359,8 @@
     out-chan))
 
 (s/def ::get-response
-  (s/keys :req-un [::last-stored ::multipart/body]))
+  (s/keys :req-un [::multipart/body]
+          :opt-un [::last-stored]))
 
 (s/def ::get-success
   (s/tuple :response

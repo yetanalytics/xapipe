@@ -10,6 +10,8 @@
             [com.yetanalytics.xapipe.util.time :as t])
   (:import [java.time Instant]))
 
+(use-fixtures :once (sup/instrument-fixture))
+
 (deftest run-job-test
   (sup/with-running [source (sup/lrs
                              :seed-path "dev-resources/lrs/after_conf.edn")

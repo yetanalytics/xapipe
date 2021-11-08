@@ -73,7 +73,7 @@ All options:
       --json-file FILE                                        Take a job specification from a JSON file
   -s, --storage STORAGE                 :noop                 Select storage backend, noop (default) or redis, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
-      --redis-prefix                                          Redis key prefix
+      --redis-prefix PREFIX                                   Redis key prefix
       --file-store-dir PATH             store                 Directory path for filesystem storage
       --source-url URL                                        Source LRS xAPI Endpoint
       --source-batch-size SIZE          50                    Source LRS GET limit param

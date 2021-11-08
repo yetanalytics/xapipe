@@ -11,6 +11,7 @@
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
             [com.yetanalytics.xapipe.store :as store]
+            [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.util.async :as ua]
             [com.yetanalytics.xapipe.xapi :as xapi])
@@ -27,7 +28,7 @@
   (s/keys :req-un [:com.yetanalytics.xapipe.stop-signal/status]
           :opt-un [::errors/error]))
 
-(s/def ::states any?) ;; chan
+(s/def ::states ::cspec/channel)
 (s/def ::stop-fn (s/fspec :args (s/cat) :ret ::job))
 
 (defn- post-loop
@@ -295,9 +296,9 @@
 
 (s/fdef log-states
   :args (s/cat
-         :states any?
+         :states ::cspec/channel
          :level #{:info :debug :trace :error :warn})
-  :ret any?)
+  :ret ::cspec/channel)
 
 (defn log-states
   "Log a sequence of job states at the given level"
@@ -319,7 +320,7 @@
 (s/fdef store-states
   :args (s/cat :states ::states ;; successive job maps
                :store #(satisfies? store/XapipeStore %))
-  :ret any?) ;; a channel with final state
+  :ret ::cspec/channel) ;; a channel with final state
 
 (defn store-states
   "Write states to storage, which is assumed to be a blocking operation.

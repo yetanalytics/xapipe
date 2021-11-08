@@ -32,6 +32,7 @@
                          ex)))))
 
 ;; The record we filter
+
 (def record-spec
   (s/keys :req-un [::xs/statement
                    ::mm/attachments]))
@@ -43,8 +44,7 @@
            :ret boolean?))
 
 (s/def ::profile-urls
-  (s/every ::profile-url
-           :min-count 1))
+  (s/every ::profile-url))
 
 (s/def ::template-ids
   (s/every ::profile-url))
@@ -73,20 +73,21 @@
                 (per/template->validator template)))]
     (fn [{:keys [statement
                  attachments]}]
-      (some (fn [v]
-              (per/validate-statement-vs-template
-               v statement))
-            validators))))
+      (some?
+       (some (fn [v]
+               (per/validate-statement-vs-template
+                v statement))
+             validators)))))
 
 (s/def ::pattern-id ::pat/id)
 
 (def state-key-spec
-  (s/or :registration :statement/registration
-        :subreg (s/tuple :statement/registration
-                         :statement/registration)))
+  (s/or :registration :context/registration
+        :subreg (s/tuple :context/registration
+                         :context/registration)))
 
 (s/fdef get-state-key
-  :args (s/keys :statement ::xs/statement)
+  :args (s/cat :statement ::xs/statement)
   :ret (s/nilable state-key-spec))
 
 (defn get-state-key

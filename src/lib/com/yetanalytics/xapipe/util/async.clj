@@ -1,12 +1,8 @@
 (ns com.yetanalytics.xapipe.util.async
   "Useful Async facilities"
   (:require [clojure.core.async :as a]
-            [clojure.core.async.impl.protocols :as aproto]
-            [clojure.spec.alpha :as s]))
-
-(defn channel?
-  [x]
-  (satisfies? aproto/Channel x))
+            [clojure.spec.alpha :as s]
+            [com.yetanalytics.xapipe.spec.common :as cspec]))
 
 (s/def ::stateless-predicates
   (s/map-of
@@ -24,12 +20,11 @@
    any?))
 
 (s/def ::cleanup-fn
-  (s/fspec :args (s/cat :record any?)
-           :ret any?))
+  fn?)
 
 (s/fdef batch-filter
-  :args (s/cat :a channel?
-               :b channel?
+  :args (s/cat :a ::cspec/channel
+               :b ::cspec/channel
                :size pos-int?
                :timeout-ms nat-int?
                :kwargs (s/keys*
