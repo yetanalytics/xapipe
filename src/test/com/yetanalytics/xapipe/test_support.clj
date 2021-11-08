@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
+            [clojure.stacktrace :as stack]
             [clojure.string :as cs]
             [clojure.template :as temp]
             [clojure.tools.logging :as log]
@@ -304,13 +305,73 @@
                 true?)
            check-results)))
 
-(defmacro deftest-check-ns
-  "Check all instrumented symbols in an ns. A map of overrides
-      can provide options (or ::skip keyword) & a default:
-      {foo/bar  {::stc/opts {:num-tests 100}}
-       foo/baz  ::skip ;; Skip this one.
-       :default {::stc/opts {:num-tests 500}}}"
-  [test-sym ns-sym & [overrides]]
+(defn- stacktrace-file-and-line
+  [stacktrace]
+  (if (seq stacktrace)
+    (let [^StackTraceElement s (first stacktrace)]
+      {:file (.getFileName s) :line (.getLineNumber s)})
+    {:file nil :line nil}))
+
+(defn file-and-line
+  "File and line utils copied from clojure.test"
+  [stacktrace]
+  (stacktrace-file-and-line
+   (drop-while
+    #(let [cl-name (.getClassName ^StackTraceElement %)]
+       (or (cs/starts-with? cl-name "java.lang.")
+           (cs/starts-with? cl-name "clojure.test$")
+           (cs/starts-with? cl-name "clojure.core$ex_info")))
+    stacktrace)))
+
+(defmethod test/report
+  :spec-check-fail
+  [{:keys [test-sym
+           sym
+           failures] :as m}]
+  (test/with-test-out
+    (println "\nFAIL in" (test/testing-vars-str m))
+    (test/inc-report-counter :fail)
+    (doseq [[sym
+             {:keys [spec failure]
+              {:keys [result fail num-tests]} stc-ret}] failures]
+      (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
+              sym
+              num-tests
+              (ex-message result))
+
+      ;; When we have a non-spec failure related ex, print the trace
+      (when-not (some-> result
+                        ex-data
+                        :clojure.spec.alpha/failure
+                        (= :check-failed))
+        (when (instance? Throwable result)
+          (stack/print-cause-trace result test/*stack-trace-depth*)))
+
+      (print "\nfailing spec:\n\n")
+      (pprint/pprint
+       spec)
+
+      (when fail
+        (print "\nfailing value:\n\n")
+        (pprint/pprint
+         fail)))))
+
+(defmethod test/report
+  :spec-check-skip
+  [{:keys [test-sym sym] :as m}]
+  (test/with-test-out
+    (test/inc-report-counter :pass)
+    (printf "\n%s auto-test skipping sym: %s\n"
+            test-sym
+            sym)))
+
+(defmacro def-ns-check-tests
+  "Check all instrumented symbols in an ns, in individual test functions.
+   A map of overrides can provide options (or ::skip keyword) & a default:
+   {foo/bar  {::stc/opts {:num-tests 100}}
+    foo/baz  ::skip ;; Skip this one.
+    :default {::stc/opts {:num-tests 500}}}"
+  [ns-sym & [overrides]]
   (let [default-opts (get overrides :default {})
         overrides (into {} ; Qualified overrides
                         (map
@@ -321,45 +382,25 @@
         syms-opts (into {}
                         (keep (fn [fn-sym]
                                 (let [fn-opts (get overrides fn-sym default-opts)]
-                                  (when (not= fn-opts ::skip)
-                                    [fn-sym
-                                     fn-opts]))))
-                        (st/enumerate-namespace ns-sym))
-        skip-syms (into []
-                        (keep
-                         (fn [[fn-sym fn-opts]]
-                           (when (= ::skip fn-opts)
-                             fn-sym))
-                         overrides))]
-    `(test/deftest ~test-sym
-       ~@(when (not-empty skip-syms)
-           `[(printf "\n%s auto-test skipping syms: %s"
-                     ~(name test-sym)
-                     ~(cs/join \, (map name skip-syms)))])
-       ~@(for [[sym opts] syms-opts]
-           `(test/testing ~(name sym)
-              (let [failures# (failures (st/check (quote ~sym) ~opts))]
-                ;; Log failures in an actionable way
-                (test/testing "no failing syms"
-                  (test/is
-                   (= []
-                      (map first failures#))))
-                (doseq [[sym#
-                         {spec# :spec
-                          {result# :result
-                           fail# :fail
-                           num-tests# :num-tests
-                           {} :shrunk} ~stc-ret}] failures#]
-                  (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
-                          sym#
-                          num-tests#
-                          (ex-message result#))
-
-                  (print "failing spec:\n\n")
-                  (pprint/pprint
-                   spec#)
-
-                  (when fail#
-                    (print "\nfailing value:\n\n")
-                    (pprint/pprint
-                     fail#)))))))))
+                                  [fn-sym
+                                   fn-opts])))
+                        (st/enumerate-namespace ns-sym))]
+    `(do
+       ~@(for [[sym opts] syms-opts
+               :let [test-sym (symbol nil (str (name sym) "-test"))]]
+           `(test/deftest ~(symbol nil (str (name sym) "-test"))
+              (test/do-report
+               (merge
+                (file-and-line
+                 (.getStackTrace (Thread/currentThread)))
+                ~(if (= ::skip opts)
+                   `{:type :spec-check-skip
+                     :test-sym '~test-sym
+                     :sym '~sym}
+                   `(let [failures# (failures (st/check (quote ~sym) ~opts))]
+                      (if (empty? failures#)
+                        {:type :pass}
+                        {:type :spec-check-fail
+                         :failures failures#
+                         :test-sym '~test-sym
+                         :sym '~sym}))))))))))

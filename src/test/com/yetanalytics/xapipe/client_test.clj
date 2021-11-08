@@ -4,8 +4,7 @@
             [com.yetanalytics.xapipe.client :refer :all]
             [com.yetanalytics.xapipe.test-support :as sup]))
 
-(sup/deftest-check-ns
-  client-check-test
+(sup/def-ns-check-tests
   com.yetanalytics.xapipe.client
   {;; Don't test stateful ones like this
    com.yetanalytics.xapipe.client/create-store ::sup/skip
