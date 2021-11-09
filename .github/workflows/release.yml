@@ -1,0 +1,90 @@
+name: Release
+
+# Draft Release on any tag
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build_jre:
+    uses: yetanalytics/runtimer/.github/workflows/runtimer.yml@cf8c77d465f08962cd7901005b8cf197a6149ac1
+    with:
+      java-version: '11'
+      java-distribution: 'temurin'
+      java-modules: 'java.base,java.logging,java.naming,java.sql'
+
+  build:
+    needs: build_jre
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get an env
+        uses: yetanalytics/actions/setup-env@v0
+
+      - name: Cache Deps
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-cljdeps-
+      - name: Build Xapipe
+        run: make bundle BUNDLE_RUNTIMES=false
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_CI_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: yetanalytics/xapipe
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Download ubuntu-latest Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ubuntu-20.04-jre
+
+      - name: Download macOS-latest Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: macos-10.15-jre
+
+      - name: Download windows-latest Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-2019-jre
+
+      - name: Unzip the runtimes
+        run: |
+          mkdir -p target/bundle/runtimes
+          unzip ubuntu-20.04-jre.zip -d target/bundle/runtimes
+          mv target/bundle/runtimes/ubuntu-20.04 target/bundle/runtimes/linux
+          unzip macos-10.15-jre.zip -d target/bundle/runtimes
+          mv target/bundle/runtimes/macos-10.15 target/bundle/runtimes/macos
+          unzip windows-2019-jre.zip -d target/bundle/runtimes
+          mv target/bundle/runtimes/windows-2019 target/bundle/runtimes/windows
+
+      - name: Zip the bundle
+        run: |
+          cd target/bundle
+          zip -r ../../xapipe.zip ./
+
+      - name: Craft Draft Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: "## Release Notes\nTODO: Create great release notes!"
+          draft: true
+          files: 'xapipe.zip'
