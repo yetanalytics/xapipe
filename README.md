@@ -102,3 +102,9 @@ All options:
       --statement-buffer-size SIZE                            Desired size of statement buffer
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
 ```
+
+## License
+
+Copyright © 2021 Yet Analytics, Inc.
+
+Distributed under the Apache License version 2.0.
