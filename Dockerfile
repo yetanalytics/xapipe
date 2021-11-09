@@ -9,7 +9,7 @@ RUN apk update \
         && apk add ca-certificates \
         && update-ca-certificates \
         && apk add --no-cache openjdk11 \
-        && rm -rf /xapipe/runtimes/linux \
+        && mkdir -p /xapipe/runtimes \
         && jlink --output /xapipe/runtimes/linux/ --add-modules $(cat /xapipe/.java_modules) \
         && apk del openjdk11 \
         && rm -rf /var/cache/apk/*
