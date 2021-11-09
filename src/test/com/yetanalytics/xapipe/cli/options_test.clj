@@ -21,7 +21,7 @@
             :show-job false,
             :list-jobs false,
             :force-resume false,
-            :storage :noop,
+            :storage :file,
             :redis-uri "redis://0.0.0.0:6379",
             :redis-prefix "xapipe"
             :file-store-dir "store"}
@@ -118,7 +118,7 @@
    :target-backoff-budget 10000,
    :force-resume false,
    :redis-prefix "xapipe",
-   :storage :noop,
+   :storage :file,
    :get-buffer-size 10,
    :target-batch-size 50,
    :show-job false,
