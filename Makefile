@@ -13,21 +13,44 @@ target/xapipe.jar:
 	mkdir target
 	clojure -Xuberjar
 
-target/bundle/bin/run.sh:
+target/bundle/bin:
 	mkdir -p target/bundle/bin
-	echo "#!/bin/sh\n" > target/bundle/bin/run.sh
-	echo 'java -server -jar xapipe.jar $$@\n' >> target/bundle/bin/run.sh
-	chmod +x target/bundle/bin/run.sh
+	cp bin/*.sh target/bundle/bin
+	chmod +x target/bundle/bin/*.sh
 
-# For docker
-target/bundle/bin/entrypoint.sh:
-	mkdir -p target/bundle/bin
-	echo "#!/bin/sh\n" > target/bundle/bin/entrypoint.sh
-	echo 'runtimes/linux/bin/java -server -jar xapipe.jar $$@\n' >> target/bundle/bin/entrypoint.sh
-	chmod +x target/bundle/bin/entrypoint.sh
+# Make Runtime Environment (i.e. JREs)
 
-target/bundle: target/xapipe.jar target/bundle/bin/run.sh target/bundle/bin/entrypoint.sh
-	mkdir -p target/bundle/bin
+# The given tag to pull down from yetanalytics/runtimer release
+RUNTIME_TAG ?= 0.1.1-java-11-temurin
+RUNTIME_MACHINE ?= macos
+RUNTIME_MACHINE_BUILD ?= macos-10.15
+RUNTIME_ZIP_DIR ?= tmp/runtimes/${RUNTIME_TAG}
+RUNTIME_ZIP ?= ${RUNTIME_ZIP_DIR}/${RUNTIME_MACHINE}.zip
+
+# DEBUG: Kept here for reference
+# target/bundle/runtimes: target/bundle/bin
+# 	mkdir target/bundle/runtimes
+# 	jlink --output target/bundle/runtimes/$(MACHINE_TYPE) --add-modules java.base,java.logging,java.naming,java.xml,java.sql,java.transaction.xa,java.security.sasl,java.management
+
+target/bundle/runtimes/%:
+	mkdir -p ${RUNTIME_ZIP_DIR}
+	mkdir -p target/bundle/runtimes
+	[ ! -f ${RUNTIME_ZIP} ] && curl -L -o ${RUNTIME_ZIP} https://github.com/yetanalytics/runtimer/releases/download/${RUNTIME_TAG}/${RUNTIME_MACHINE_BUILD}-jre.zip || echo 'already present'
+	unzip ${RUNTIME_ZIP} -d target/bundle/runtimes/
+	mv target/bundle/runtimes/${RUNTIME_MACHINE_BUILD} target/bundle/runtimes/${RUNTIME_MACHINE}
+
+target/bundle/runtimes/macos: RUNTIME_MACHINE = macos
+target/bundle/runtimes/macos: RUNTIME_MACHINE_BUILD = macos-10.15
+
+target/bundle/runtimes/linux: RUNTIME_MACHINE = linux
+target/bundle/runtimes/linux: RUNTIME_MACHINE_BUILD = ubuntu-20.04
+
+target/bundle/runtimes/windows: RUNTIME_MACHINE = windows
+target/bundle/runtimes/windows: RUNTIME_MACHINE_BUILD = windows-2019
+
+target/bundle/runtimes: target/bundle/runtimes/macos target/bundle/runtimes/linux target/bundle/runtimes/windows
+
+target/bundle: target/xapipe.jar target/bundle/bin target/bundle/runtimes
 	cp target/xapipe.jar target/bundle/xapipe.jar
 
 bundle: target/bundle
