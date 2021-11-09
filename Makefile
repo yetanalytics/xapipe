@@ -9,8 +9,8 @@ test-lib:
 bench:
 	clojure -Xtest:bench
 
-target/xapipe.jar:
-	mkdir target
+target/bundle/xapipe.jar:
+	mkdir -p target/bundle
 	clojure -Xuberjar
 
 target/bundle/bin:
@@ -51,7 +51,12 @@ target/bundle/runtimes/windows: RUNTIME_MACHINE_BUILD = windows-2019
 
 target/bundle/runtimes: target/bundle/runtimes/macos target/bundle/runtimes/linux target/bundle/runtimes/windows
 
-target/bundle: target/xapipe.jar target/bundle/bin target/bundle/runtimes
-	cp target/xapipe.jar target/bundle/xapipe.jar
+BUNDLE_RUNTIMES ?= true
+
+ifeq ($(BUNDLE_RUNTIMES),true)
+target/bundle: target/bundle/xapipe.jar target/bundle/bin target/bundle/runtimes
+else
+target/bundle: target/bundle/xapipe.jar target/bundle/bin
+endif
 
 bundle: target/bundle
