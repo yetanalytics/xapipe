@@ -50,7 +50,10 @@ jobs:
 
       - name: Unzip the runtimes
         run: |
-          unzip *-jre.zip target/bundle/runtimes
+          mkdir -p target/bundle/runtimes
+          unzip ubuntu-20.04-jre.zip target/bundle/runtimes/
+          unzip macos-10.15-jre.zip target/bundle/runtimes/
+          unzip windows-2019-jre-jre.zip target/bundle/runtimes/
 
       - name: Zip the bundle
         run: |
