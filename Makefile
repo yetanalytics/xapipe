@@ -26,11 +26,12 @@ RUNTIME_MACHINE ?= macos
 RUNTIME_MACHINE_BUILD ?= macos-10.15
 RUNTIME_ZIP_DIR ?= tmp/runtimes/${RUNTIME_TAG}
 RUNTIME_ZIP ?= ${RUNTIME_ZIP_DIR}/${RUNTIME_MACHINE}.zip
+JAVA_MODULES ?= $(shell cat .java_modules)
 
 # DEBUG: Kept here for reference
 # target/bundle/runtimes: target/bundle/bin
 # 	mkdir target/bundle/runtimes
-# 	jlink --output target/bundle/runtimes/$(MACHINE_TYPE) --add-modules java.base,java.logging,java.naming,java.xml,java.sql,java.transaction.xa,java.security.sasl,java.management
+# 	jlink --output target/bundle/runtimes/$(MACHINE_TYPE) --add-modules $(JAVA_MODULES)
 
 target/bundle/runtimes/%:
 	mkdir -p ${RUNTIME_ZIP_DIR}
