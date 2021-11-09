@@ -6,22 +6,24 @@ Pipe data between conformant xAPI Learning Record Stores
 ### Start a New Job
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main --source-url http://0.0.0.0:8080/xapi --target-url http://0.0.0.0:8081/xapi
+clojure -Mcli -m com.yetanalytics.xapipe.main \
+    --source-url http://0.0.0.0:8080/xapi \
+    --target-url http://0.0.0.0:8081/xapi \
+    --job-id myjob
 ```
 
-### Resume a Paused Job (Redis/File Only)
+### Resume a Paused Job
+``` shell
+clojure -M:cli -m com.yetanalytics.xapipe.main --job-id myjob
+```
+
+### Force-Resume a Job with Errors
 
 ``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis
+clojure -M:cli -m com.yetanalytics.xapipe.main --job-id myjob -f
 ```
 
-### Force-Resume a Job with Errors (Redis/File Only)
-
-``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main --job-id c3e3a1a5-2220-4fbc-8b51-bd0618e35f95 -s redis -f
-```
-
-### List Persisted Jobs (Redis/File Only)
+### List Persisted Jobs
 
 ``` shell
 clojure -Mcli -m com.yetanalytics.xapipe.main --list-jobs -s redis
@@ -33,10 +35,10 @@ INFO: Page 0
 | d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00Z |
 ```
 
-### Delete Job (Redis/File Only)
+### Delete Job
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main -s redis --delete-job d24de6cc-ade6-48e9-a23c-c7ee48ed53f9
+clojure -Mcli -m com.yetanalytics.xapipe.main --delete-job myjob
 ```
 
 ## CLI Options
@@ -101,6 +103,23 @@ All options:
       --pattern-id IRI                  []                    Pattern IRIs to filter on
       --statement-buffer-size SIZE                            Desired size of statement buffer
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
+```
+
+## Docker
+
+Start a job with a persistent volume to store job state:
+
+``` shell
+docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe \
+    --source-url http://host.docker.internal:8080/xapi \
+    --target-url http://host.docker.internal:8081/xapi \
+    --job-id myjob
+```
+
+Stop the job with `^C`. You can then resume it:
+
+``` shell
+docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
 ```
 
 ## License

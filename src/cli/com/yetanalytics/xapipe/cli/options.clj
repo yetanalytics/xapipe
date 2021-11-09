@@ -101,9 +101,9 @@
              arg-specs))))))
 
 (def storage-options
-  [["-s" "--storage STORAGE" "Select storage backend, noop (default) or redis, mem is for testing only"
-    :default :noop
-    :parse-fn keyword
+  [["-s" "--storage STORAGE" "Select storage backend, file (default), redis or noop, mem is for testing only"
+    :default :file
+    :parse-fn #(keyword nil (name %))
     :validate [#{:noop
                  :redis
                  :mem

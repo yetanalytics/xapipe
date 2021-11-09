@@ -23,6 +23,7 @@
     (testing "cli runs job with minimal args"
       (let [[since until] (sup/lrs-stored-range source)]
         (is (-> (main* ;; we test this because it doesn't exit!
+                 "-s" "noop"
                  "--source-url" (format "http://0.0.0.0:%d/xapi"
                                         (:port source))
                  "--target-url" (format "http://0.0.0.0:%d/xapi"
@@ -236,7 +237,8 @@
                                     :until until}}
                   :target
                   {:request-config (:request-config target)}})]
-        (is (-> (main* ;; we test this because it doesn't exit!
+        (is (-> (main*
+                 "-s" "noop"
                  "--json" (json/generate-string job))
                 :status
                 (= 0)))
@@ -262,7 +264,8 @@
             ^File tempfile (File/createTempFile "xapipe" "test")]
         (spit tempfile (json/generate-string job))
         (try
-          (is (-> (main* ;; we test this because it doesn't exit!
+          (is (-> (main*
+                   "-s" "noop"
                    "--json-file" (.getPath tempfile))
                   :status
                   (= 0)))
