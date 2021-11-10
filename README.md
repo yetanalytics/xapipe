@@ -1,32 +1,42 @@
 # xapipe
 Pipe data between conformant xAPI Learning Record Stores
 
+## Download CLI
+
+You can download xapipe from our [release page](https://github.com/yetanalytics/xapipe/releases/latest) or on the command line:
+
+``` shell
+curl -L https://github.com/yetanalytics/xapipe/releases/latest/download/xapipe.zip -o xapipe.zip
+unzip xapipe.zip -d xapipe
+cd xapipe
+bin/run.sh --help
+```
+
 ## Usage
 
 ### Start a New Job
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main \
-    --source-url http://0.0.0.0:8080/xapi \
-    --target-url http://0.0.0.0:8081/xapi \
-    --job-id myjob
+bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id myjob
 ```
 
 ### Resume a Paused Job
 ``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main --job-id myjob
+bin/run.sh --job-id myjob
 ```
 
 ### Force-Resume a Job with Errors
 
 ``` shell
-clojure -M:cli -m com.yetanalytics.xapipe.main --job-id myjob -f
+bin/run.sh --job-id myjob -f
 ```
 
 ### List Persisted Jobs
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main --list-jobs -s redis
+bin/run.sh --list-jobs -s redis
 
 Nov 03, 2021 4:41:48 PM com.yetanalytics.xapipe.cli invoke
 INFO: Page 0
@@ -38,7 +48,7 @@ INFO: Page 0
 ### Delete Job
 
 ``` shell
-clojure -Mcli -m com.yetanalytics.xapipe.main --delete-job myjob
+bin/run.sh --delete-job myjob
 ```
 
 ## CLI Options
