@@ -135,6 +135,8 @@ cd demo
 docker compose up
 ```
 
+This will create a source LRS at `http://0.0.0.0:8080` and a target LRS at `http://0.0.0.0:8081`. If you send xAPI data to the source it will be forwarded to the target.
+
 ## License
 
 Copyright © 2021 Yet Analytics, Inc.
