@@ -4,8 +4,6 @@
             [com.yetanalytics.xapipe.job.config :refer :all]
             [com.yetanalytics.xapipe.test-support :as sup]))
 
-(use-fixtures :once (sup/instrument-fixture))
-
 (def minimal-config
   {:source
    {:request-config {:url-base "http://0.0.0.0:8080"
@@ -14,7 +12,7 @@
    {:request-config {:url-base "http://0.0.0.0:8081"
                      :xapi-prefix "/xapi"}}})
 
-(deftest ensure-defaults-test
+(deftest minimal-config-test
   (testing "produces valid config"
     (is (s/valid? config-spec (ensure-defaults minimal-config))))
   (testing "idempotent"
@@ -23,3 +21,7 @@
            (ensure-defaults
             (ensure-defaults
              minimal-config))))))
+
+(sup/def-ns-check-tests
+  com.yetanalytics.xapipe.job.config
+  {:default {sup/stc-opts {:num-tests 10}}})
