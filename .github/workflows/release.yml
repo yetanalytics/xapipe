@@ -12,7 +12,7 @@ jobs:
     with:
       java-version: '11'
       java-distribution: 'temurin'
-      java-modules: 'java.base,java.logging,java.naming,java.sql'
+      java-modules: 'java.base,java.logging,java.naming,java.sql,java.management'
 
   build:
     needs: build_jre
