@@ -107,6 +107,8 @@ All options:
 
 ## Docker
 
+### Invocation
+
 Start a job with a persistent volume to store job state:
 
 ``` shell
@@ -120,6 +122,17 @@ Stop the job with `^C`. You can then resume it:
 
 ``` shell
 docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
+```
+
+### Demo
+
+This repo includes a Docker Compose file at [`demo/docker-compose.yml`](demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses `xapipe` to forward data between them.
+
+To run the demo:
+
+``` shell
+cd demo
+docker compose up
 ```
 
 ## License

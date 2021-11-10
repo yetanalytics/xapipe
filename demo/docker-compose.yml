@@ -8,7 +8,7 @@ volumes:
 services:
   # Source LRS
   source_db:
-    image: postgres
+    image: postgres:14
     volumes:
       - source_db_data:/var/lib/postgresql/data
     environment:
@@ -33,10 +33,11 @@ services:
       LRSQL_DB_USER: lrsql_user
       LRSQL_DB_PASSWORD: lrsql_password
       LRSQL_POOL_INITIALIZATION_FAIL_TIMEOUT: 10000
+    restart: always
 
   # Target LRS
   target_db:
-    image: postgres
+    image: postgres:14
     volumes:
       - target_db_data:/var/lib/postgresql/data
     environment:
@@ -63,32 +64,30 @@ services:
       LRSQL_DB_USER: lrsql_user
       LRSQL_DB_PASSWORD: lrsql_password
       LRSQL_POOL_INITIALIZATION_FAIL_TIMEOUT: 10000
+    restart: always
 
   # Xapipe
-  xapipe_redis:
-    image: redis:alpine
+  redis:
+    image: redis:6-alpine
     volumes:
       - xapipe_store_data:/data
     ports:
       - "6379"
-    deploy:
-      restart_policy:
-        condition: on-failure
-
   xapipe:
     image: yetanalytics/xapipe:latest
     depends_on:
       - source_lrs
       - target_lrs
-      - xapipe_redis
+      - redis
     command: |
       -s redis
       --job-id link_source_target
       -f
-      --redis-uri redis://xapipe_redis:6379
+      --redis-uri redis://redis:6379
       --source-url http://source_lrs:8080/xapi
       --source-username my_key
       --source-password my_secret
       --target-url http://target_lrs:8081/xapi
       --target-username my_key
       --target-password my_secret
+    restart: always
