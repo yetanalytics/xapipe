@@ -1,5 +1,6 @@
 (ns com.yetanalytics.xapipe.job.config
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.util :as u]))
@@ -36,7 +37,10 @@
 (s/def ::batch-timeout pos-int?)
 
 ;; Filter config
-(s/def ::filter filt/filter-config-spec)
+(s/def ::filter
+  (s/with-gen filt/filter-config-spec
+    (fn []
+      (sgen/return {}))))
 
 (def config-spec
   (s/keys :req-un [::source
@@ -89,8 +93,9 @@
 
         batch-buffer-size
         (or batch-buffer-size
-            (quot statement-buffer-size
-                  post-batch-size))]
+            (max 1
+                 (quot statement-buffer-size
+                       post-batch-size)))]
     {:get-buffer-size       get-buffer-size
      :statement-buffer-size statement-buffer-size
      :batch-buffer-size     batch-buffer-size
@@ -107,3 +112,32 @@
             :backoff-opts post-backoff-opts)
      :filter
      (or filter-config {})}))
+
+(s/fdef sanitize-req-cfg
+  :args (s/cat :rcfg ::client/request-config)
+  :ret ::client/request-config)
+
+(defn sanitize-req-cfg
+  "Sanitize a single request config"
+  [{:keys [password] :as rcfg}]
+  (if password
+    (assoc rcfg :password "************")
+    rcfg))
+
+(s/fdef sanitize
+  :args (s/cat :config config-spec)
+  :ret (s/and
+        config-spec
+        (fn [{{{src-pw :password} :request-config} :source
+              {{tgt-pw :password} :request-config} :target}]
+          (and (or (nil? src-pw)
+                   (= "************" src-pw))
+               (or (nil? tgt-pw)
+                   (= "************" tgt-pw))))))
+
+(defn sanitize
+  "Sanitize a config, removing possibly sensitive values"
+  [config]
+  (-> config
+      (update-in [:source :request-config] sanitize-req-cfg)
+      (update-in [:target :request-config] sanitize-req-cfg)))
