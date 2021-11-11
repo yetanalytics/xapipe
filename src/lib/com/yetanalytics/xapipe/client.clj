@@ -328,10 +328,7 @@
                     ;; LRS has for the given query.
                     ;; At this point we check for an until and maybe terminate
                     (and ?until
-                         (not= 1
-                               (t/stamp-cmp
-                                ?until
-                                consistent-through)))
+                         (t/at-or-after ?until consistent-through))
                     (do
                       (log/debugf
                        "terminating because %s consistent-through is equal or later than %s until"

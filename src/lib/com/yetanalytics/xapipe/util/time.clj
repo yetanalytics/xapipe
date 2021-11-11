@@ -135,10 +135,16 @@
 (defn latest-stamp [a b]
   (last (sort stamp-cmp [a b])))
 
-(comment
-  (s/fdef at-or-after
-    :args (s/cat :a ::normalized-stamp
-                 :b ::normalized-stamp)
-    :ret boolean?)
+;; Functions to work on possibly denormalized stamps
+(s/fdef at-or-after
+  :args (s/cat :a ::xs/timestamp
+               :b ::xs/timestamp)
+  :ret boolean?)
 
-  )
+(defn at-or-after
+  "Is stamp b at or after a?"
+  [a b]
+  (not
+   (pos?
+    (compare (normalize-stamp a)
+             (normalize-stamp b)))))
