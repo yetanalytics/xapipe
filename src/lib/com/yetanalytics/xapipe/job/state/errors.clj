@@ -7,4 +7,5 @@
 (s/def ::error (s/keys :req-un [::message
                                 ::type]))
 
-(def errors-spec (s/every ::error))
+(def errors-spec (s/every ::error
+                          :gen-max 5))

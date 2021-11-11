@@ -20,7 +20,10 @@
   (printf "\nInitializing source LRS from %s\n\n" seed-path)
   (sup/with-running [source (sup/lrs
                              :seed-path seed-path
-                             :port source-port)]
+                             :port source-port)
+                     target (sup/lrs
+                             :sink true
+                             :port target-port)]
     (let [[since until] (sup/lrs-stored-range source)
           source-count (sup/lrs-count source)
           total-statements (* runs source-count)
@@ -40,7 +43,7 @@
                       {:xapi-prefix "/xapi"}}},
                     :state
                     {:status :init,
-                     :cursor "1970-01-01T00:00:00Z",
+                     :cursor "1970-01-01T00:00:00.000000000Z",
                      :source {:errors []},
                      :target {:errors []},
                      :errors [],
@@ -56,36 +59,35 @@
                                :let [_ (when (= (dec warmup) idx)
                                          (println "...warmup complete")
                                          (flush))]]
-                           (sup/with-running [target (sup/lrs :port target-port)]
-                             (let [job (assoc-in base-job
-                                                 [:config
-                                                  :target
-                                                  :request-config
-                                                  :url-base]
-                                                 (format "http://0.0.0.0:%d"
-                                                         target-port))
-                                   t-before (System/currentTimeMillis)
-                                   ;; Run the job
-                                   all-states (a/<!! (a/into []
-                                                             (:states (xapipe/run-job job))))
-                                   t-after (System/currentTimeMillis)]
-                               (when (-> all-states last :state :status (= :error))
-                                 (throw (ex-info "Job Error!"
-                                                 {:type ::job-error
-                                                  :state (:state (last all-states))})))
-                               (when (<= warmup idx)
-                                 (print "#")
-                                 (let [run-idx (- idx
-                                                  warmup)]
-                                   (when (and (not (zero? run-idx))
-                                              (zero? (rem run-idx
-                                                          80)))
-                                     (print "\n")))
-                                 (flush))
+                           (let [job (assoc-in base-job
+                                               [:config
+                                                :target
+                                                :request-config
+                                                :url-base]
+                                               (format "http://0.0.0.0:%d"
+                                                       target-port))
+                                 t-before (System/currentTimeMillis)
+                                 ;; Run the job
+                                 all-states (a/<!! (a/into []
+                                                           (:states (xapipe/run-job job))))
+                                 t-after (System/currentTimeMillis)]
+                             (when (-> all-states last :state :status (= :error))
+                               (throw (ex-info "Job Error!"
+                                               {:type ::job-error
+                                                :state (:state (last all-states))})))
+                             (when (<= warmup idx)
+                               (print "#")
+                               (let [run-idx (- idx
+                                                warmup)]
+                                 (when (and (not (zero? run-idx))
+                                            (zero? (rem run-idx
+                                                        80)))
+                                   (print "\n")))
+                               (flush))
 
-                               {:idx idx
-                                :t-before t-before
-                                :t-after t-after})))))
+                             {:idx idx
+                              :t-before t-before
+                              :t-after t-after}))))
           _ (print "\n")
           ts-ms (for [{:keys [t-before
                               t-after]} results]

@@ -4,8 +4,6 @@
             [com.yetanalytics.xapipe.job :refer :all]
             [com.yetanalytics.xapipe.test-support :as sup]))
 
-(use-fixtures :once (sup/instrument-fixture))
-
 (def minimal-config
   {:source
    {:request-config {:url-base "http://0.0.0.0:8080"
@@ -19,7 +17,7 @@
     (is (s/valid? :com.yetanalytics.xapipe.job/config
                   minimal-config))))
 
-(deftest init-job-test
+(deftest init-job-defaults-test
   (testing "given an id and minimal config it constructs a valid job"
     (is (s/valid? job-spec
                   (init-job
@@ -47,7 +45,7 @@
              :filter {}},
             :state
             {:status :init,
-             :cursor "1970-01-01T00:00:00Z",
+             :cursor "1970-01-01T00:00:00.000000000Z",
              :source {:errors []},
              :target {:errors []},
              :errors [],
@@ -56,3 +54,7 @@
            (init-job
             "foo"
             minimal-config)))))
+
+(sup/def-ns-check-tests
+  com.yetanalytics.xapipe.job
+  {:default {sup/stc-opts {:num-tests 10}}})

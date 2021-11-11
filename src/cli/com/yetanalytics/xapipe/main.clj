@@ -80,11 +80,20 @@ Delete a Job:
             (if (s/valid? job/job-spec job)
               (do
                 (if new?
-                  (log/infof "Created new job %s: %s" (:id job) (pr-str job))
-                  (log/infof "Found existing job %s: %s" (:id job) (pr-str job)))
+                  (log/infof
+                   "Created new job %s: %s"
+                   (:id job)
+                   (pr-str
+                    (job/sanitize job)))
+                  (log/infof
+                   "Found existing job %s: %s"
+                   (:id job)
+                   (pr-str
+                    (job/sanitize job))))
                 (if show-job?
                   {:status 0
-                   :message (pr-str job)}
+                   :message (pr-str
+                             (job/sanitize job))}
                   (do
                     (log/infof
                      (if new?

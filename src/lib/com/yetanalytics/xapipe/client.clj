@@ -14,8 +14,6 @@
             [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]))
 
-(s/def ::last-stored ::xs/timestamp)
-
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
   [_ resp]
@@ -45,13 +43,14 @@
 ;;
 ;; since will be used initially but then overwritten when iterating
 ;; it is always assumed to be present and will be set to the epoch if not
-;;
-;; until will cause the transfer to terminate TODO: this
+
+(s/def ::since ::t/normalized-stamp)
+(s/def ::until ::t/normalized-stamp)
 
 (s/def ::get-params
   (s/keys
-   :opt-un [:xapi.statements.GET.request.params/since
-            :xapi.statements.GET.request.params/until
+   :opt-un [::since
+            ::until
             :xapi.statements.GET.request.params/limit
             :xapi.statements.GET.request.params/agent
             :xapi.statements.GET.request.params/verb
@@ -61,7 +60,7 @@
             :xapi.statements.GET.request.params/related_agents
             :xapi.statements.GET.request.params/format]))
 
-(def epoch-stamp "1970-01-01T00:00:00Z")
+(def epoch-stamp "1970-01-01T00:00:00.000000000Z")
 
 (defn- escape-get-params
   [params]
@@ -294,13 +293,15 @@
             (let [[tag resp :as ret] v]
               (case tag
                 :response
-                (let [{{consistent-through "X-Experience-API-Consistent-Through"}
+                (let [{{consistent-through-h "X-Experience-API-Consistent-Through"}
                        :headers
                        {{:keys [statements more]} :statement-result}
                        :body}      resp
                       ?last-stored (some-> statements
                                            peek
-                                           (get "stored"))]
+                                           (get "stored")
+                                           t/normalize-stamp)
+                      consistent-through (t/normalize-stamp consistent-through-h)]
                   ;; If there are statements, emit them before continuing.
                   ;; This operation will park for takers.
                   (when (not-empty statements)
@@ -308,7 +309,7 @@
                                 (count statements)
                                 ?last-stored)
                     (a/>! out-chan
-                          (assoc-in ret [1 ::last-stored] ?last-stored)))
+                          ret))
                   (cond
                     ;; If the more link indicates there are more statements to
                     ;; provide, immediately attempt to get them.
@@ -328,10 +329,10 @@
                     ;; LRS has for the given query.
                     ;; At this point we check for an until and maybe terminate
                     (and ?until
-                         (not= 1
-                               (t/stamp-cmp
-                                ?until
-                                consistent-through)))
+                         (not
+                          (pos?
+                           (compare ?until
+                                    consistent-through))))
                     (do
                       (log/debugf
                        "terminating because %s consistent-through is equal or later than %s until"
@@ -359,8 +360,7 @@
     out-chan))
 
 (s/def ::get-response
-  (s/keys :req-un [::multipart/body]
-          :opt-un [::last-stored]))
+  (s/keys :req-un [::multipart/body]))
 
 (s/def ::get-success
   (s/tuple :response

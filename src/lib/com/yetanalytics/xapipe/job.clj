@@ -27,21 +27,23 @@
 (defn init-job
   "Initialize a new job"
   [id
-   {{{?since :since}  :get-params} :source
-    filter-config :filter
-    :as config}]
-  {:id id
-   :config
-   (config/ensure-defaults config)
-   :state
-   {:status :init
-    :cursor (or ?since "1970-01-01T00:00:00Z")
-    :source {:errors []}
-    :target {:errors []}
-    :errors []
-    :filter (if (:pattern filter-config)
-              {:pattern {}}
-              {})}})
+   config]
+  (let [{{{?since :since}  :get-params} :source
+         filter-config :filter
+         :as config} (config/ensure-defaults config)]
+    {:id id
+     :config
+     config
+     :state
+     {:status :init
+      :cursor (or ?since
+                  "1970-01-01T00:00:00.000000000Z")
+      :source {:errors []}
+      :target {:errors []}
+      :errors []
+      :filter (if (:pattern filter-config)
+                {:pattern {}}
+                {})}}))
 
 ;; Job-level state
 
@@ -63,3 +65,19 @@
   "Check if a job has any errors"
   [{:keys [state]}]
   (state/errors? state))
+
+(s/fdef sanitize
+  :args (s/cat :job job-spec)
+  :ret (s/and job-spec
+              (fn [{{{{src-pw :password} :request-config} :source
+                     {{tgt-pw :password} :request-config} :target}
+                    :config}]
+                (and (or (nil? src-pw)
+                         (= "************" src-pw))
+                     (or (nil? tgt-pw)
+                         (= "************" tgt-pw))))))
+
+(defn sanitize
+  "Sanitize any sensitive info on a job for logging, etc"
+  [job]
+  (update job :config config/sanitize))
