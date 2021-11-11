@@ -72,7 +72,7 @@
                          :or {filter-state {}}} v]
                 (let [_ (log/debugf "%d statement batch for POST" (count batch))
                       statements (mapv :statement batch)
-                      cursor (-> statements last (get "stored"))
+                      cursor (-> statements last (get "stored") t/normalize-stamp)
                       _ (log/debugf "Cursor: %s" cursor)
                       attachments (mapcat :attachments batch)
 

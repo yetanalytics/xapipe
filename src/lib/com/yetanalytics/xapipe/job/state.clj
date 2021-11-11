@@ -118,33 +118,31 @@
 
 (s/fdef update-cursor
   :args (s/cat :state state-spec
-               :new-cursor ::xs/timestamp)
+               :new-cursor ::cursor)
   :ret state-spec)
 
 (defn update-cursor
   "Attempt to update the since cursor. Add error if we try to go backwards."
   [{old-cursor :cursor
     :as        state} new-cursor]
-  (let [new-norm (t/normalize-stamp new-cursor)
-        [a b]    (sort t/stamp-cmp
-                       [old-cursor
-                        new-norm])]
+  (let [[a b]    (sort [old-cursor
+                        new-cursor])]
     (cond
       ;; no change, return
       (= a b)
       state
 
       ;; update
-      (= [a b] [old-cursor new-norm])
-      (assoc state :cursor new-norm)
+      (= [a b] [old-cursor new-cursor])
+      (assoc state :cursor new-cursor)
 
       ;; can't go backwards
-      (= [b a] [old-cursor new-norm])
+      (= [b a] [old-cursor new-cursor])
       (add-error
        state
        {:type    :job
         :message (format "New cursor %s is before current cursor %s"
-                         new-norm old-cursor)}))))
+                         new-cursor old-cursor)}))))
 
 (def valid-status-transitions
   #{[:init :running] ;; start
