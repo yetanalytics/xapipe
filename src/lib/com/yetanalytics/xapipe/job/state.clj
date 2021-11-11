@@ -16,7 +16,7 @@
 ;; It should only be persisted when it represents data successfully copied from
 ;; source to target!
 
-(s/def ::cursor ::xs/timestamp)
+(s/def ::cursor ::t/normalized-stamp)
 
 (s/def ::source
   (s/keys :req-un [::errors]))

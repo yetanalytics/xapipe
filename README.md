@@ -40,9 +40,9 @@ bin/run.sh --list-jobs -s redis
 
 Nov 03, 2021 4:41:48 PM com.yetanalytics.xapipe.cli invoke
 INFO: Page 0
-|                               job-id | status |               cursor |
-|--------------------------------------+--------+----------------------|
-| d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00Z |
+|                               job-id | status |               cursor           |
+|--------------------------------------+--------+--------------------------------|
+| d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00.000000000Z |
 ```
 
 ### Delete Job

@@ -27,21 +27,23 @@
 (defn init-job
   "Initialize a new job"
   [id
-   {{{?since :since}  :get-params} :source
-    filter-config :filter
-    :as config}]
-  {:id id
-   :config
-   (config/ensure-defaults config)
-   :state
-   {:status :init
-    :cursor (or ?since "1970-01-01T00:00:00Z")
-    :source {:errors []}
-    :target {:errors []}
-    :errors []
-    :filter (if (:pattern filter-config)
-              {:pattern {}}
-              {})}})
+   config]
+  (let [{{{?since :since}  :get-params} :source
+         filter-config :filter
+         :as config} (config/ensure-defaults config)]
+    {:id id
+     :config
+     config
+     :state
+     {:status :init
+      :cursor (or (some-> ?since t/normalize-stamp)
+                  "1970-01-01T00:00:00.000000000Z")
+      :source {:errors []}
+      :target {:errors []}
+      :errors []
+      :filter (if (:pattern filter-config)
+                {:pattern {}}
+                {})}}))
 
 ;; Job-level state
 

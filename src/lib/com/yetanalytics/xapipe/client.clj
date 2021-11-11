@@ -61,7 +61,7 @@
             :xapi.statements.GET.request.params/related_agents
             :xapi.statements.GET.request.params/format]))
 
-(def epoch-stamp "1970-01-01T00:00:00Z")
+(def epoch-stamp "1970-01-01T00:00:00.000000000Z")
 
 (defn- escape-get-params
   [params]

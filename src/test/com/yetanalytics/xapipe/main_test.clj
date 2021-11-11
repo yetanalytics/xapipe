@@ -108,7 +108,7 @@
                 :filter {}},
                :state
                {:status :paused,
-                :cursor "2021-10-25T15:05:01.539629Z",
+                :cursor "2021-10-25T15:05:01.539629000Z",
                 :source {:errors []},
                 :target {:errors []},
                 :errors [],
@@ -331,7 +331,7 @@
                        :filter {}},
                       :state
                       {:status :complete,
-                       :cursor "2021-10-25T15:05:32.595885Z",
+                       :cursor "2021-10-25T15:05:32.595885000Z",
                        :source {:errors []},
                        :target {:errors []},
                        :errors [],
