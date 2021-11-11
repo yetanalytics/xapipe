@@ -117,25 +117,20 @@
           ;; it. In cljs, we need to override it
           (normalize-inst (parse-inst timestamp)))))))
 
-(s/fdef stamp-cmp
-  :args (s/cat :a ::normalized-stamp
-               :b ::normalized-stamp)
-  :ret int?)
-
-(defn stamp-cmp
-  [a b]
-  (compare a
-           b))
-
+;; Functions to work on possibly denormalized stamps
 (s/fdef latest-stamp
-  :args (s/cat :a ::normalized-stamp
-               :b ::normalized-stamp)
+  :args (s/cat :stamps (s/every ::xs/timestamp
+                                :min-count 1))
   :ret ::normalized-stamp)
 
-(defn latest-stamp [a b]
-  (last (sort stamp-cmp [a b])))
+(defn latest-stamp
+  "Return the latest of any number of timestamps, normalized"
+  [stamps]
+  (last (sort
+         (map
+          normalize-stamp
+          stamps))))
 
-;; Functions to work on possibly denormalized stamps
 (s/fdef at-or-after
   :args (s/cat :a ::xs/timestamp
                :b ::xs/timestamp)
