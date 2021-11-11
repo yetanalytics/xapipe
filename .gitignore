@@ -16,3 +16,4 @@ failures/
 /store/
 /.test_store/
 /tmp/
+xapipe.build_artifacts.txt
