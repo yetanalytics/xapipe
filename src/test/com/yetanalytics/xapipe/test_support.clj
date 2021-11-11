@@ -16,7 +16,8 @@
             [com.yetanalytics.lrs.pedestal.interceptor :as i]
             [com.yetanalytics.lrs.xapi.statements :as ss]
             [com.yetanalytics.lrs.xapi.document   :as doc]
-            [io.pedestal.http :as http])
+            [io.pedestal.http :as http]
+            [com.yetanalytics.xapipe.test-support.lrs :as lrst])
   (:import [java.net ServerSocket]))
 
 ;; https://gist.github.com/apeckham/78da0a59076a4b91b1f5acf40a96de69
@@ -86,14 +87,17 @@
   :dump - A function of no args that will dump memory LRS state
   :load - A function of two args, statements and attachments to load data
   :request-config - A request config ala xapipe.client"
-  [& {:keys [seed-path
+  [& {:keys [sink
+             seed-path
              port]}]
   (let [port (or port
                  (get-free-port))
-        lrs (new-lrs
-             (cond->
-                 {:mode :sync}
-               (not-empty seed-path) (assoc :init-state (fixture-state seed-path))))
+        lrs (if sink
+              (lrst/->SinkLRS)
+              (new-lrs
+               (cond->
+                   {:mode :sync}
+                 (not-empty seed-path) (assoc :init-state (fixture-state seed-path)))))
         service
         {:env                   :dev
          :lrs                   lrs
