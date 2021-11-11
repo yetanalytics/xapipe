@@ -3,7 +3,8 @@
             [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.filter :as filt]
-            [com.yetanalytics.xapipe.util :as u]))
+            [com.yetanalytics.xapipe.util :as u]
+            [com.yetanalytics.xapipe.util.time :as t]))
 
 (s/def ::batch-size pos-int?) ;; limit param for get, batch size for post
 
@@ -61,6 +62,8 @@
   [{{get-batch-size   :batch-size
      get-backoff-opts :backoff-opts
      poll-interval    :poll-interval
+     {?since :since
+      ?until :until}  :get-params
      :as              source-config
      :or              {get-batch-size   50
                        get-backoff-opts {:budget      10000
@@ -105,7 +108,10 @@
          (assoc :batch-size get-batch-size
                 :backoff-opts get-backoff-opts
                 :poll-interval poll-interval)
-         (assoc-in [:get-params :limit] get-batch-size))
+         (assoc-in [:get-params :limit] get-batch-size)
+         (cond->
+             ?since (update-in [:get-params :since] t/normalize-stamp)
+             ?until (update-in [:get-params :until] t/normalize-stamp)))
      :target
      (assoc target-config
             :batch-size post-batch-size

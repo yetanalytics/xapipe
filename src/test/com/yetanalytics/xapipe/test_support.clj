@@ -391,8 +391,8 @@
                         (st/enumerate-namespace ns-sym))]
     `(do
        ~@(for [[sym opts] syms-opts
-               :let [test-sym (symbol nil (str (name sym) "-test"))]]
-           `(test/deftest ~(symbol nil (str (name sym) "-test"))
+               :let [test-sym (symbol nil (str (name sym) "-check-test"))]]
+           `(test/deftest ~test-sym
               (test/do-report
                (merge
                 (file-and-line
