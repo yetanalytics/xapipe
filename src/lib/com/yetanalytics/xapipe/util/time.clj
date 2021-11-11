@@ -116,30 +116,3 @@
           ;; the platform lib. In clojure instants are precise so we can just do
           ;; it. In cljs, we need to override it
           (normalize-inst (parse-inst timestamp)))))))
-
-;; Functions to work on possibly denormalized stamps
-(s/fdef latest-stamp
-  :args (s/cat :stamps (s/every ::xs/timestamp
-                                :min-count 1))
-  :ret ::normalized-stamp)
-
-(defn latest-stamp
-  "Return the latest of any number of timestamps, normalized"
-  [stamps]
-  (last (sort
-         (map
-          normalize-stamp
-          stamps))))
-
-(s/fdef at-or-after
-  :args (s/cat :a ::xs/timestamp
-               :b ::xs/timestamp)
-  :ret boolean?)
-
-(defn at-or-after
-  "Is stamp b at or after a?"
-  [a b]
-  (not
-   (pos?
-    (compare (normalize-stamp a)
-             (normalize-stamp b)))))

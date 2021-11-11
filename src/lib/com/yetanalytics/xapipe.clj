@@ -212,8 +212,8 @@
 
             ;; Derive a since point for the query
             get-since (if ?query-since
-                        (t/latest-stamp [cursor-before
-                                         ?query-since])
+                        (last (sort [cursor-before
+                                     ?query-since]))
                         cursor-before)
             ;; A channel that will produce get responses
             get-chan (client/get-chan
