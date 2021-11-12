@@ -1,0 +1,93 @@
+version: "3.9"
+
+volumes:
+  source_db_data:
+  target_db_data:
+  xapipe_store_data:
+
+services:
+  # Source LRS
+  source_db:
+    image: postgres:14
+    volumes:
+      - source_db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: lrsql_user
+      POSTGRES_PASSWORD: lrsql_password
+      POSTGRES_DB: lrsql_db
+  source_lrs:
+    image: yetanalytics/lrsql:latest
+    command:
+      - /lrsql/bin/run_postgres.sh
+    ports:
+      - "8080:8080"
+    depends_on:
+      - source_db
+    environment:
+      LRSQL_API_KEY_DEFAULT: my_key
+      LRSQL_API_SECRET_DEFAULT: my_secret
+      LRSQL_ADMIN_USER_DEFAULT: my_username
+      LRSQL_ADMIN_PASS_DEFAULT: my_password
+      LRSQL_DB_HOST: source_db
+      LRSQL_DB_NAME: lrsql_db
+      LRSQL_DB_USER: lrsql_user
+      LRSQL_DB_PASSWORD: lrsql_password
+      LRSQL_POOL_INITIALIZATION_FAIL_TIMEOUT: 10000
+    restart: always
+
+  # Target LRS
+  target_db:
+    image: postgres:14
+    volumes:
+      - target_db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: lrsql_user
+      POSTGRES_PASSWORD: lrsql_password
+      POSTGRES_DB: lrsql_db
+
+  target_lrs:
+    image: yetanalytics/lrsql:latest
+    command:
+      - /lrsql/bin/run_postgres.sh
+    ports:
+      - "8081:8081"
+    depends_on:
+      - target_db
+    environment:
+      LRSQL_HTTP_PORT: 8081
+      LRSQL_API_KEY_DEFAULT: my_key
+      LRSQL_API_SECRET_DEFAULT: my_secret
+      LRSQL_ADMIN_USER_DEFAULT: my_username
+      LRSQL_ADMIN_PASS_DEFAULT: my_password
+      LRSQL_DB_HOST: target_db
+      LRSQL_DB_NAME: lrsql_db
+      LRSQL_DB_USER: lrsql_user
+      LRSQL_DB_PASSWORD: lrsql_password
+      LRSQL_POOL_INITIALIZATION_FAIL_TIMEOUT: 10000
+    restart: always
+
+  # Xapipe
+  redis:
+    image: redis:6-alpine
+    volumes:
+      - xapipe_store_data:/data
+    ports:
+      - "6379"
+  xapipe:
+    image: yetanalytics/xapipe:latest
+    depends_on:
+      - source_lrs
+      - target_lrs
+      - redis
+    command: |
+      -s redis
+      --job-id link_source_target
+      -f
+      --redis-uri redis://redis:6379
+      --source-url http://source_lrs:8080/xapi
+      --source-username my_key
+      --source-password my_secret
+      --target-url http://target_lrs:8081/xapi
+      --target-username my_key
+      --target-password my_secret
+    restart: always

@@ -92,14 +92,13 @@
                                      post-request
                                      :backoff-opts backoff-opts))]
                   (do
+                    (a/<! (a/thread (mm/clean-tempfiles! attachments)))
                     (case tag
                       ;; On success, update the cursor and keep listening
                       :response
-                      (do
-                        (mm/clean-tempfiles! attachments)
-                        (recur (-> state
-                                   (state/update-cursor cursor)
-                                   (state/update-filter filter-state))))
+                      (recur (-> state
+                                 (state/update-cursor cursor)
+                                 (state/update-filter filter-state)))
                       ;; If the post fails, Send the error to the stop channel
                       ;; emit and stop.
                       :exception
@@ -108,8 +107,6 @@
                                     (some-> x
                                             ex-data
                                             :body))
-
-                        (mm/clean-tempfiles! attachments)
                         (let [error {:message (ex-message x)
                                      :type    :target}]
                           (a/>! stop-chan {:status :error

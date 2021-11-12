@@ -1,7 +1,6 @@
 (ns com.yetanalytics.xapipe.client.multipart-mixed
   "multipart/mixed handling"
-  (:require [byte-streams :as bs]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [clj-http.util :as hutil]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
@@ -10,7 +9,15 @@
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr])
   (:import
-   [java.io IOException InputStream ByteArrayOutputStream File]
+   [java.io
+    Writer
+    PipedOutputStream
+    PipedInputStream
+    IOException
+    InputStream
+    OutputStream
+    ByteArrayOutputStream
+    File]
    [org.apache.commons.fileupload
     MultipartStream
     MultipartStream$MalformedStreamException]))
@@ -194,6 +201,17 @@
     :as                               resp}]
   (assoc resp :body (parse-multipart-body body content-type-str)))
 
+(s/fdef piped-streams
+  :args (s/cat)
+  :ret (s/tuple #(instance? OutputStream %)
+                #(instance? InputStream %)))
+
+(defn piped-streams
+  "Create an output stream and an input stream to which it is piped"
+  []
+  (let [^PipedOutputStream posh (new PipedOutputStream)]
+    [posh
+     (new PipedInputStream posh)]))
 
 (s/fdef post-body
   :args (s/cat :boundary string?
@@ -208,35 +226,40 @@
   [boundary
    statements
    attachments]
-  (bs/to-input-stream
-   (concat
-    (cons
-     (str "--"
-          boundary
-          crlf
-          "Content-Type:application/json"
-          crlf
-          crlf
-          (json/generate-string statements))
-     (mapcat
-      (fn [{:keys [sha2 contentType tempfile]}]
-        [(str crlf
-              "--"
-              boundary
-              crlf
-              (format "Content-Type:%s" contentType)
-              crlf
-              "Content-Transfer-Encoding:binary"
-              crlf
-              (format "X-Experience-API-Hash:%s" sha2)
-              crlf
-              crlf)
-         tempfile])
-      attachments))
-    [(str crlf
-          "--"
-          boundary
-          "--")])))
+  (let [[posh pish] (piped-streams)]
+    (future
+      (with-open [^Writer posh-w (io/writer posh)]
+        (.write posh-w (str "--"
+                            boundary
+                            crlf
+                            "Content-Type:application/json"
+                            crlf
+                            crlf
+                            ))
+        (json/generate-stream statements posh-w)
+        ;; Flush to notify
+        (.flush posh-w)
+        (doseq [{:keys [sha2 contentType ^File tempfile]} attachments]
+          (.write posh-w (str crlf
+                              "--"
+                              boundary
+                              crlf
+                              (format "Content-Type:%s" contentType)
+                              crlf
+                              "Content-Transfer-Encoding:binary"
+                              crlf
+                              (format "X-Experience-API-Hash:%s" sha2)
+                              crlf
+                              crlf))
+          (io/copy tempfile posh-w)
+          ;; flush after each part
+          (.flush posh-w))
+        (.write posh-w
+                (str crlf
+                     "--"
+                     boundary
+                     "--"))))
+    pish))
 
 ;; https://stackoverflow.com/a/67545577/3532563
 (defn gen-boundary
