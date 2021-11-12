@@ -122,8 +122,7 @@
 
 (def post-request-base
   {:headers {"x-experience-api-version" "1.0.3"}
-   :method  :post
-   :as      :json})
+   :method  :post})
 
 (s/fdef post-request
   :args (s/cat :config ::request-config
