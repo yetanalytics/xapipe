@@ -196,7 +196,7 @@
                {:status :error,
                 :cursor "2021-10-25T15:05:00.537746000Z",
                 :source {:errors []},
-                :target {:errors [{:type :target, :message "Connection refused"}]},
+                :target {:errors [{:type :target, :message "Max retries reached: Connection refused"}]},
                 :errors [],
                 :filter {}}}}
              (mem/dump store)))

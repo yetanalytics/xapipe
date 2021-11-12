@@ -12,7 +12,8 @@
             [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.spec.common :as cspec])
-  (:import [org.apache.http.impl.client CloseableHttpClient]))
+  (:import [org.apache.http.impl.client CloseableHttpClient]
+           [java.net ConnectException]))
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
@@ -122,8 +123,7 @@
 
 (def post-request-base
   {:headers {"x-experience-api-version" "1.0.3"}
-   :method  :post
-   :as      :json})
+   :method  :post})
 
 (s/fdef post-request
   :args (s/cat :config ::request-config
@@ -161,13 +161,48 @@
 (def retryable-error?
   #{502 503 504})
 
-(defn- retryable-status?
+(defn retryable-status?
   "Is the HTTP status code one we care to retry?"
   [status]
   (and status
        (or
         (rate-limit-status? status)
         (retryable-error? status))))
+
+(defn retryable-exception?
+  "Is this a client exception we can retry?"
+  [ex]
+  (instance? ConnectException ex))
+
+(declare async-request)
+
+(defn maybe-retry
+  [ret-chan req attempt backoff-opts & [?cause]]
+  (if-let [backoff (u/backoff-ms
+                    attempt
+                    backoff-opts)]
+    ;; Go async, wait and relaunch
+    (a/go
+      (a/<! (a/timeout backoff))
+      (async-request
+       req
+       :ret-chan ret-chan
+       :attempt (inc attempt)
+       :backoff-opts backoff-opts))
+    (a/put!
+     ret-chan
+     [:exception
+      (if ?cause
+        (ex-info
+         (format "Max retries reached: %s"
+                 (ex-message ?cause))
+         {:type         ::max-retry
+          :backoff-opts backoff-opts}
+         ?cause)
+        (ex-info
+         "Max retries reached!"
+         {:type         ::max-retry
+          :backoff-opts backoff-opts}))])))
 
 (defn async-request
   "Perform an async http request, returning a promise channel with tuple
@@ -199,27 +234,18 @@
            :as   resp}]
        (cond
          ;; Both our GET and POST expect 200
-         (= status 200) (a/put! ret [:response resp])
+         ;; If status is 200, pass the response
+         (= status 200)
+         (a/put! ret [:response resp])
 
+         ;; Retry based on retryable status
          (retryable-status? status)
-         (if-let [backoff (u/backoff-ms
-                           attempt
-                           backoff-opts)]
-           ;; Go async, wait and relaunch
-           (a/go
-             (a/<! (a/timeout backoff))
-             (async-request
-              req
-              :ret-chan ret
-              :attempt (inc attempt)
-              :backoff-opts backoff-opts))
-           (a/put!
-            ret
-            [:exception
-             (ex-info "Max retries reached!"
-                      {:type     ::request-fail
-                       :response resp
-                       :backoff-opts backoff-opts})]))
+         (maybe-retry
+          ret
+          req
+          attempt
+          backoff-opts)
+
          :else
          (a/put!
           ret
@@ -228,9 +254,16 @@
                     {:type     ::request-fail
                      :response resp})])))
      (fn [exception]
-       (a/put! ret
-               [:exception
-                exception])))
+       (if (retryable-exception? exception)
+         (maybe-retry
+          ret
+          req
+          attempt
+          backoff-opts
+          exception)
+         (a/put! ret
+                 [:exception
+                  exception]))))
     ret))
 
 (s/def ::poll-interval
