@@ -237,6 +237,8 @@
                             crlf
                             ))
         (json/generate-stream statements posh-w)
+        ;; Flush to notify
+        (.flush posh-w)
         (doseq [{:keys [sha2 contentType tempfile]} attachments]
           (.write posh-w (str crlf
                               "--"
@@ -251,7 +253,9 @@
                               crlf))
           (io/copy tempfile posh-w)
           ;; TODO: Can/should we delete here instead of by batch?
-          )
+
+          ;; flush after each part
+          (.flush posh-w))
         (.write posh-w
                 (str crlf
                      "--"
