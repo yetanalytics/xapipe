@@ -1,6 +1,6 @@
 (ns com.yetanalytics.xapipe.client.multipart-mixed
   "multipart/mixed handling"
-  (:require [cheshire.core :as json]
+  (:require [clojure.data.json :as json]
             [clj-http.util :as hutil]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
@@ -112,7 +112,7 @@
     ;; Return the statement result always
     (let [ss-result
           (with-open [r (io/reader (.toByteArray result-baos))]
-            (json/parse-stream r))]
+            (json/read r))]
       (reduce-kv
        (fn [m k v]
          (assoc m (keyword k) v))
@@ -236,7 +236,7 @@
                             crlf
                             crlf
                             ))
-        (json/generate-stream statements posh-w)
+        (json/write statements posh-w)
         ;; Flush to notify
         (.flush posh-w)
         (doseq [{:keys [sha2 contentType ^File tempfile]} attachments]

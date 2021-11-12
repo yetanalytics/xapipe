@@ -1,5 +1,5 @@
 (ns com.yetanalytics.xapipe.main-test
-  (:require [cheshire.core :as json]
+  (:require [clojure.data.json :as json]
             [clojure.core.async :as a]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -239,7 +239,7 @@
                   {:request-config (:request-config target)}})]
         (is (-> (main*
                  "-s" "noop"
-                 "--json" (json/generate-string job))
+                 "--json" (json/write-str job))
                 :status
                 (= 0)))
         (is (= 452 (sup/lrs-count target)))))))
@@ -262,7 +262,7 @@
                   {:request-config (:request-config target)}})
             ;; Put it in a file
             ^File tempfile (File/createTempFile "xapipe" "test")]
-        (spit tempfile (json/generate-string job))
+        (spit tempfile (json/write-str job))
         (try
           (is (-> (main*
                    "-s" "noop"

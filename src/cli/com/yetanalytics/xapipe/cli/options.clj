@@ -1,6 +1,6 @@
 (ns com.yetanalytics.xapipe.cli.options
   "clojure.tools.cli options for xapipe CLI"
-  (:require [cheshire.core :as json]
+  (:require [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
             [clojure.java.io :as io]
             [clojure.string :as cs]
@@ -147,13 +147,13 @@
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
      :default false]
     [nil "--json JSON" "Take a job specification as a JSON string"
-     :parse-fn #(-> (json/parse-string ^String % (partial keyword nil))
+     :parse-fn #(-> (json/read-str ^String % :key-fn (partial keyword nil))
                     keywordize-status
                     (update :config config/ensure-defaults))]
     [nil "--json-file FILE" "Take a job specification from a JSON file"
      :parse-fn (fn [filepath]
                  (-> (with-open [r (io/reader (io/file filepath))]
-                       (json/parse-stream r (partial keyword nil)))
+                       (json/read r :key-fn (partial keyword nil)))
                      keywordize-status
                      (update :config config/ensure-defaults)))]]
    storage-options))
