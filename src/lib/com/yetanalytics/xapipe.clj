@@ -98,9 +98,18 @@
                     (case tag
                       ;; On success, update the cursor and keep listening
                       :response
-                      (recur (-> state
-                                 (state/update-cursor cursor)
-                                 (state/update-filter filter-state)))
+                      (do
+                        (-> reporter
+                            (metrics/counter
+                             :xapipe/statements-out
+                             (count statements))
+                            (metrics/counter
+                             :xapipe/attachments-out
+                             (count statements))
+                            metrics/flush!)
+                        (recur (-> state
+                                   (state/update-cursor cursor)
+                                   (state/update-filter filter-state))))
                       ;; If the post fails, Send the error to the stop channel
                       ;; emit and stop.
                       :exception
@@ -134,15 +143,17 @@
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)
 
+(s/def ::client-opts
+  (s/keys :opt-un [::client/conn-mgr
+                   ::client/http-client
+                   ::client/conn-mgr-opts
+                   ::source-client-opts
+                   ::target-client-opts]))
+
 (s/fdef run-job
   :args (s/cat :job ::job
-               :conn-opts (s/?
-                           (s/keys :opt-un [::client/conn-mgr
-                                            ::client/http-client
-                                            ::client/conn-mgr-opts
-                                            ::source-client-opts
-                                            ::target-client-opts
-                                            ::metrics/reporter])))
+               :kwargs (s/keys* :opt-un [::client-opts
+                                         ::metrics/reporter]))
   :ret (s/keys :req-un [::states ::stop-fn]))
 
 (defn run-job
@@ -154,16 +165,17 @@
   Note that the states channel is unbuffered, so you will need to consume it in
   order for job processing to continue."
   [job
-   & [{:keys [conn-mgr
+   & {{:keys [conn-mgr
               http-client
               conn-mgr-opts
               source-client-opts
-              target-client-opts
-              reporter]
+              target-client-opts]
        :or {conn-mgr-opts {}
             source-client-opts {}
             target-client-opts {}
-            reporter (metrics/->NoopReporter)}}]]
+            }} :client-opts
+      reporter :reporter
+      :or {reporter (metrics/->NoopReporter)}}]
   (let [{:keys [id]
          {status-before :status
           cursor-before :cursor

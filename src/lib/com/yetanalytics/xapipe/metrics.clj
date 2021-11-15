@@ -30,9 +30,16 @@
     (fn []
       (sgen/return (->NoopReporter)))))
 
+;; Keys describing gauges
+(def gauge-keys
+  #{})
+
+(s/def ::gauges
+  gauge-keys)
+
 (s/fdef gauge
   :args (s/cat :reporter ::reporter
-               :k keyword?
+               :k ::gauges
                :v number?)
   :ret ::reporter)
 
@@ -41,9 +48,17 @@
   [reporter k v]
   (-gauge reporter k v))
 
+;; Keys describing counters
+(def counter-keys
+  #{:xapipe/statements-out
+    :xapipe/attachments-out})
+
+(s/def ::counters
+  counter-keys)
+
 (s/fdef counter
   :args (s/cat :reporter ::reporter
-               :k keyword?
+               :k ::counters
                :delta nat-int?)
   :ret ::reporter)
 
@@ -52,9 +67,16 @@
   [reporter k delta]
   (-counter reporter k delta))
 
+;; Keys describing histograms
+(def histogram-keys
+  #{})
+
+(s/def ::histograms
+  histogram-keys)
+
 (s/fdef histogram
   :args (s/cat :reporter ::reporter
-               :k keyword?
+               :k ::histograms
                :v number?)
   :ret ::reporter)
 

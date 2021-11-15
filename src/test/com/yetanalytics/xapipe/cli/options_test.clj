@@ -24,7 +24,9 @@
             :storage :file,
             :redis-uri "redis://0.0.0.0:6379",
             :redis-prefix "xapipe"
-            :file-store-dir "store"}
+            :file-store-dir "store"
+            :metrics-reporter "noop"
+            :prometheus-push-gateway "0.0.0.0:9091"}
            nil
 
            ;; Redis store with a custom uri
@@ -36,7 +38,9 @@
             :storage :redis,
             :redis-uri "redis://localhost:1234",
             :redis-prefix "xapipe"
-            :file-store-dir "store"}
+            :file-store-dir "store"
+            :metrics-reporter "noop"
+            :prometheus-push-gateway "0.0.0.0:9091"}
            nil))
 
 (deftest source-options-test
@@ -124,7 +128,9 @@
    :show-job false,
    :help false,
    :list-jobs false,
-   :filter-pattern-ids []})
+   :filter-pattern-ids [],
+   :metrics-reporter "noop",
+   :prometheus-push-gateway "0.0.0.0:9091"})
 
 ;; Matches the fixture job we have
 (def json-job
@@ -186,6 +192,8 @@
     "--redis-uri" "redis://0.0.0.0:1111"
     "--redis-prefix" "my-xapipe"
     "--file-store-dir" "somedir"
+    "--metrics-reporter" "prometheus"
+    "--prometheus-push-gateway" "localhost:1234"
     "--source-url" "http://0.0.0.0:8080/xapi"
     "--source-batch-size" "1"
     "--source-poll-interval" "1"
@@ -255,5 +263,7 @@
     :source-backoff-initial 1,
     :filter-pattern-ids ["http://example.org/profile.jsonld#foo"],
     :conn-default-per-route 1,
-    :target-url "http://0.0.0.0:8081/xapi"}
+    :target-url "http://0.0.0.0:8081/xapi"
+    :metrics-reporter "prometheus"
+    :prometheus-push-gateway "localhost:1234"}
    []))

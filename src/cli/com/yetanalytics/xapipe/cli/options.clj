@@ -116,6 +116,14 @@
    [nil "--file-store-dir PATH" "Directory path for filesystem storage"
     :default "store"]])
 
+(def metrics-options
+  [[nil "--metrics-reporter REPORTER" "Select a metrics reporter, noop (default) or prometheus"
+    :default "noop"
+    :validate [#{"noop"
+                 "prometheus"} "Must be: noop | prometheus"]]
+   [nil "--prometheus-push-gateway URL" "Address of prometheus push gateway server"
+    :default "0.0.0.0:9091"]])
+
 (defn- keywordize-status
   [job]
   (update-in job [:state :status] (partial keyword nil)))
@@ -156,7 +164,8 @@
                        (json/parse-stream r (partial keyword nil)))
                      keywordize-status
                      (update :config config/ensure-defaults)))]]
-   storage-options))
+   (concat storage-options
+           metrics-options)))
 
 (def-option-specs common-options {::json ::xapipe/job
                                   ::json-file ::xapipe/job})
