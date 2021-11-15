@@ -2,6 +2,7 @@
   "Useful Async facilities"
   (:require [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.spec.common :as cspec]))
 
 (s/def ::stateless-predicates
@@ -31,7 +32,8 @@
                         :opt-un [::stateless-predicates
                                  ::stateful-predicates
                                  ::init-states
-                                 ::cleanup-fn])))
+                                 ::cleanup-fn
+                                 ::metrics/reporter])))
 
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
@@ -52,9 +54,11 @@
    & {:keys [stateless-predicates
              stateful-predicates
              init-states
-             cleanup-fn]
+             cleanup-fn
+             reporter]
       :or {stateless-predicates {}
-           stateful-predicates {}}}]
+           stateful-predicates {}
+           reporter (metrics/->NoopReporter)}}]
   (let [stateless-pred (if (empty? stateless-predicates)
                          (constantly true)
                          (apply every-pred (vals stateless-predicates)))]

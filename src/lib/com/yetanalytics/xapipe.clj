@@ -10,6 +10,7 @@
             [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
+            [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.util.time :as t]
@@ -41,7 +42,8 @@
    batch-chan
    {:keys [conn-mgr
            http-client]
-    :as conn-opts}]
+    :as conn-opts}
+   reporter]
   (a/go
     (loop [state init-state]
       ;; Emit States
@@ -139,7 +141,8 @@
                                             ::client/http-client
                                             ::client/conn-mgr-opts
                                             ::source-client-opts
-                                            ::target-client-opts])))
+                                            ::target-client-opts
+                                            ::metrics/reporter])))
   :ret (s/keys :req-un [::states ::stop-fn]))
 
 (defn run-job
@@ -155,10 +158,12 @@
               http-client
               conn-mgr-opts
               source-client-opts
-              target-client-opts]
+              target-client-opts
+              reporter]
        :or {conn-mgr-opts {}
             source-client-opts {}
-            target-client-opts {}}}]]
+            target-client-opts {}
+            reporter (metrics/->NoopReporter)}}]]
   (let [{:keys [id]
          {status-before :status
           cursor-before :cursor
@@ -225,7 +230,8 @@
                       source-backoff-opts
                       :conn-opts
                       {:conn-mgr conn-mgr
-                       :http-client source-client})
+                       :http-client source-client}
+                      :reporter reporter)
             ;; A channel that holds statements + attachments
             statement-chan
             (a/chan statement-buffer-size)
@@ -273,7 +279,8 @@
              :cleanup-fn
              (fn [{:keys [attachments]}]
                (when (not-empty attachments)
-                 (a/thread (mm/clean-tempfiles! attachments)))))
+                 (a/thread (mm/clean-tempfiles! attachments))))
+             :reporter reporter)
             ;; Send the init state
             _ (a/put! states-chan job-before)
             ;; Then set it as running for post
@@ -286,7 +293,8 @@
          stop-chan
          batch-chan
          {:conn-mgr conn-mgr
-          :http-client target-client})
+          :http-client target-client}
+         reporter)
         ;; Return the state emitter and stop fn
         {:states states-chan
          :stop-fn stop-fn}))))
@@ -316,14 +324,17 @@
 
 (s/fdef store-states
   :args (s/cat :states ::states ;; successive job maps
-               :store #(satisfies? store/XapipeStore %))
+               :store #(satisfies? store/XapipeStore %)
+               :kwargs (s/keys* :opt-un [::metrics/reporter]))
   :ret ::cspec/channel) ;; a channel with final state
 
 (defn store-states
   "Write states to storage, which is assumed to be a blocking operation.
   Return a final job state, possibly decorated with a job persistence error."
   [states
-   store]
+   store
+   & {:keys [reporter]
+      :or {reporter (metrics/->NoopReporter)}}]
   (a/go-loop [last-job nil]
     (log/debug "storage loop run")
     (if-let [{{:keys [status]
