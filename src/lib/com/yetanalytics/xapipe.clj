@@ -48,6 +48,19 @@
     (loop [state init-state]
       ;; Emit States
       (a/>! states-chan (assoc job :state state))
+      ;; add any errors and flush the metrics before continue
+      (let [[job-errors
+             source-errors
+             target-errors] (state/get-errors state)]
+        (-> reporter
+            (metrics/counter :xapipe/job-errors (count job-errors))
+            (metrics/counter :xapipe/source-errors (count source-errors))
+            (metrics/counter :xapipe/target-errors (count target-errors))
+            (metrics/counter :xapipe/all-errors (count (concat
+                                                        job-errors
+                                                        source-errors
+                                                        target-errors)))
+            metrics/flush!))
       (cond
         (state/errors? state)
         (log/error "POST loop stopping with errors")
@@ -98,15 +111,17 @@
                     (case tag
                       ;; On success, update the cursor and keep listening
                       :response
-                      (do
+                      (let [{:keys [request-time]} x]
                         (-> reporter
+                            (metrics/gauge
+                             :xapipe/target-request-time
+                             request-time)
                             (metrics/counter
-                             :xapipe/statements-out
+                             :xapipe/statements
                              (count statements))
                             (metrics/counter
-                             :xapipe/attachments-out
-                             (count statements))
-                            metrics/flush!)
+                             :xapipe/attachments
+                             (count attachments)))
                         (recur (-> state
                                    (state/update-cursor cursor)
                                    (state/update-filter filter-state))))

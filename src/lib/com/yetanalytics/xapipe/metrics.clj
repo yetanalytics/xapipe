@@ -32,7 +32,8 @@
 
 ;; Keys describing gauges
 (def gauge-keys
-  #{})
+  #{:xapipe/source-request-time
+    :xapipe/target-request-time})
 
 (s/def ::gauges
   gauge-keys)
@@ -50,8 +51,12 @@
 
 ;; Keys describing counters
 (def counter-keys
-  #{:xapipe/statements-out
-    :xapipe/attachments-out})
+  #{:xapipe/statements
+    :xapipe/attachments
+    :xapipe/source-errors
+    :xapipe/target-errors
+    :xapipe/job-errors
+    :xapipe/all-errors})
 
 (s/def ::counters
   counter-keys)

@@ -232,8 +232,7 @@
         ]
     (client/request
      req
-     (fn [{:keys [status
-                  request-time]
+     (fn [{:keys [status]
            :as   resp}]
        (cond
          ;; Both our GET and POST expect 200
@@ -338,7 +337,8 @@
                 (let [{{consistent-through-h "X-Experience-API-Consistent-Through"}
                        :headers
                        {{:keys [statements more]} :statement-result}
-                       :body}      resp
+                       :body
+                       :keys [request-time]} resp
                       ?last-stored (some-> statements
                                            peek
                                            (get "stored")
@@ -352,6 +352,10 @@
                                 ?last-stored)
                     (a/>! out-chan
                           ret))
+                  ;; Handle metrics
+                  (metrics/gauge reporter
+                                 :xapipe/source-request-time request-time)
+
                   (cond
                     ;; If the more link indicates there are more statements to
                     ;; provide, immediately attempt to get them.
