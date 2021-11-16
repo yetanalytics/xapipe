@@ -69,25 +69,27 @@ Delete a Job:
                                [false extant]
                                [true (cli/create-job
                                       options)]))
-                job (cond-> job'
-                      (not new?)
-                      (->
-                       (cli/reconfigure-job options)
-                       (cond->
-                           force-resume?
-                         (-> (update :state state/clear-errors)
-                             (update :state state/set-status :paused)))))]
+                {job-id :id
+                 :as job} (cond-> job'
+                            (not new?)
+                            (->
+                             (cli/reconfigure-job options)
+                             (cond->
+                                 force-resume?
+                               (-> (update :state state/clear-errors)
+                                   (update :state state/set-status :paused)))))
+                reporter (cli/create-reporter job-id options)]
             (if (s/valid? job/job-spec job)
               (do
                 (if new?
                   (log/infof
                    "Created new job %s: %s"
-                   (:id job)
+                   job-id
                    (pr-str
                     (job/sanitize job)))
                   (log/infof
                    "Found existing job %s: %s"
-                   (:id job)
+                   job-id
                    (pr-str
                     (job/sanitize job))))
                 (if show-job?
@@ -99,10 +101,11 @@ Delete a Job:
                      (if new?
                        "Starting job %s"
                        "Resuming job %s")
-                     (:id job))
+                     job-id)
                     (cli/handle-job store
                                     job
-                                    (cli/options->client-opts options)))))
+                                    (cli/options->client-opts options)
+                                    reporter))))
               {:status 1
                :message (s/explain-str job/job-spec job)})))))))
 

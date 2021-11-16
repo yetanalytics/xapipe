@@ -83,10 +83,12 @@ All options:
   -f, --force-resume                                          If resuming a job, clear any errors and force it to resume.
       --json JSON                                             Take a job specification as a JSON string
       --json-file FILE                                        Take a job specification from a JSON file
-  -s, --storage STORAGE                 :noop                 Select storage backend, noop (default) or redis, mem is for testing only
+  -s, --storage STORAGE                 :file                 Select storage backend, file (default), redis or noop, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
-      --redis-prefix PREFIX                                   Redis key prefix
+      --redis-prefix PREFIX             xapipe                Redis key prefix
       --file-store-dir PATH             store                 Directory path for filesystem storage
+      --metrics-reporter REPORTER       noop                  Select a metrics reporter, noop (default) or prometheus
+      --prometheus-push-gateway URL     0.0.0.0:9091          Address of prometheus push gateway server
       --source-url URL                                        Source LRS xAPI Endpoint
       --source-batch-size SIZE          50                    Source LRS GET limit param
       --source-poll-interval INTERVAL   1000                  Source LRS GET poll timeout
@@ -146,6 +148,37 @@ docker compose up
 ```
 
 This will create a source LRS at `http://0.0.0.0:8080` and a target LRS at `http://0.0.0.0:8081`. If you send xAPI data to the source it will be forwarded to the target.
+
+The demo includes a [Prometheus](https://prometheus.io/) metrics server and push gateway. When the demo is running you can navigate to [http://0.0.0.0:9090](http://0.0.0.0:9090) and explore xapipe metrics (see below).
+
+In addition to prometheus the demo creates a [Grafana](https://github.com/grafana/grafana) server at [http://0.0.0.0:3000](http://0.0.0.0:3000). Log in with username `admin` and password `admin` and set a password, then you can view a comprehensive dashboard with all metrics.
+
+## Metrics
+
+The xapipe CLI supports prometheus metrics via a [push gateway](https://github.com/prometheus/pushgateway). With a push gateway set up, you can use it like so:
+
+``` shell
+bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --metrics-reporter prometheus \
+           --prometheus-push-gateway 0.0.0.0:9091
+```
+
+The following Prometheus metrics are implemented:
+
+### Counters
+
+* `xapipe_statements`
+* `xapipe_attachments`
+* `xapipe_job_errors`
+* `xapipe_source_errors`
+* `xapipe_target_errors`
+* `xapipe_all_errors`
+
+### Gauges
+
+* `xapipe_source_request_time`
+* `xapipe_target_request_time`
 
 ## License
 
