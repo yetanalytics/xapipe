@@ -8,6 +8,14 @@ volumes:
 configs:
   prometheus_config:
     file: ./prometheus.yml
+  grafana_config:
+    file: ./grafana.ini
+  grafana_datasource:
+    file: ./datasource.yaml
+  grafana_dashboard:
+    file: ./dashboard.yaml
+  grafana_dashboard_json:
+    file: ./xapipe_dashboard.json
 
 services:
   # Source LRS
@@ -86,6 +94,24 @@ services:
     configs:
       - source: prometheus_config
         target: /etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    configs:
+      - source: grafana_config
+        target: /etc/grafana/grafana.ini
+      - source: grafana_datasource
+        target: /etc/grafana/provisioning/datasources/datasource.yaml
+      - source: grafana_dashboard
+        target: /etc/grafana/provisioning/dashboards/dashboard.yaml
+      - source: grafana_dashboard_json
+        target: /etc/grafana/provisioning/dashboards/xapipe_dashboard.json
+
+    restart: always
 
   pushgateway:
     image: prom/pushgateway

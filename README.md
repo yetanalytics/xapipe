@@ -149,7 +149,9 @@ docker compose up
 
 This will create a source LRS at `http://0.0.0.0:8080` and a target LRS at `http://0.0.0.0:8081`. If you send xAPI data to the source it will be forwarded to the target.
 
-The demo includes a [prometheus](https://prometheus.io/) metrics server and push gateway. When the demo is running you can navigate to [http://0.0.0.0:9090](http://0.0.0.0:9090) and explore xapipe metrics (see below).
+The demo includes a [Prometheus](https://prometheus.io/) metrics server and push gateway. When the demo is running you can navigate to [http://0.0.0.0:9090](http://0.0.0.0:9090) and explore xapipe metrics (see below).
+
+In addition to prometheus the demo creates a [Grafana](https://github.com/grafana/grafana) server at [http://0.0.0.0:3000](http://0.0.0.0:3000). Log in with username `admin` and password `admin` and set a password, then you can view a comprehensive dashboard with all metrics.
 
 ## Metrics
 
