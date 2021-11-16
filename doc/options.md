@@ -1,68 +1,7 @@
-![SQL LRS Logo](doc/img/logo.png)
+[<- Back to README](../README.md)
+# LRSPipe Options Reference
 
-# Yet Analytics LRSPipe
-
-LRSPipe enables the Total Learning Architecture by acting as middleware between layers of data and by governing data flow directly based on xAPI Profiles. It’s more than an xAPI statement forwarder — it’s a forwarder that is governed by xAPI Profiles.
-
-## Releases
-
-For releases and release notes, see the [Releases](https://github.com/yetanalytics/xapipe/releases/latest) page.
-
-## Documentation
-
-- [Installation](doc/install.md)
-- [Usage](doc/usage.md)
-- [All Options](doc/options.md)
-- [Docker Container](doc/docker.md)
-- [Demo](doc/demo.md)
-
-You can download xapipe from our [release page]() or on the command line:
-
-``` shell
-curl -L https://github.com/yetanalytics/xapipe/releases/latest/download/xapipe.zip -o xapipe.zip
-unzip xapipe.zip -d xapipe
-cd xapipe
-bin/run.sh --help
-```
-
-## Usage
-
-### Start a New Job
-
-``` shell
-bin/run.sh --source-url http://0.0.0.0:8080/xapi \
-           --target-url http://0.0.0.0:8081/xapi \
-           --job-id myjob
-```
-
-### Resume a Paused Job
-``` shell
-bin/run.sh --job-id myjob
-```
-
-### Force-Resume a Job with Errors
-
-``` shell
-bin/run.sh --job-id myjob -f
-```
-
-### List Persisted Jobs
-
-``` shell
-bin/run.sh --list-jobs -s redis
-
-Nov 03, 2021 4:41:48 PM com.yetanalytics.xapipe.cli invoke
-INFO: Page 0
-|                               job-id | status |               cursor           |
-|--------------------------------------+--------+--------------------------------|
-| d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00.000000000Z |
-```
-
-### Delete Job
-
-``` shell
-bin/run.sh --delete-job myjob
-```
+Below is an reference and explanation of all options for running LRSPipe. This reference can be accessed from the CLI at any time by running `bin/run.sh --help`.
 
 ## CLI Options
 
@@ -128,40 +67,4 @@ All options:
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
 ```
 
-## Docker
-
-### Invocation
-
-Start a job with a persistent volume to store job state:
-
-``` shell
-docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe \
-    --source-url http://host.docker.internal:8080/xapi \
-    --target-url http://host.docker.internal:8081/xapi \
-    --job-id myjob
-```
-
-Stop the job with `^C`. You can then resume it:
-
-``` shell
-docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
-```
-
-### Demo
-
-This repo includes a Docker Compose file at [`demo/docker-compose.yml`](demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses `xapipe` to forward data between them.
-
-To run the demo:
-
-``` shell
-cd demo
-docker compose up
-```
-
-This will create a source LRS at `http://0.0.0.0:8080` and a target LRS at `http://0.0.0.0:8081`. If you send xAPI data to the source it will be forwarded to the target.
-
-## License
-
-Copyright © 2021 Yet Analytics, Inc.
-
-Distributed under the Apache License version 2.0.
+[<- Back to README](../README.md)
