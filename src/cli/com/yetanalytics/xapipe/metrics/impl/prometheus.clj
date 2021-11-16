@@ -4,7 +4,8 @@
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [iapetos.core :as pro]
-            [iapetos.export :as pro-exp]))
+            [iapetos.export :as pro-exp]
+            [iapetos.collector.jvm :as pro-jvm]))
 
 (s/def ::push-gateway string?)
 
@@ -23,7 +24,11 @@
     metrics/counter-keys)
    (map
     pro/histogram
-    metrics/histogram-keys)))
+    metrics/histogram-keys)
+   [(pro-jvm/standard)
+    (pro-jvm/gc)
+    (pro-jvm/memory-pools)
+    (pro-jvm/threads)]))
 
 (defn prometheus-push-reporter
   [push-gateway
