@@ -392,10 +392,11 @@
                             (recur
                              (get-request
                               config
+                              ;; Update Since to the LRS header
                               (assoc init-params
                                      :since
-                                     since))
-                             since))))
+                                     consistent-through))
+                             consistent-through))))
                 :exception
                 (do (a/>! out-chan ret)
                     (a/close! out-chan)))))))
