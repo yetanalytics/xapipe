@@ -5,6 +5,10 @@ volumes:
   target_db_data:
   xapipe_store_data:
 
+configs:
+  prometheus_config:
+    file: ./prometheus.yml
+
 services:
   # Source LRS
   source_db:
@@ -73,12 +77,31 @@ services:
       - xapipe_store_data:/data
     ports:
       - "6379"
+
+  # Dashboards
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+
+  pushgateway:
+    image: prom/pushgateway
+    depends_on:
+      - prometheus
+    ports:
+      - "9091"
+    restart: always
+
   xapipe:
     image: yetanalytics/xapipe:latest
     depends_on:
       - source_lrs
       - target_lrs
       - redis
+      - pushgateway
     command: |
       -s redis
       --job-id link_source_target
@@ -90,4 +113,6 @@ services:
       --target-url http://target_lrs:8081/xapi
       --target-username my_key
       --target-password my_secret
+      --metrics-reporter prometheus
+      --prometheus-push-gateway pushgateway:9091
     restart: always
