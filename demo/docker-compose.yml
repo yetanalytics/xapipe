@@ -96,7 +96,7 @@ services:
     restart: always
 
   xapipe:
-    image: yetanalytics/xapipe:latest
+    image: yetanalytics/xapipe:${DEMO_VERSION:-latest}
     depends_on:
       - source_lrs
       - target_lrs
