@@ -10,11 +10,13 @@ LRSPipe enables the Total Learning Architecture by acting as middleware between 
 
 ## How it Works
 
-LRSPipe is a standalone process which runs independently of any LRS. This process can run one or multiple "jobs" at a time, each of which contains information about a source LRS, a target LRS, and any applicable filters or options. While running, this process continually checks the source LRS(s) for xAPI Statements and attempts to replicate them into the target LRS(s). This process is one-way and any statements in the target LRS will not be replicated to the source LRS. These jobs can be paused, resumed, and modified, and LRSPipe tracks its progress using persistence (either local file system or Redis, depending on how it is configured) so a job can be interrupted at any time and pick right back up where it left off when it resumes.
+LRSPipe is a standalone process which runs independently of any LRS. This process can run one or multiple "jobs" at a time, each of which contains information about a source LRS, a target LRS, and any applicable filters or options. While running, this process continually checks the source LRS(s) for xAPI Statements and attempts to replicate them into the target LRS(s).
+
+This process is one-way and any statements in the target LRS will not be replicated to the source LRS. These jobs can be paused, resumed, and modified, and LRSPipe tracks its progress using storage (either the local file system or a Redis server, depending on how it is configured) so a job can be interrupted at any time and pick right back up where it left off when it resumes.
 
 ### Filtering
 
-LRSPipe is capable of running in a number of modes with respect to which statements get forwarded. Filtering is generally performed based on the components of provided xAPI Profiles. For more information see the [xAPI Profile Specification](https://github.com/adlnet/xapi-profiles).
+LRSPipe is capable of filtering which statements get forwarded. This filtering is performed using the components of provided xAPI Profiles. For more information see the [xAPI Profile Specification](https://github.com/adlnet/xapi-profiles).
 
 #### Full Forwarding
 In this mode all statements from the source LRS will be replicated into the target LRS.
@@ -42,6 +44,10 @@ For releases and release notes, see the [Releases](https://github.com/yetanalyti
 - [Metrics](doc/metrics.md)
 - [Docker Container](doc/docker.md)
 - [Demo](doc/demo.md)
+
+## Contribution
+
+Before contributing to this project, please read the [Contribution Guidelines](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

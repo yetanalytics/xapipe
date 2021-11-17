@@ -7,7 +7,7 @@ In this section we'll illustrate a few examples of basic usage patterns of LRSPi
 
 ### Start a New Job
 
-In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source.  
+In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.  
 
 ``` shell
 bin/run.sh --source-url http://0.0.0.0:8080/xapi \
