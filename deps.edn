@@ -22,6 +22,11 @@
                      ch.qos.logback/logback-classic
                      {:mvn/version "1.2.3"
                       :exclusions [org.slf4j/slf4j-api]}
+                     org.slf4j/slf4j-api {:mvn/version "1.7.26"}
+                     org.slf4j/jul-to-slf4j {:mvn/version "1.7.26"}
+                     org.slf4j/jcl-over-slf4j {:mvn/version "1.7.26"}
+                     org.slf4j/log4j-over-slf4j {:mvn/version "1.7.26"}
+
                      clj-commons/iapetos {:mvn/version "0.1.12"}
                      io.prometheus/simpleclient_hotspot {:mvn/version "0.12.0"}}}
   :test {:extra-paths ["src/test"]
