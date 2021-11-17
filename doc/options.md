@@ -35,10 +35,12 @@ All options:
   -f, --force-resume                                          If resuming a job, clear any errors and force it to resume.
       --json JSON                                             Take a job specification as a JSON string
       --json-file FILE                                        Take a job specification from a JSON file
-  -s, --storage STORAGE                 :noop                 Select storage backend, noop (default) or redis, mem is for testing only
+  -s, --storage STORAGE                 :file                 Select storage backend, file (default), redis or noop, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
-      --redis-prefix PREFIX                                   Redis key prefix
+      --redis-prefix PREFIX             xapipe                Redis key prefix
       --file-store-dir PATH             store                 Directory path for filesystem storage
+      --metrics-reporter REPORTER       noop                  Select a metrics reporter, noop (default) or prometheus
+      --prometheus-push-gateway URL     0.0.0.0:9091          Address of prometheus push gateway server
       --source-url URL                                        Source LRS xAPI Endpoint
       --source-batch-size SIZE          50                    Source LRS GET limit param
       --source-poll-interval INTERVAL   1000                  Source LRS GET poll timeout
