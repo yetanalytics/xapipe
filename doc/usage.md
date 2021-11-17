@@ -3,6 +3,8 @@
 
 In this section we'll illustrate a few examples of basic usage patterns of LRSPipe.
 
+## Basic Forwarding
+
 ### Start a New Job
 
 In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source.  
@@ -10,7 +12,9 @@ In this example we are starting a basic forwarding job with no filters from a so
 ``` shell
 bin/run.sh --source-url http://0.0.0.0:8080/xapi \
            --target-url http://0.0.0.0:8081/xapi \
-           --job-id myjob
+           --job-id myjob \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret
 ```
 
 ### Resume a Paused Job
@@ -28,6 +32,46 @@ In some cases, when a job has been paused due to an error, it may need to be for
 ``` shell
 bin/run.sh --job-id myjob -f
 ```
+
+## Forwarding with Filtering
+
+### Statement Template Filtering
+
+To filter statements based on xAPI Profile Statement Templates, use the `--template-profile-url` flag like so:
+
+``` shell
+bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id template-job-1 \
+           --template-profile-url "../location-of-profile.jsonld" \
+           --template-id "https://xapinet.org/xapi/yet/template-id-1" \
+           --template-id "https://xapinet.org/xapi/yet/template-id-2" \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret
+
+```
+
+The profile url value can be either a web-accessible url, such as a Profile Server, or a local file. The `--template-id` flags are optional and further limit the forwarding to only the desired Templates. If the `--template-id` flag is omitted the job will filter on all available Statement Templates in the Profile.
+
+### Pattern Filtering
+
+To filter statements based on xAPI Profile Patterns, use the `--pattern-profile-url` flag like so:
+
+``` shell
+bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id pattern-job-1 \
+           --pattern-profile-url "../location-of-profile.jsonld" \
+           --pattern-id "https://xapinet.org/xapi/yet/pattern-id-1" \
+           --pattern-id "https://xapinet.org/xapi/yet/pattern-id-2" \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret
+
+```
+
+As with Template Filtering, the `--pattern-id` flags are optional and further limit the forwarding to only the desired Patterns. If the `--pattern-id` flag is omitted the job will filter on all available Patterns in the Profile.
+
+## Job Management
 
 ### List Persisted Jobs
 
