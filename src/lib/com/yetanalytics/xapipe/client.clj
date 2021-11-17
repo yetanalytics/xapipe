@@ -343,7 +343,8 @@
                                            peek
                                            (get "stored")
                                            t/normalize-stamp)
-                      consistent-through (t/normalize-stamp consistent-through-h)]
+                      consistent-through (t/normalize-stamp consistent-through-h)
+                      next-since (or ?last-stored since)]
                   ;; If there are statements, emit them before continuing.
                   ;; This operation will park for takers.
                   (when (not-empty statements)
@@ -368,8 +369,7 @@
                                          config
                                          {} ;; has no effect with more
                                          more)
-                                        ;; Set since for the cursor if we have new stuff
-                                        (or ?last-stored since)))
+                                        next-since))
 
                     ;; The lack of a more link means we are at the end of what the
                     ;; LRS has for the given query.
@@ -386,7 +386,7 @@
                       (a/close! out-chan))
                     ;; With no more link or until, we're polling.
                     ;; Wait for the specified time
-                    :else (let [next-since (or ?last-stored since)]
+                    :else (do
                             (log/debugf "waiting %d ms..." poll-interval)
                             (a/<! (a/timeout poll-interval))
                             (recur
