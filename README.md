@@ -2,6 +2,10 @@
 
 # Yet Analytics LRSPipe
 
+[![CI](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yaml/badge.svg)](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yaml)
+[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/yetanalytics/xapipe?label=docker&style=plastic&color=blue)](https://hub.docker.com/r/yetanalytics/xapipe)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-5e0b73.svg)](CODE_OF_CONDUCT.md)
+
 LRSPipe enables the Total Learning Architecture by acting as middleware between layers of data and by governing data flow directly based on xAPI Profiles. It’s more than an xAPI statement forwarder — it’s a forwarder that is governed by xAPI Profiles.
 
 ## How it Works

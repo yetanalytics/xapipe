@@ -8,6 +8,8 @@
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.cli.options :as opts]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.metrics :as metrics]
+            [com.yetanalytics.xapipe.metrics.impl.prometheus :as pro]
             [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
@@ -48,6 +50,19 @@
             redis-prefix)
     :mem (mem-store/new-store)
     :file (file-store/new-store file-store-dir)))
+
+(s/fdef create-reporter
+  :args (s/cat :job-id ::job/id
+               :options ::opts/all-options)
+  :ret ::metrics/reporter)
+
+(defn create-reporter
+  [job-id
+   {:keys [metrics-reporter
+           prometheus-push-gateway]}]
+  (case metrics-reporter
+    "prometheus" (pro/prometheus-push-reporter prometheus-push-gateway job-id)
+    "noop" (metrics/->NoopReporter)))
 
 (s/fdef parse-lrs-url
   :args (s/cat :url string?)
@@ -90,16 +105,21 @@
 (s/fdef handle-job
   :args (s/cat :store :com.yetanalytics.xapipe/store
                :job ::xapipe/job
-               :client-opts ::client/http-client-opts)
+               :client-opts ::client/http-client-opts
+               :reporter ::metrics/reporter)
   :ret ::exit)
 
 (defn handle-job
   "Actually execute a job, wrapping result
   Redef this when testing for cooler output"
-  [store job client-opts]
+  [store job client-opts reporter]
   (try
     (let [{:keys [states]
-           stop :stop-fn} (xapipe/run-job job client-opts)]
+           stop :stop-fn} (xapipe/run-job job
+                                          :reporter
+                                          reporter
+                                          :client-opts
+                                          client-opts)]
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
                                  (fn []

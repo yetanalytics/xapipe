@@ -46,9 +46,11 @@
                   store]}
           (with-redefs [;; We hijack the internal handle-job
                         ;; fn so we can see what happens
-                        cli/handle-job (fn [store job client-opts]
+                        cli/handle-job (fn [store job client-opts _]
                                          (assoc
-                                          (xapipe/run-job job client-opts)
+                                          (xapipe/run-job job
+                                                          :client-opts
+                                                          client-opts)
                                           ;; Attach the store for possible
                                           ;; inspection who knows
                                           :store store))]
@@ -139,9 +141,11 @@
                   store]}
           (with-redefs [;; We hijack the internal handle-job
                         ;; fn so we can see what happens
-                        cli/handle-job (fn [store job client-opts]
+                        cli/handle-job (fn [store job client-opts _]
                                          (assoc
-                                          (xapipe/run-job job client-opts)
+                                          (xapipe/run-job job
+                                                          :client-opts
+                                                          client-opts)
                                           ;; Attach the store for possible
                                           ;; inspection who knows
                                           :store store))]

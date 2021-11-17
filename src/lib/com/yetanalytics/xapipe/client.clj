@@ -7,6 +7,7 @@
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
+            [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
             [xapi-schema.spec.resources :as xsr]
@@ -177,7 +178,7 @@
 (declare async-request)
 
 (defn maybe-retry
-  [ret-chan req attempt backoff-opts & [?cause]]
+  [ret-chan reporter req attempt backoff-opts & [?cause]]
   (if-let [backoff (u/backoff-ms
                     attempt
                     backoff-opts)]
@@ -188,7 +189,8 @@
        req
        :ret-chan ret-chan
        :attempt (inc attempt)
-       :backoff-opts backoff-opts))
+       :backoff-opts backoff-opts
+       :reporter reporter))
     (a/put!
      ret-chan
      [:exception
@@ -217,7 +219,8 @@
   [request
    & {:keys [ret-chan
              attempt
-             backoff-opts]
+             backoff-opts
+             reporter]
       :or {attempt 0
            backoff-opts {:budget 10000
                          :max-attempt 10}}}]
@@ -229,8 +232,7 @@
         ]
     (client/request
      req
-     (fn [{:keys [status
-                  request-time]
+     (fn [{:keys [status]
            :as   resp}]
        (cond
          ;; Both our GET and POST expect 200
@@ -242,6 +244,7 @@
          (retryable-status? status)
          (maybe-retry
           ret
+          reporter
           req
           attempt
           backoff-opts)
@@ -257,6 +260,7 @@
        (if (retryable-exception? exception)
          (maybe-retry
           ret
+          reporter
           req
           attempt
           backoff-opts
@@ -286,7 +290,8 @@
                (s/keys*
                 :opt-un
                 [::backoff-opts
-                 ::conn-opts]))
+                 ::conn-opts
+                 ::metrics/reporter]))
   :ret ::cspec/channel)
 
 (defn get-chan
@@ -301,7 +306,9 @@
     :or        {init-since epoch-stamp}}
    poll-interval
    & {:keys [backoff-opts
-             conn-opts]}]
+             conn-opts
+             reporter]
+      :or {reporter (metrics/->NoopReporter)}}]
   (let [backoff-opts (or backoff-opts
                          {:budget 10000
                           :max-attempt 10})
@@ -315,7 +322,8 @@
         (let [req-chan (async-request
                         (merge req
                                conn-opts)
-                        :backoff-opts backoff-opts)
+                        :backoff-opts backoff-opts
+                        :reporter reporter)
               [v p]    (a/alts! [req-chan stop-chan])]
           (if (identical? p stop-chan)
             (do
@@ -329,12 +337,14 @@
                 (let [{{consistent-through-h "X-Experience-API-Consistent-Through"}
                        :headers
                        {{:keys [statements more]} :statement-result}
-                       :body}      resp
+                       :body
+                       :keys [request-time]} resp
                       ?last-stored (some-> statements
                                            peek
                                            (get "stored")
                                            t/normalize-stamp)
-                      consistent-through (t/normalize-stamp consistent-through-h)]
+                      consistent-through (t/normalize-stamp consistent-through-h)
+                      next-since (or ?last-stored since)]
                   ;; If there are statements, emit them before continuing.
                   ;; This operation will park for takers.
                   (when (not-empty statements)
@@ -343,6 +353,10 @@
                                 ?last-stored)
                     (a/>! out-chan
                           ret))
+                  ;; Handle metrics
+                  (metrics/gauge reporter
+                                 :xapipe/source-request-time request-time)
+
                   (cond
                     ;; If the more link indicates there are more statements to
                     ;; provide, immediately attempt to get them.
@@ -355,8 +369,7 @@
                                          config
                                          {} ;; has no effect with more
                                          more)
-                                        ;; Set since for the cursor if we have new stuff
-                                        (or ?last-stored since)))
+                                        next-since))
 
                     ;; The lack of a more link means we are at the end of what the
                     ;; LRS has for the given query.
@@ -379,11 +392,11 @@
                             (recur
                              (get-request
                               config
-                              ;; Update Since to the LRS header
+                              ;; Ensure since is updated if it should be
                               (assoc init-params
                                      :since
-                                     consistent-through))
-                             consistent-through))))
+                                     next-since))
+                             next-since))))
                 :exception
                 (do (a/>! out-chan ret)
                     (a/close! out-chan)))))))
