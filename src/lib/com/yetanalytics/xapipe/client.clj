@@ -386,17 +386,17 @@
                       (a/close! out-chan))
                     ;; With no more link or until, we're polling.
                     ;; Wait for the specified time
-                    :else (do
+                    :else (let [next-since (or ?last-stored since)]
                             (log/debugf "waiting %d ms..." poll-interval)
                             (a/<! (a/timeout poll-interval))
                             (recur
                              (get-request
                               config
-                              ;; Update Since to the LRS header
+                              ;; Ensure since is updated if it should be
                               (assoc init-params
                                      :since
-                                     consistent-through))
-                             consistent-through))))
+                                     next-since))
+                             next-since))))
                 :exception
                 (do (a/>! out-chan ret)
                     (a/close! out-chan)))))))
