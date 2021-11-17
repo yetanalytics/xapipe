@@ -1,7 +1,7 @@
 .phony: test-lib bench clean bundle
 
 clean:
-	rm -rf target classes
+	rm -rf target
 
 test-lib:
 	clojure -X:cli:test :dirs '["src/test"]'
@@ -10,8 +10,7 @@ bench:
 	clojure -Xtest:bench
 
 target/bundle/xapipe.jar:
-	mkdir -p target/bundle
-	clojure -Xuberjar
+	clojure -T:build uber
 
 target/bundle/bin:
 	mkdir -p target/bundle/bin

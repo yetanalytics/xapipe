@@ -40,6 +40,10 @@
                       ;; Some integration tests use logback
                       ch.qos.logback/logback-classic {:mvn/version "1.2.3"
                                                       :exclusions [org.slf4j/slf4j-api]}
+                      org.slf4j/slf4j-api {:mvn/version "1.7.26"}
+                      org.slf4j/jul-to-slf4j {:mvn/version "1.7.26"}
+                      org.slf4j/jcl-over-slf4j {:mvn/version "1.7.26"}
+                      org.slf4j/log4j-over-slf4j {:mvn/version "1.7.26"}
                       com.yetanalytics/datasim
                       {:git/url    "https://github.com/yetanalytics/datasim.git"
                        :sha        "9a4fb7926981b1282cc72aa093bd66a1c57abbd1"
@@ -50,10 +54,6 @@
   :bench {:extra-paths ["src/bench"]
           :ns-default com.yetanalytics.xapipe.bench
           :exec-fn run-bench}
-  :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.278"}}
-            :exec-fn hf.depstar/uberjar
-            :exec-args {:aot true
-                        :jar "target/bundle/xapipe.jar"
-                        :main-class "com.yetanalytics.xapipe.main"
-                        :sync-pom true
-                        :aliases [:cli]}}}}
+  :build {:paths ["src/build"]
+          :deps {io.github.clojure/tools.build {:git/tag "v0.6.6" :git/sha "4d41c26"}}
+          :ns-default com.yetanalytics.xapipe.build}}}
