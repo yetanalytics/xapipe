@@ -1,4 +1,4 @@
-.phony: test-lib bench clean bundle
+.phony: test-lib bench clean bundle bundle-help
 
 clean:
 	rm -rf target
@@ -35,3 +35,7 @@ target/bundle: target/bundle/xapipe.jar target/bundle/bin
 endif
 
 bundle: target/bundle
+
+# Run the bundle's help, used for compile-time sanity checks
+bundle-help: target/bundle
+	cd target/bundle; bin/run.sh --help
