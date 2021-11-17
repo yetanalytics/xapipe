@@ -6,7 +6,7 @@ jobs:
   test:
     strategy:
       matrix:
-        target: [test-lib bundle-help]
+        target: [test-lib, bundle-help]
     runs-on: ubuntu-latest
     steps:
       - name: Setup CI Environment
