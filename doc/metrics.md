@@ -22,9 +22,11 @@ The following Prometheus metrics are implemented:
 * `xapipe_target_errors`
 * `xapipe_all_errors`
 
-## Gauges
+## Histograms
 
 * `xapipe_source_request_time`
 * `xapipe_target_request_time`
+
+In addition the prometheus metrics collector provides various metrics under the `jvm_` prefix.
 
 [<- Back to README](../README.md)
