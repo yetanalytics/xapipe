@@ -25,6 +25,9 @@
    (map
     pro/histogram
     metrics/histogram-keys)
+   (map
+    pro/summary
+    metrics/summary-keys)
    [(pro-jvm/standard)
     (pro-jvm/gc)
     (pro-jvm/memory-pools)
@@ -46,6 +49,8 @@
       (-counter [this k delta]
         (pro/inc registry k delta))
       (-histogram [this k v]
+        (pro/observe registry k v))
+      (-summary [this k v]
         (pro/observe registry k v))
       (-flush! [this]
         (pro-exp/push! registry)))))

@@ -382,15 +382,18 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "xapipe_source_request_time",
+          "expr": "  rate(xapipe_source_request_time_sum[5m])\n/\n  rate(xapipe_source_request_time_count[5m])",
+          "hide": false,
+          "instant": false,
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "xapipe_target_request_time",
+          "expr": "  rate(xapipe_target_request_time_sum[5m])\n/\n  rate(xapipe_target_request_time_count[5m])",
           "hide": false,
+          "instant": false,
           "interval": "",
           "legendFormat": "",
           "refId": "B"
@@ -415,5 +418,5 @@
   "timezone": "",
   "title": "LRSPipe",
   "uid": "rTLs-y57k",
-  "version": 4
+  "version": 5
 }

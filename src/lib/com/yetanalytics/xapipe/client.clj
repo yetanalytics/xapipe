@@ -354,8 +354,8 @@
                     (a/>! out-chan
                           ret))
                   ;; Handle metrics
-                  (metrics/gauge reporter
-                                 :xapipe/source-request-time request-time)
+                  (metrics/histogram reporter
+                                     :xapipe/source-request-time request-time)
 
                   (cond
                     ;; If the more link indicates there are more statements to

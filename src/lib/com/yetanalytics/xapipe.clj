@@ -113,7 +113,7 @@
                       :response
                       (let [{:keys [request-time]} x]
                         (doto reporter
-                          (metrics/gauge
+                          (metrics/histogram
                            :xapipe/target-request-time
                            request-time)
                           (metrics/counter

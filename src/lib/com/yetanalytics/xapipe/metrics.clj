@@ -11,6 +11,8 @@
     "Increase a counter by delta")
   (-histogram [this k v]
     "Log an observation of a value")
+  (-summary [this k v]
+    "Log an observation of a value with calculated quatiles")
   (-flush! [this]
     "Flush metrics out if possible"))
 
@@ -19,6 +21,7 @@
   (-gauge [this _ _] nil)
   (-counter [this _ _] nil)
   (-histogram [this _ _] nil)
+  (-summary [this _ _] nil)
   (-flush! [this] nil))
 
 (s/def ::reporter
@@ -28,8 +31,7 @@
 
 ;; Keys describing gauges
 (def gauge-keys
-  #{:xapipe/source-request-time
-    :xapipe/target-request-time})
+  #{})
 
 (s/def ::gauges
   gauge-keys)
@@ -70,7 +72,8 @@
 
 ;; Keys describing histograms
 (def histogram-keys
-  #{})
+  #{:xapipe/source-request-time
+    :xapipe/target-request-time})
 
 (s/def ::histograms
   histogram-keys)
@@ -85,6 +88,24 @@
   "Log an observation of a value"
   [reporter k v]
   (-histogram reporter k v))
+
+;; Keys describing summaries
+(def summary-keys
+  #{})
+
+(s/def ::summaries
+  summary-keys)
+
+(s/fdef summary
+  :args (s/cat :reporter ::reporter
+               :k ::summaries
+               :v number?)
+  :ret any?)
+
+(defn summary
+  "Log an observation of a value for a summary"
+  [reporter k v]
+  (-summary reporter k v))
 
 (s/fdef flush!
   :args (s/cat :reporter ::reporter)
