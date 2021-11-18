@@ -59,8 +59,8 @@
           (metrics/counter :xapipe/all-errors (count (concat
                                                       job-errors
                                                       source-errors
-                                                      target-errors))))
-        (a/thread (metrics/flush! reporter)))
+                                                      target-errors)))
+          metrics/flush!))
       (cond
         (state/errors? state)
         (log/error "POST loop stopping with errors")
