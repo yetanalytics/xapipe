@@ -115,3 +115,13 @@
   "Flush metrics out if possible"
   [reporter]
   (-flush! reporter))
+
+(s/fdef millis->frac-secs
+  :args (s/cat :millis int?)
+  :ret double?)
+
+(defn millis->frac-secs
+  "Convert milliseconds to fractional seconds per:
+  https://prometheus.io/docs/practices/naming/#base-units"
+  [millis]
+  (double (/ millis 1000)))

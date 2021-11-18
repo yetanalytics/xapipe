@@ -382,21 +382,19 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "  rate(xapipe_source_request_time_sum[5m])\n/\n  rate(xapipe_source_request_time_count[5m])",
+          "expr": "histogram_quantile(0.95, sum(rate(xapipe_source_request_time_bucket[5m])) by (le))",
           "hide": false,
-          "instant": false,
           "interval": "",
           "legendFormat": "",
-          "refId": "A"
+          "refId": "SOURCE"
         },
         {
           "exemplar": true,
-          "expr": "  rate(xapipe_target_request_time_sum[5m])\n/\n  rate(xapipe_target_request_time_count[5m])",
+          "expr": "histogram_quantile(0.95, sum(rate(xapipe_target_request_time_bucket[5m])) by (le))",
           "hide": false,
-          "instant": false,
           "interval": "",
           "legendFormat": "",
-          "refId": "B"
+          "refId": "TARGET"
         }
       ],
       "title": "Source & Target Request Times",

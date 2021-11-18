@@ -355,7 +355,8 @@
                           ret))
                   ;; Handle metrics
                   (metrics/histogram reporter
-                                     :xapipe/source-request-time request-time)
+                                     :xapipe/source-request-time
+                                     (metrics/millis->frac-secs request-time))
 
                   (cond
                     ;; If the more link indicates there are more statements to
