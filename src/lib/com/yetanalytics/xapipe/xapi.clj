@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.xapi
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]))
@@ -134,32 +135,36 @@
   "Break a response down into statements paired with one or more attachments"
   [{{{:keys [statements]} :statement-result
      :keys [attachments]} :body}]
-  (let [grouped (group-by :sha2 attachments)]
-    (:acc
-     (reduce
-      ;; As we encounter statements that reference attachments they move from
-      ;; atts-in to atts-out. If an attachment is not found in atts-in, it may
-      ;; be copied from the first entry in atts-out
-      (fn [state s]
-        (if-let [hash-tuples (not-empty (attachment-hashes s))]
-          (let [{:keys [atts-in
-                        atts-out
-                        atts-acc]}
-                (reduce
-                 find-attachments
-                 (merge (select-keys state [:atts-in :atts-out])
-                        {:atts-acc []})
-                 hash-tuples)]
-            {:atts-in atts-in
-             :atts-out atts-out
-             :acc (conj (:acc state) {:statement s
-                                      :attachments atts-acc})})
-          ;; No sha2s to check
-          (update state
-                  :acc conj
-                  {:statement s
-                   :attachments []})))
-      {:atts-in grouped
-       :atts-out {}
-       :acc []}
-      statements))))
+  ;; As we encounter statements that reference attachments they move from
+  ;; atts-in to atts-out. If an attachment is not found in atts-in, it may
+  ;; be copied from the first entry in atts-out
+  (let [grouped (group-by :sha2 attachments)
+        {source-statements :acc
+         leftover :atts-in} (reduce
+                             (fn [state s]
+                               (if-let [hash-tuples (not-empty (attachment-hashes s))]
+                                 (let [{:keys [atts-in
+                                               atts-out
+                                               atts-acc]}
+                                       (reduce
+                                        find-attachments
+                                        (merge (select-keys state [:atts-in :atts-out])
+                                               {:atts-acc []})
+                                        hash-tuples)]
+                                   {:atts-in atts-in
+                                    :atts-out atts-out
+                                    :acc (conj (:acc state) {:statement s
+                                                             :attachments atts-acc})})
+                                 ;; No sha2s to check
+                                 (update state
+                                         :acc conj
+                                         {:statement s
+                                          :attachments []})))
+                             {:atts-in grouped
+                              :atts-out {}
+                              :acc []}
+                             statements)]
+    (when (not-empty leftover)
+      (log/warnf "Extra attachments for shas %s, cleaning..." (pr-str (keys leftover)))
+      (multipart/clean-tempfiles! (mapcat identity (vals leftover))))
+    source-statements))
