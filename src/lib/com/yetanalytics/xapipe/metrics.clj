@@ -16,14 +16,10 @@
 
 (deftype NoopReporter []
   Reporter
-  (-gauge [this _ _]
-    this)
-  (-counter [this _ _]
-    this)
-  (-histogram [this _ _]
-    this)
-  (-flush! [this]
-    this))
+  (-gauge [this _ _] nil)
+  (-counter [this _ _] nil)
+  (-histogram [this _ _] nil)
+  (-flush! [this] nil))
 
 (s/def ::reporter
   (s/with-gen #(satisfies? Reporter %)
@@ -42,7 +38,7 @@
   :args (s/cat :reporter ::reporter
                :k ::gauges
                :v number?)
-  :ret ::reporter)
+  :ret any?)
 
 (defn gauge
   "Set a gauge to an arbitrary value"
@@ -65,7 +61,7 @@
   :args (s/cat :reporter ::reporter
                :k ::counters
                :delta nat-int?)
-  :ret ::reporter)
+  :ret any?)
 
 (defn counter
   "Increase a counter by delta"
@@ -83,7 +79,7 @@
   :args (s/cat :reporter ::reporter
                :k ::histograms
                :v number?)
-  :ret ::reporter)
+  :ret any?)
 
 (defn histogram
   "Log an observation of a value"
@@ -92,7 +88,7 @@
 
 (s/fdef flush!
   :args (s/cat :reporter ::reporter)
-  :ret ::reporter)
+  :ret any?)
 
 (defn flush!
   "Flush metrics out if possible"
