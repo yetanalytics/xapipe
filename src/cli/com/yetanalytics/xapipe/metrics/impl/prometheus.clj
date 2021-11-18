@@ -42,14 +42,10 @@
     (reify
       metrics/Reporter
       (-gauge [this k v]
-        (pro/set registry k v)
-        this)
+        (pro/set registry k v))
       (-counter [this k delta]
-        (pro/inc registry k delta)
-        this)
+        (pro/inc registry k delta))
       (-histogram [this k v]
-        (pro/observe registry k v)
-        this)
+        (pro/observe registry k v))
       (-flush! [this]
-        (pro-exp/push! registry)
-        this))))
+        (pro-exp/push! registry)))))

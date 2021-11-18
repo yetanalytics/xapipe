@@ -52,15 +52,15 @@
       (let [[job-errors
              source-errors
              target-errors] (state/get-errors state)]
-        (-> reporter
-            (metrics/counter :xapipe/job-errors (count job-errors))
-            (metrics/counter :xapipe/source-errors (count source-errors))
-            (metrics/counter :xapipe/target-errors (count target-errors))
-            (metrics/counter :xapipe/all-errors (count (concat
-                                                        job-errors
-                                                        source-errors
-                                                        target-errors)))
-            metrics/flush!))
+        (doto reporter
+          (metrics/counter :xapipe/job-errors (count job-errors))
+          (metrics/counter :xapipe/source-errors (count source-errors))
+          (metrics/counter :xapipe/target-errors (count target-errors))
+          (metrics/counter :xapipe/all-errors (count (concat
+                                                      job-errors
+                                                      source-errors
+                                                      target-errors))))
+        (a/thread (metrics/flush! reporter)))
       (cond
         (state/errors? state)
         (log/error "POST loop stopping with errors")
@@ -112,16 +112,16 @@
                       ;; On success, update the cursor and keep listening
                       :response
                       (let [{:keys [request-time]} x]
-                        (-> reporter
-                            (metrics/gauge
-                             :xapipe/target-request-time
-                             request-time)
-                            (metrics/counter
-                             :xapipe/statements
-                             (count statements))
-                            (metrics/counter
-                             :xapipe/attachments
-                             (count attachments)))
+                        (doto reporter
+                          (metrics/gauge
+                           :xapipe/target-request-time
+                           request-time)
+                          (metrics/counter
+                           :xapipe/statements
+                           (count statements))
+                          (metrics/counter
+                           :xapipe/attachments
+                           (count attachments)))
                         (recur (-> state
                                    (state/update-cursor cursor)
                                    (state/update-filter filter-state))))
