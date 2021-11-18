@@ -2,7 +2,8 @@
   "Metrics protocol called by xapipe lib.
   Inspired by https://github.com/pedestal/pedestal/blob/master/log/src/io/pedestal/log.clj"
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as sgen]))
+            [clojure.spec.gen.alpha :as sgen]
+            [clojure.tools.logging :as log]))
 
 (defprotocol Reporter
   (-gauge [this k v]
@@ -112,9 +113,14 @@
   :ret any?)
 
 (defn flush!
-  "Flush metrics out if possible"
+  "Flush metrics out if possible.
+  Catch all errors and just log them."
   [reporter]
-  (-flush! reporter))
+  (try (-flush! reporter)
+       (catch Exception ex
+         (log/warnf ex
+                    "Metrics flush failed: %s"
+                    (ex-message ex)))))
 
 (s/fdef millis->frac-secs
   :args (s/cat :millis int?)

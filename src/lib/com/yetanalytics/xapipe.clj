@@ -66,7 +66,7 @@
         (log/error "POST loop stopping with errors")
 
         (not= :running (:status state))
-        (log/error "Stopping")
+        (log/info "Stopping")
 
         :else
         (do
