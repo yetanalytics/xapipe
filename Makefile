@@ -1,7 +1,7 @@
-.phony: test-lib bench clean bundle
+.phony: test-lib bench clean bundle bundle-help
 
 clean:
-	rm -rf target classes
+	rm -rf target
 
 test-lib:
 	clojure -X:cli:test :dirs '["src/test"]'
@@ -10,8 +10,7 @@ bench:
 	clojure -Xtest:bench
 
 target/bundle/xapipe.jar:
-	mkdir -p target/bundle
-	clojure -Xuberjar
+	clojure -T:build uber
 
 target/bundle/bin:
 	mkdir -p target/bundle/bin
@@ -36,3 +35,7 @@ target/bundle: target/bundle/xapipe.jar target/bundle/bin
 endif
 
 bundle: target/bundle
+
+# Run the bundle's help, used for compile-time sanity checks
+bundle-help: target/bundle
+	cd target/bundle; bin/run.sh --help
