@@ -192,6 +192,7 @@
            filter-pattern-profile-urls
            filter-pattern-ids
            filter-ensure-paths
+           filter-match-paths
 
            statement-buffer-size
            batch-buffer-size]}
@@ -240,12 +241,17 @@
     (assoc-in [:filter :template] {:profile-urls filter-template-profile-urls
                                    :template-ids (into []
                                                        filter-template-ids)})
+
     (not-empty filter-pattern-profile-urls)
     (assoc-in [:filter :pattern] {:profile-urls filter-pattern-profile-urls
                                   :pattern-ids (into []
                                                      filter-pattern-ids)})
+
     (not-empty filter-ensure-paths)
-    (assoc-in [:filter :path] {:ensure-paths filter-ensure-paths})))
+    (assoc-in [:filter :path :ensure-paths] filter-ensure-paths)
+
+    (not-empty filter-match-paths)
+    (assoc-in [:filter :path :match-paths] filter-match-paths)))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)

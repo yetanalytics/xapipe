@@ -85,7 +85,45 @@ bin/run-sh --source-url http://0.0.0.0:8080/xapi \
 
 ```
 
-Only statements with a value set at the given [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset. To match a value at a given path or to perform negation you should instead use an xAPI Profile with Template and Pattern Filtering (see above).
+Only statements with a value set at the given [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset.
+
+If the option is passed multiple times only statements that contain data at ALL paths will be written to the target LRS.
+
+To match a value at a given path see JsonPath Matching below. For more complex filters with features like negation use an xAPI Profile with Template and Pattern Filtering (see above).
+
+### JsonPath Matching
+
+You can apply simple path-matching filters to LRSPipe using the `--match-path` option:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.verb.id=http://example.com/verb
+
+```
+
+Only statements with the value `"http://example.com/verb"` at the path `$.verb.id` will be written to the target LRS.
+
+If the option is given multiple times, a statement must satisfy at least one given value for each path given:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-2 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.verb.id=http://example.com/verb1 \
+           --match-path $.verb.id=http://example.com/verb2
+```
+
+Statements with an `$.verb.id` of `http://example.com/verb1` OR `http://example.com/verb2` will be passed.
+
+#### Json Values
+
+WIP
 
 ## Job Management
 

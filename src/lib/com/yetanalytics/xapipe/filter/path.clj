@@ -31,10 +31,17 @@
   (first
    (path/parse-paths path-str)))
 
+(s/def ::path-match
+  (s/tuple
+   ::path
+   ::xs/any-json))
+
 (s/def ::ensure-paths (s/every ::path))
+(s/def ::match-paths (s/every ::path-match))
 
 (def path-filter-cfg-spec
-  (s/keys :req-un [::ensure-paths]))
+  (s/keys :req-un [::ensure-paths
+                   ::match-paths]))
 
 (s/fdef path-filter-pred
   :args (s/cat :config path-filter-cfg-spec)
@@ -43,9 +50,24 @@
                 :ret boolean?))
 
 (defn path-filter-pred
-  [{:keys [ensure-paths]}]
-  (fn [{:keys [statement]}]
-    (every?
-     (fn [path]
-       (not-empty (path/get-paths* statement [path])))
-     ensure-paths)))
+  [{:keys [ensure-paths
+           match-paths]}]
+  (apply every-pred
+         (cond-> [(constantly true)]
+           (not-empty ensure-paths)
+           (conj
+            (fn [{:keys [statement]}]
+              (every?
+               (fn [path]
+                 (not-empty (path/get-paths* statement [path])))
+               ensure-paths)))
+           (not-empty match-paths)
+           (into
+            (for [[path path-matches] (group-by first match-paths)
+                  :let [match-vs (into #{} (map second path-matches))]]
+              (fn [{:keys [statement]}]
+                (if-let [s-paths (not-empty (path/get-paths* statement [path]))]
+                  (every?
+                   #(contains? match-vs (get-in statement %))
+                   s-paths)
+                  false)))))))

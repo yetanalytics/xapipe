@@ -294,6 +294,20 @@
     :update-fn (fn [coll v]
                  (conj coll
                        (fpath/parse-path v)))]
+   [nil "--match-path JSONPATH=JSON" "A JSONPath expression and matching value used to filter statements to only those with data matching the value at the given path"
+    :id :filter-match-paths
+    :multi true
+    :default []
+    :update-fn
+    (fn [coll v]
+      (let [[path match-str] (cs/split v #"=" 2)
+            ;; Attempt to parse to json, but if you can't it's just a string
+            match-v (try (json/parse-string match-str)
+                         (catch Exception _
+                           match-str))]
+        (conj coll
+              [(fpath/parse-path path)
+               match-v])))]
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
@@ -301,7 +315,8 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]])
 
-(def-option-specs job-options {::filter-ensure-paths (s/every ::fpath/path)})
+(def-option-specs job-options {::filter-ensure-paths ::fpath/ensure-paths
+                               ::filter-match-paths ::fpath/match-paths})
 
 (s/def ::all-options
   (s/merge ::common-options
