@@ -136,6 +136,8 @@ bin/run-sh --source-url http://0.0.0.0:8080/xapi \
 
 ```
 
+Statements with an `$.actor` matching the fields provided exactly will be passed.
+
 ## Job Management
 
 ### List Persisted Jobs
