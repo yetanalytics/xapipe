@@ -18,8 +18,13 @@
 
 ;; Add multipart-mixed output coercion
 (defmethod client/coerce-response-body :multipart/mixed
-  [_ resp]
-  (multipart/parse-response resp))
+  [_ {:keys [status] :as resp}]
+  (if (= 200 status)
+    (multipart/parse-response resp)
+    (do
+      (log/warnf "Received multipart response with non-200 status %d"
+                 status)
+      (update resp :body slurp))))
 
 ;; Config needed for all requests
 (s/def ::url-base
