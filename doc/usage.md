@@ -117,13 +117,24 @@ bin/run-sh --source-url http://0.0.0.0:8080/xapi \
            --target-username my_key --target-password my_secret \
            --match-path $.verb.id=http://example.com/verb1 \
            --match-path $.verb.id=http://example.com/verb2
+
 ```
 
 Statements with an `$.verb.id` of `http://example.com/verb1` OR `http://example.com/verb2` will be passed.
 
 #### Json Values
 
-WIP
+LRSPipe will attempt to parse path matches as JSON first, then as string. This means you can match a JSON object:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-2 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.actor='{"mbox":"mailto:bob@example.com","objectType":"Agent"}'
+
+```
 
 ## Job Management
 

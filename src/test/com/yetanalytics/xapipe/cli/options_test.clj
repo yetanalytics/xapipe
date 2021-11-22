@@ -226,6 +226,7 @@
     "--batch-buffer-size" "1"
     "--ensure-path" "$.id"
     "--match-path" "$.verb.id=http://example.com/verb"
+    "--match-path" "$.actor={\"mbox\":\"mailto:bob@example.com\",\"objectType\":\"Agent\"}"
     ]
    {:source-password "bar",
     :filter-pattern-profile-urls ["http://example.org/profile.jsonld"],
@@ -274,5 +275,7 @@
     :prometheus-push-gateway "localhost:1234"
     :filter-ensure-paths [[["id"]]]
     :filter-match-paths [[[["verb"]["id"]]
-                          "http://example.com/verb"]]}
+                          "http://example.com/verb"]
+                         [[["actor"]] {"mbox" "mailto:bob@example.com"
+                                       "objectType" "Agent"}]]}
    []))
