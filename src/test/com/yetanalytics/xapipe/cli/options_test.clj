@@ -99,7 +99,8 @@
            :filter-template-profile-urls [],
            :filter-template-ids [],
            :filter-pattern-profile-urls [],
-           :filter-pattern-ids []},
+           :filter-pattern-ids []
+           :filter-ensure-paths []},
           :errors nil}
          (select-keys
           (cli/parse-opts [] job-options)
@@ -130,7 +131,8 @@
    :list-jobs false,
    :filter-pattern-ids [],
    :metrics-reporter "noop",
-   :prometheus-push-gateway "0.0.0.0:9091"})
+   :prometheus-push-gateway "0.0.0.0:9091"
+   :filter-ensure-paths []})
 
 ;; Matches the fixture job we have
 (def json-job
@@ -220,6 +222,7 @@
     "--pattern-id" "http://example.org/profile.jsonld#foo"
     "--statement-buffer-size" "1"
     "--batch-buffer-size" "1"
+    "--ensure-path" "$.id"
     ]
    {:source-password "bar",
     :filter-pattern-profile-urls ["http://example.org/profile.jsonld"],
@@ -265,5 +268,6 @@
     :conn-default-per-route 1,
     :target-url "http://0.0.0.0:8081/xapi"
     :metrics-reporter "prometheus"
-    :prometheus-push-gateway "localhost:1234"}
+    :prometheus-push-gateway "localhost:1234"
+    :filter-ensure-paths [[["id"]]]}
    []))

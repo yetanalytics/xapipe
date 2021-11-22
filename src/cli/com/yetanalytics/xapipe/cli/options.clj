@@ -6,7 +6,8 @@
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
             [com.yetanalytics.xapipe :as xapipe]
-            [com.yetanalytics.xapipe.job.config :as config]))
+            [com.yetanalytics.xapipe.job.config :as config]
+            [com.yetanalytics.xapipe.filter.path :as fpath]))
 
 (defn option-spec->spec-def
   [[short-command long-command desc
@@ -286,6 +287,13 @@
     :multi true
     :default []
     :update-fn conj]
+   [nil "--ensure-path JSONPATH" "A JSONPath expression used to filter statements to only those with data at the given path"
+    :id :filter-ensure-paths
+    :multi true
+    :default []
+    :update-fn (fn [coll v]
+                 (conj coll
+                       (fpath/parse-path v)))]
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]
@@ -293,7 +301,7 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]])
 
-(def-option-specs job-options)
+(def-option-specs job-options {::filter-ensure-paths (s/every ::fpath/path)})
 
 (s/def ::all-options
   (s/merge ::common-options
