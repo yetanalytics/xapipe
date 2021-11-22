@@ -85,7 +85,7 @@ bin/run-sh --source-url http://0.0.0.0:8080/xapi \
 
 ```
 
-Only statements with a value set at [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset. To match a value at a given path or to perform negation you should instead use an xAPI Profile with Template and Pattern Filtering (see above).
+Only statements with a value set at the given [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset. To match a value at a given path or to perform negation you should instead use an xAPI Profile with Template and Pattern Filtering (see above).
 
 ## Job Management
 
