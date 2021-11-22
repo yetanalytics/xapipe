@@ -7,7 +7,7 @@ In this section we'll illustrate a few examples of basic usage patterns of LRSPi
 
 ### Start a New Job
 
-In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.  
+In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.
 
 ``` shell
 bin/run.sh --source-url http://0.0.0.0:8080/xapi \
@@ -70,6 +70,22 @@ bin/run.sh --source-url http://0.0.0.0:8080/xapi \
 ```
 
 As with Template Filtering, the `--pattern-id` flags are optional and further limit the forwarding to only the desired Patterns. If the `--pattern-id` flag is omitted the job will filter on all available Patterns in the Profile.
+
+### JsonPath Presence Filtering
+
+In cases where you want to ensure that every statement posted to the target LRS has data at a given path, use the `--ensure-path` option:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --ensure-path $.result.score.scaled
+
+```
+
+Only statements with a value set at [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset. To match a value at a given path or to perform negation you should instead use an xAPI Profile with Template and Pattern Filtering (see above).
 
 ## Job Management
 
