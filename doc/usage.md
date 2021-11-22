@@ -129,7 +129,7 @@ LRSPipe will attempt to parse path matches as JSON first, then as string. This m
 ``` shell
 bin/run-sh --source-url http://0.0.0.0:8080/xapi \
            --target-url http://0.0.0.0:8081/xapi \
-           --job-id path-match-job-2 \
+           --job-id path-match-job-3 \
            --source-username my_key --source-password my_secret \
            --target-username my_key --target-password my_secret \
            --match-path $.actor='{"mbox":"mailto:bob@example.com","objectType":"Agent"}'
