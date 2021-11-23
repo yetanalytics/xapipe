@@ -7,7 +7,7 @@ In this section we'll illustrate a few examples of basic usage patterns of LRSPi
 
 ### Start a New Job
 
-In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.  
+In this example we are starting a basic forwarding job with no filters from a source LRS at `0.0.0.0:8080` to a target LRS at `0.0.0.0:8081`. We provide it with a `job-id` which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.
 
 ``` shell
 bin/run.sh --source-url http://0.0.0.0:8080/xapi \
@@ -70,6 +70,73 @@ bin/run.sh --source-url http://0.0.0.0:8080/xapi \
 ```
 
 As with Template Filtering, the `--pattern-id` flags are optional and further limit the forwarding to only the desired Patterns. If the `--pattern-id` flag is omitted the job will filter on all available Patterns in the Profile.
+
+### JsonPath Presence Filtering
+
+In cases where you want to ensure that every statement posted to the target LRS has data at a given path, use the `--ensure-path` option:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --ensure-path $.result.score.scaled
+
+```
+
+Only statements with a value set at the given [JsonPath String](https://goessner.net/articles/JsonPath/) `$.result.score.scaled` will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset.
+
+If the option is passed multiple times only statements that contain data at ALL paths will be written to the target LRS.
+
+To match a value at a given path see JsonPath Matching below. For more complex filters with features like negation use an xAPI Profile with Template and Pattern Filtering (see above).
+
+### JsonPath Matching
+
+You can apply simple path-matching filters to LRSPipe using the `--match-path` option:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.verb.id=http://example.com/verb
+
+```
+
+Only statements with the value `"http://example.com/verb"` at the path `$.verb.id` will be written to the target LRS.
+
+If the option is given multiple times, a statement must satisfy at least one given value for each path given:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-2 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.verb.id=http://example.com/verb1 \
+           --match-path $.verb.id=http://example.com/verb2
+
+```
+
+Statements with an `$.verb.id` of `http://example.com/verb1` OR `http://example.com/verb2` will be passed.
+
+#### Json Values
+
+LRSPipe will attempt to parse path matches as JSON first, then as string. This means you can match a JSON object:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-3 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --match-path $.actor='{"mbox":"mailto:bob@example.com","objectType":"Agent"}'
+
+```
+
+Statements with an `$.actor` matching the fields provided exactly will be passed.
 
 ## Job Management
 

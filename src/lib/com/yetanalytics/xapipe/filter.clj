@@ -11,7 +11,8 @@
             [com.yetanalytics.pan.objects.pattern :as pat]
             [com.yetanalytics.pan.objects.profile :as prof]
             [com.yetanalytics.pan.objects.template :as template]
-            [com.yetanalytics.xapipe.client.multipart-mixed :as mm]))
+            [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
+            [com.yetanalytics.xapipe.filter.path :as path]))
 
 (s/def ::profile-url string?) ;; These can be from disk, so don't spec 'em too hard
 (s/def ::template-id ::template/id)
@@ -189,6 +190,7 @@
              false)])
         [state false]))))
 
+(s/def ::path path/path-filter-cfg-spec)
 
 ;; Config map for all filtering
 (def filter-config-spec
@@ -197,17 +199,22 @@
 
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/template
   filter-pred-spec)
+(s/def :com.yetanalytics.xapipe.filter.stateless-predicates/path
+  filter-pred-spec)
 
 (s/fdef stateless-predicates
   :args (s/cat :config filter-config-spec)
   :ret (s/keys :opt-un
-               [:com.yetanalytics.xapipe.filter.stateless-predicates/template]))
+               [:com.yetanalytics.xapipe.filter.stateless-predicates/template
+                :com.yetanalytics.xapipe.filter.stateless-predicates/path]))
 
 (defn stateless-predicates
   "Stateless predicates are simple true/false"
-  [{:keys [template]}]
+  [{:keys [template
+           path]}]
   (cond-> {}
-    template (assoc :template (template-filter-pred template))))
+    template (assoc :template (template-filter-pred template))
+    path (assoc :path (path/path-filter-pred path))))
 
 (s/def :com.yetanalytics.xapipe.filter.stateful-predicates/pattern
   pattern-filter-pred-spec)
