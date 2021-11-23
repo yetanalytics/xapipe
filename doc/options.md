@@ -65,6 +65,8 @@ All options:
       --template-id IRI                 []                    Statement template IRIs to filter on
       --pattern-profile-url URL         []                    Profile URL/location from which to apply statement pattern filters
       --pattern-id IRI                  []                    Pattern IRIs to filter on
+      --ensure-path JSONPATH            []                    A JSONPath expression used to filter statements to only those with data at the given path
+      --match-path JSONPATH=JSON        []                    A JSONPath expression and matching value used to filter statements to only those with data matching the value at the given path
       --statement-buffer-size SIZE                            Desired size of statement buffer
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
 ```
