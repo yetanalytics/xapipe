@@ -307,6 +307,10 @@
              (fn [{:keys [attachments]}]
                (when (not-empty attachments)
                  (a/thread (mm/clean-tempfiles! attachments))))
+             #_:emit-fn
+             #_(fn [batch filter-state]
+               {:batch batch
+                :filter-state filter-state})
              :reporter reporter)
             ;; Send the init state
             _ (a/put! states-chan job-before)

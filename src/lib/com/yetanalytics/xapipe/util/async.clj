@@ -23,6 +23,9 @@
 (s/def ::cleanup-fn
   fn?)
 
+(s/def ::emit-fn
+  fn?) ;; TODO: fspec
+
 (s/fdef batch-filter
   :args (s/cat :a ::cspec/channel
                :b ::cspec/channel
@@ -33,7 +36,30 @@
                                  ::stateful-predicates
                                  ::init-states
                                  ::cleanup-fn
-                                 ::metrics/reporter])))
+                                 ::metrics/reporter
+                                 ::emit-fn])))
+
+(defn- default-emit-fn
+  [batch filter-state]
+  {:batch batch
+   :filter-state filter-state})
+
+(defn- apply-stateful-predicates
+  [states stateful-predicates v]
+  (if (not-empty stateful-predicates)
+    (let [checks (into {}
+                       (for [[k p] stateful-predicates]
+                         [k (p (get states k) v)]))
+          pass? (every? (comp true? second)
+                        (vals checks))]
+      {:pass? pass?
+       :states (reduce-kv
+                (fn [m k v]
+                  (assoc m k (first v)))
+                {}
+                checks)})
+    {:pass? true
+     :states states}))
 
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
@@ -55,10 +81,12 @@
              stateful-predicates
              init-states
              cleanup-fn
-             reporter]
+             reporter
+             emit-fn]
       :or {stateless-predicates {}
            stateful-predicates {}
-           reporter (metrics/->NoopReporter)}}]
+           reporter (metrics/->NoopReporter)
+           emit-fn default-emit-fn}}]
   (let [stateless-pred (if (empty? stateless-predicates)
                          (constantly true)
                          (apply every-pred (vals stateless-predicates)))]
@@ -71,8 +99,7 @@
       (let [buf-count (count buf)]
         ;; Send if the buffer is full
         (if (= size buf-count)
-          (do (a/>! b {:batch (persistent! buf)
-                       :filter-state states})
+          (do (a/>! b (emit-fn (persistent! buf) states))
               (recur (transient []) states))
           (let [timeout-chan (a/timeout timeout-ms)
                 [v p] (a/alts! [a timeout-chan])]
@@ -80,43 +107,30 @@
               ;; We've timed out. Flush!
               (do
                 (when (not (zero? buf-count))
-                  (a/>! b {:batch (persistent! buf)
-                           :filter-state states}))
+                  (a/>! b (emit-fn (persistent! buf) states)))
                 (recur (transient []) states))
               (if-not (nil? v)
                 ;; We have a record
-                (if (stateless-pred v)
-                  ;; If stateless passes, we do any stateful
-                  (if (not-empty stateful-predicates)
-                    (let [checks (into {}
-                                       (for [[k p] stateful-predicates]
-                                         [k (p (get states k) v)]))
-                          pass? (every? (comp true? second)
-                                        (vals checks))]
-                      (when-not pass?
-                        (when cleanup-fn
-                          (cleanup-fn v)))
-                      (recur
-                       (if pass?
-                         (conj! buf v)
-                         buf)
-                       ;; new states
-                       (reduce-kv
-                        (fn [m k v]
-                          (assoc m k (first v)))
-                        {}
-                        checks)))
-                    ;; Just stateless, OK to pass
-                    (recur (conj! buf v) states))
-                  (do
+                (let [stateless-pass? (stateless-pred v)
+                      {stateful-pass? :pass?
+                       new-states :states} (apply-stateful-predicates
+                                            states
+                                            stateful-predicates
+                                            v)
+                      pass? (and stateless-pass?
+                                 stateful-pass?)]
+                  (when-not pass?
                     (when cleanup-fn
-                      (cleanup-fn v))
-                    (recur buf states)))
+                      (cleanup-fn v)))
+                  (recur
+                   (if pass?
+                     (conj! buf v)
+                     buf)
+                   new-states))
                 ;; A is closed, we should close B
                 (do
                   ;; But only after draining anything in the buffer
                   (when (not (zero? buf-count))
-                    (a/>! b {:batch (persistent! buf)
-                             :filter-state states}))
+                    (a/>! b (emit-fn (persistent! buf) states)))
                   (a/close! b))))))))
     b))
