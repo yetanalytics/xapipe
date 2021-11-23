@@ -298,9 +298,18 @@
                                     (:request-config target))))
                      ;; Get all the states
                      all-states (a/<!! (a/into [] states))]
-                 (is (-> all-states last :state :status (= :complete)))
-                 (is (= (map #(get % "id") target-statements)
-                        (map #(get % "id") (sup/lrs-statements target)))))))
+                 (testing "job success"
+                   (is (-> all-states last :state :status (= :complete))))
+                 (testing "target contains expected statements"
+                   (is (= (map #(get % "id") target-statements)
+                          (map #(get % "id") (sup/lrs-statements target)))))
+                 (testing "cursor is advanced to last normalized stored"
+                   (let [last-stored (-> (sup/lrs-statements source)
+                                         last
+                                         (get "stored")
+                                         t/normalize-stamp)]
+                     (is (= (-> all-states last :state :cursor)
+                            last-stored)))))))
 
            "templates in profile"
            (into []

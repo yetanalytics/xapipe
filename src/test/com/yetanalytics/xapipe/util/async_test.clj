@@ -113,8 +113,12 @@
           (is (= 500
                  (count (mapcat :batch batches)))))
         (testing "returns states"
-          (is (= (range 50 501 50)
-                 (map #(get-in % [:filter-state :limit])
-                      batches))))
+          (let [filter-states (map #(get-in % [:filter-state :limit])
+                                   batches)]
+            (testing "in progress"
+              (is (= (range 50 501 50)
+                     (butlast filter-states))))
+            (testing "terminated"
+              (= 500 (last filter-states)))))
         (testing "Cleans up"
           (is (= 500 (count @dropped))))))))

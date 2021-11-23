@@ -40,9 +40,10 @@
                                  ::emit-fn])))
 
 (defn- default-emit-fn
-  [batch filter-state]
+  [batch filter-state last-dropped]
   {:batch batch
-   :filter-state filter-state})
+   :filter-state filter-state
+   :last-dropped last-dropped})
 
 (defn- apply-stateful-predicates
   [states stateful-predicates v]
@@ -87,6 +88,8 @@
 
   If :cleanup-fn is provided, run it on dropped records
 
+  Will remember the last record dropped for use in cursors and such
+
   Returns channel b"
   [a b size timeout-ms
    & {:keys [stateless-predicates
@@ -108,24 +111,26 @@
                                 [k {}])))
         buffer (a/buffer size)
         buf-chan (a/chan buffer)]
-    (a/go-loop [states init-states]
+    (a/go-loop [states init-states
+                last-dropped nil]
       (let [buf-count (count buffer)]
         ;; Send if the buffer is full
         (if (= size buf-count)
           (do (a/>! b (emit-fn
                        (a/<! (a/into [] (a/take buf-count buf-chan)))
-                       states))
-              (recur states))
+                       states
+                       last-dropped))
+              (recur states last-dropped))
           (let [timeout-chan (a/timeout timeout-ms)
                 [v p] (a/alts! [a timeout-chan])]
             (if (identical? p timeout-chan)
               ;; We've timed out. Flush!
               (do
-                (when (not (zero? buf-count))
-                  (a/>! b (emit-fn
-                           (a/<! (a/into [] (a/take buf-count buf-chan)))
-                           states)))
-                (recur states))
+                (a/>! b (emit-fn
+                         (a/<! (a/into [] (a/take buf-count buf-chan)))
+                         states
+                         last-dropped))
+                (recur states last-dropped))
               (if-not (nil? v)
                 ;; We have a record
                 (let [stateless-pass? (stateless-pred v)
@@ -140,13 +145,16 @@
                     (when cleanup-fn
                       (cleanup-fn v)))
                   (recur
-                   new-states))
+                   new-states
+                   (if pass?
+                     last-dropped
+                     v)))
                 ;; A is closed, we should close B
                 (do
                   ;; But only after draining anything in the buffer
-                  (when (not (zero? buf-count))
-                    (a/>! b (emit-fn
-                             (a/<! (a/into [] (a/take buf-count buf-chan)))
-                             states)))
+                  (a/>! b (emit-fn
+                           (a/<! (a/into [] (a/take buf-count buf-chan)))
+                           states
+                           last-dropped))
                   (a/close! b))))))))
     b))
