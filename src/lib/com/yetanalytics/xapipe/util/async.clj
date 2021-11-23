@@ -101,26 +101,31 @@
            emit-fn default-emit-fn}}]
   (let [stateless-pred (if (empty? stateless-predicates)
                          (constantly true)
-                         (apply every-pred (vals stateless-predicates)))]
-    (a/go-loop [buf (transient [])
-                states (or init-states
-                           (into {}
-                                 (for [[k p] stateful-predicates]
-                                   [k {}])))]
-
-      (let [buf-count (count buf)]
+                         (apply every-pred (vals stateless-predicates)))
+        init-states (or init-states
+                        (into {}
+                              (for [[k p] stateful-predicates]
+                                [k {}])))
+        buffer (a/buffer size)
+        buf-chan (a/chan buffer)]
+    (a/go-loop [states init-states]
+      (let [buf-count (count buffer)]
         ;; Send if the buffer is full
         (if (= size buf-count)
-          (do (a/>! b (emit-fn (persistent! buf) states))
-              (recur (transient []) states))
+          (do (a/>! b (emit-fn
+                       (a/<! (a/into [] (a/take buf-count buf-chan)))
+                       states))
+              (recur states))
           (let [timeout-chan (a/timeout timeout-ms)
                 [v p] (a/alts! [a timeout-chan])]
             (if (identical? p timeout-chan)
               ;; We've timed out. Flush!
               (do
                 (when (not (zero? buf-count))
-                  (a/>! b (emit-fn (persistent! buf) states)))
-                (recur (transient []) states))
+                  (a/>! b (emit-fn
+                           (a/<! (a/into [] (a/take buf-count buf-chan)))
+                           states)))
+                (recur states))
               (if-not (nil? v)
                 ;; We have a record
                 (let [stateless-pass? (stateless-pred v)
@@ -130,18 +135,18 @@
                                             stateless-pred
                                             stateful-predicates
                                             v)]
-                  (when-not pass?
+                  (if pass?
+                    (a/>! buf-chan v)
                     (when cleanup-fn
                       (cleanup-fn v)))
                   (recur
-                   (if pass?
-                     (conj! buf v)
-                     buf)
                    new-states))
                 ;; A is closed, we should close B
                 (do
                   ;; But only after draining anything in the buffer
                   (when (not (zero? buf-count))
-                    (a/>! b (emit-fn (persistent! buf) states)))
+                    (a/>! b (emit-fn
+                             (a/<! (a/into [] (a/take buf-count buf-chan)))
+                             states)))
                   (a/close! b))))))))
     b))
