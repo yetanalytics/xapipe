@@ -61,6 +61,18 @@
     {:pass? true
      :states states}))
 
+(defn- apply-predicates
+  [states stateless-pred stateful-predicates v]
+  (let [stateless-pass? (stateless-pred v)
+        {stateful-pass? :pass?
+         states :states} (apply-stateful-predicates
+                          states
+                          stateful-predicates
+                          v)]
+    {:pass? (and stateless-pass?
+                 stateful-pass?)
+     :states states}))
+
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
   channel b. If channel a is parked for longer than timeout-ms, send a partial
@@ -112,13 +124,12 @@
               (if-not (nil? v)
                 ;; We have a record
                 (let [stateless-pass? (stateless-pred v)
-                      {stateful-pass? :pass?
-                       new-states :states} (apply-stateful-predicates
+                      {:keys [pass?]
+                       new-states :states} (apply-predicates
                                             states
+                                            stateless-pred
                                             stateful-predicates
-                                            v)
-                      pass? (and stateless-pass?
-                                 stateful-pass?)]
+                                            v)]
                   (when-not pass?
                     (when cleanup-fn
                       (cleanup-fn v)))
