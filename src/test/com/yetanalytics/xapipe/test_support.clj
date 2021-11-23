@@ -222,7 +222,7 @@
          (dsinput/map->Input
           (assoc
            (dsinput/realize-subobjects
-            {:personae
+            {:personae-array
              (or personae
                  [{:name "Test Subjects",
                    :objectType "Group",

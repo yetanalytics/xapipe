@@ -46,7 +46,7 @@
                       org.slf4j/log4j-over-slf4j {:mvn/version "1.7.26"}
                       com.yetanalytics/datasim
                       {:git/url    "https://github.com/yetanalytics/datasim.git"
-                       :sha        "9a4fb7926981b1282cc72aa093bd66a1c57abbd1"
+                       :sha        "d55f24098aca78db69e2f03d4f202ce58b5fdb49"
                        :exclusions [org.clojure/test.check
                                     com.yetanalytics/project-pan
                                     com.yetanalytics/xapi-schema]}}
