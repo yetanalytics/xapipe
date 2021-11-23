@@ -8,8 +8,11 @@
   {:default {sup/stc-opts {:num-tests 1}}})
 
 (deftest path-filter-pred-test
-  (let [records (map #(hash-map :statement %)
-                     (sup/gen-statements 50))]
+  (let [statements (read-string (slurp "dev-resources/statements/calibration_50.edn"))
+
+        ;; Records to pass through the predicate
+        records (map #(hash-map :statement %)
+                     statements)]
     (testing "excludes missing"
       (let [;; Generated statements have no stored
             pred (path-filter-pred {:ensure-paths [
