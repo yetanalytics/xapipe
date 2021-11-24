@@ -20,9 +20,6 @@
    keyword?
    any?))
 
-(s/def ::cleanup-fn
-  fn?)
-
 (s/def ::emit-fn
   fn?) ;; TODO: fspec
 
@@ -37,7 +34,6 @@
                         :opt-un [::stateless-predicates
                                  ::stateful-predicates
                                  ::init-states
-                                 ::cleanup-fn
                                  ::metrics/reporter
                                  ::emit-fn
                                  ::cleanup-chan])))
@@ -90,7 +86,6 @@
   To provide initial state, supply a :init-states key, which should contain
   state for each stateful predicate.
 
-  If :cleanup-fn is provided, run it on dropped records
   If :cleanup-chan is provided, send dropped records there
 
   Will remember the last record dropped for use in cursors and such
@@ -100,7 +95,6 @@
    & {:keys [stateless-predicates
              stateful-predicates
              init-states
-             cleanup-fn
              reporter
              emit-fn
              cleanup-chan]
@@ -158,8 +152,6 @@
                       (a/>! buf-chan v)
                       (recur new-states nil))
                     (do
-                      (when cleanup-fn
-                        (cleanup-fn v))
                       (when cleanup-chan
                         (a/>! cleanup-chan v))
                       (recur new-states v))))
