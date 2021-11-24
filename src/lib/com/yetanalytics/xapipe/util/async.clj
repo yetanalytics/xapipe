@@ -41,9 +41,10 @@
 
 (defn- default-emit-fn
   [batch filter-state last-dropped]
-  {:batch batch
-   :filter-state filter-state
-   :last-dropped last-dropped})
+  (when (or (not-empty batch) last-dropped)
+    {:batch batch
+     :filter-state filter-state
+     :last-dropped last-dropped}))
 
 (defn- apply-stateful-predicates
   [states stateful-predicates v]
@@ -116,45 +117,54 @@
       (let [buf-count (count buffer)]
         ;; Send if the buffer is full
         (if (= size buf-count)
-          (do (a/>! b (emit-fn
-                       (a/<! (a/into [] (a/take buf-count buf-chan)))
-                       states
-                       last-dropped))
-              (recur states last-dropped))
+          (do
+            (when-let [emit-event (emit-fn
+                                   (a/<!
+                                    (a/into []
+                                            (a/take buf-count buf-chan)))
+                                   states
+                                   last-dropped)]
+              (a/>! b emit-event))
+            (recur states nil))
           (let [timeout-chan (a/timeout timeout-ms)
                 [v p] (a/alts! [a timeout-chan])]
             (if (identical? p timeout-chan)
               ;; We've timed out. Flush!
               (do
-                (a/>! b (emit-fn
-                         (a/<! (a/into [] (a/take buf-count buf-chan)))
-                         states
-                         last-dropped))
-                (recur states last-dropped))
+                (when-let [emit-event (emit-fn
+                                       (a/<!
+                                        (a/into []
+                                                (a/take buf-count buf-chan)))
+                                       states
+                                       last-dropped)]
+                  (a/>! b emit-event))
+                (recur states nil))
               (if-not (nil? v)
                 ;; We have a record
-                (let [stateless-pass? (stateless-pred v)
-                      {:keys [pass?]
+                (let [{:keys [pass?]
                        new-states :states} (apply-predicates
                                             states
                                             stateless-pred
                                             stateful-predicates
                                             v)]
+
                   (if pass?
-                    (a/>! buf-chan v)
-                    (when cleanup-fn
-                      (cleanup-fn v)))
-                  (recur
-                   new-states
-                   (if pass?
-                     last-dropped
-                     v)))
+                    (do
+                      (a/>! buf-chan v)
+                      (recur new-states nil))
+                    (do
+                      (when cleanup-fn
+                        (cleanup-fn v))
+                      (recur new-states v))))
                 ;; A is closed, we should close B
                 (do
                   ;; But only after draining anything in the buffer
-                  (a/>! b (emit-fn
-                           (a/<! (a/into [] (a/take buf-count buf-chan)))
-                           states
-                           last-dropped))
+                  (when-let [emit-event (emit-fn
+                                         (a/<!
+                                          (a/into []
+                                                  (a/take buf-count buf-chan)))
+                                         states
+                                         last-dropped)]
+                    (a/>! b emit-event))
                   (a/close! b))))))))
     b))
