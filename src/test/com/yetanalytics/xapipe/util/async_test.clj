@@ -86,7 +86,10 @@
         (let [batches (a/<!! (a/into [] b-chan))]
           (testing "returns nothing"
             (is (= []
-                   (mapcat :batch batches))))))))
+                   (mapcat :batch batches))))
+          (testing "Returns the last record dropped"
+            (is (= [999]
+                   (map :last-dropped batches))))))))
   (testing "With stateful predicates"
     (let [limit-pred (fn [n v]
                        (if (= n 500)
@@ -121,4 +124,7 @@
             (testing "terminated"
               (= 500 (last filter-states)))))
         (testing "Cleans up"
-          (is (= 500 (count @dropped))))))))
+          (is (= 500 (count @dropped))))
+        (testing "Returns the last record dropped"
+          (is (= (concat (repeat 10 nil) [999])
+                 (map :last-dropped batches))))))))
