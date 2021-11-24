@@ -342,10 +342,6 @@
              (filt/stateful-predicates filter-config)
              :init-states filter-before
              :cleanup-chan cleanup-chan
-             #_#_:cleanup-fn
-             (fn [{:keys [attachments]}]
-               (when (not-empty attachments)
-                 (a/thread (mm/clean-tempfiles! attachments))))
              :reporter reporter)
             ;; Send the init state
             _ (a/put! states-chan job-before)
