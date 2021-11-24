@@ -40,7 +40,7 @@
 (s/def ::match-paths (s/every ::path-match))
 
 (def path-filter-cfg-spec
-  (s/keys :req-un [::ensure-paths
+  (s/keys :opt-un [::ensure-paths
                    ::match-paths]))
 
 (s/fdef path-filter-pred
