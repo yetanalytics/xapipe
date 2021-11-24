@@ -189,6 +189,18 @@
           (a/<! (a/thread (mm/clean-tempfiles! attachments))))
         (recur)))))
 
+(defn- init-buffers
+  [{{{source-batch-size :batch-size} :source
+    :keys [get-buffer-size
+           statement-buffer-size
+           batch-buffer-size]}
+    :config}]
+  {:get-buffer (a/buffer get-buffer-size)
+   :statement-buffer (a/buffer statement-buffer-size)
+   :batch-buffer (a/buffer batch-buffer-size)
+   :cleanup-buffer (a/buffer (* source-batch-size
+                                get-buffer-size))})
+
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)
 
@@ -235,19 +247,14 @@
             :as          get-params}    :get-params
            get-req-config      :request-config
            source-backoff-opts :backoff-opts
-           source-batch-size   :batch-size
            :as                 source-config} :source
           {target-batch-size   :batch-size
            post-req-config     :request-config
            target-backoff-opts :backoff-opts
            :as                 target-config} :target
           filter-config :filter
-          :keys [get-buffer-size
-                 statement-buffer-size
-                 batch-buffer-size
-                 batch-timeout]} :config
+          :keys [batch-timeout]} :config
          :as                     job-before}
-
         (update job :config config/ensure-defaults)]
     (case status-before
       :running  (throw (ex-info "Job already running!"
@@ -259,7 +266,12 @@
       :complete (throw (ex-info "Cannot start a completed job"
                                 {:type ::cannot-start-completed
                                  :job  job-before}))
-      (let [;; Http async conn pool + client
+      (let [;; Instantiate buffers so we can observe them
+            {:keys [get-buffer
+                    statement-buffer
+                    batch-buffer
+                    cleanup-buffer]} (init-buffers job-before)
+            ;; Http async conn pool + client
             conn-mgr (or conn-mgr
                          (client/init-conn-mgr
                           conn-mgr-opts))
@@ -282,7 +294,7 @@
             ;; A channel that will produce get responses
             get-chan (client/get-chan
                       (a/chan
-                       get-buffer-size)
+                       get-buffer)
                       stop-chan
                       get-req-config
                       (assoc get-params :since get-since)
@@ -296,7 +308,7 @@
                       :reporter reporter)
             ;; A channel that holds statements + attachments
             statement-chan
-            (a/chan statement-buffer-size)
+            (a/chan statement-buffer)
 
             ;; Pipeline responses to statement chan, short circuiting errs
             _ (a/pipeline-blocking
@@ -326,14 +338,13 @@
                                           :job)}})
                  nil))
             ;; A channel to get dropped records
-            cleanup-chan (a/chan (* source-batch-size
-                                    get-buffer-size))
+            cleanup-chan (a/chan cleanup-buffer)
             ;; A channel that will get batches
             ;; NOTE: Apply other filtering here
             batch-chan
             (ua/batch-filter
              statement-chan
-             (a/chan batch-buffer-size)
+             (a/chan batch-buffer)
              target-batch-size
              batch-timeout
              :stateless-predicates
