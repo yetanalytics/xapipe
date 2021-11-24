@@ -11,12 +11,17 @@
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
              50
              500
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
@@ -45,6 +50,11 @@
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
@@ -52,7 +62,7 @@
              500
              :stateless-predicates
              {:odd? odd?}
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
@@ -98,6 +108,11 @@
           a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
@@ -107,7 +122,7 @@
              {:limit limit-pred}
              :init-states
              {:limit 0}
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
