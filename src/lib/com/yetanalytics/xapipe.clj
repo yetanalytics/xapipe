@@ -145,17 +145,16 @@
                                              :error error})
                             (log/error "Stopping on POST error")
                             (recur (state/add-error state error) state))))))
-                  ;; If there are no statements we might still be able to derive
-                  ;; a new cursor from the last dropped statement
-                  (let [?last-dropped-stored (some-> last-dropped
-                                                     (get-in [:statement
-                                                              "stored"])
-                                                     t/normalize-stamp)
-                        {current-cursor :cursor} state
-                        cursor (if ?last-dropped-stored
-                                 (last (sort [?last-dropped-stored
-                                              current-cursor]))
-                                 current-cursor)]
+                  ;; If there are no statements the filter is dropping
+                  ;; use get the last dropped stored and use it to update
+                  ;; the cursor
+                  (let [{current-cursor :cursor} state
+                        cursor (last (sort [(-> last-dropped
+                                                (get-in [:statement
+                                                         "stored"])
+                                                t/normalize-stamp)
+                                            current-cursor]))
+                        _ (log/debugf "Empty Batch, cursor update to: %s" cursor)]
                     (recur (-> state
                                (state/update-cursor cursor)
                                (state/update-filter filter-state))
