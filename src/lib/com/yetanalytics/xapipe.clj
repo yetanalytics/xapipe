@@ -180,17 +180,14 @@
 (defn- cleanup-loop
   "Async loop to delete attachment tempfiles on a thread"
   [cleanup-chan]
-  (log/debug "Cleanup loop init")
   (a/go-loop []
-    (log/debug "Cleanup loop run")
-    (if-let [{:keys [attachments]} (a/<! cleanup-chan)]
+    (when-let [{:keys [attachments]} (a/<! cleanup-chan)]
       (do
         (when (not-empty attachments)
           (log/debugf "Cleanup loop deleting %d attachments"
                       (count attachments))
           (a/<! (a/thread (mm/clean-tempfiles! attachments))))
-        (recur))
-      (log/debug "Cleanup loop close"))))
+        (recur)))))
 
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)
