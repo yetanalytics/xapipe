@@ -12,7 +12,8 @@
             [com.yetanalytics.pan.objects.profile :as prof]
             [com.yetanalytics.pan.objects.template :as template]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
-            [com.yetanalytics.xapipe.filter.path :as path]))
+            [com.yetanalytics.xapipe.filter.path :as path]
+            [com.yetanalytics.xapipe.filter.concept :as concept]))
 
 (s/def ::profile-url string?) ;; These can be from disk, so don't spec 'em too hard
 (s/def ::template-id ::template/id)
@@ -49,6 +50,77 @@
 
 (s/def ::template-ids
   (s/every ::profile-url))
+
+
+
+;; Concept filter fns
+
+(s/def ::activity-type-ids
+  (s/every ::profile-url))
+
+(s/def ::verb-ids
+  (s/every ::profile-url))
+
+(s/def ::concept-types
+  ;; TODO: actual options
+  (s/every string?))
+
+(s/def ::concept
+  (s/keys :req-un [::profile-urls
+                   ::activity-type-ids
+                   ::verb-ids
+                   ::concept-types]))
+
+(s/fdef template-filter-pred
+  :args (s/cat :template-cfg ::template)
+  :ret filter-pred-spec)
+
+(defn concept-filter-pred
+  "Given config for a Statement Template-based filter, return a predicate
+  function to filter records."
+  [{:keys [profile-urls
+           activity-type-ids
+           verb-ids
+           concept-types]}]
+  (let [concepts
+        (reduce (fn [acc {:keys [concepts]}]
+                  (cond-> acc
+                    (some? concepts) (concat concepts)))
+                []
+                (map get-profile profile-urls))
+        vrb-ids (or verb-ids
+                    (map #(:id %)
+                         (filter #(= (:type %) "Verb") concepts)))
+        act-ids (or activity-type-ids
+                    (map #(:id %)
+                         (filter #(= (:type %) "ActivityType") concepts)))
+        vrb-validators (map concept/verb-validator vrb-ids)
+        act-validators (map concept/activity-type-validator act-ids)
+        validators (cond-> []
+                     (empty? concept-types)
+                     (concat vrb-validators act-validators)
+                     (some #{"activity-types"} (set concept-types))
+                     (concat act-validators)
+                     (some #{"verbs"} (set concept-types))
+                     (concat vrb-validators))]
+    (fn [{:keys [statement attachments]}]
+      (some?
+       (some (fn [v] (v statement)) validators)))))
+
+(comment
+
+  (clojure.pprint/pprint (concept-filter-pred
+                          {:profile-urls ["https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/dod-isd/v1.0/dod-isd.jsonld"
+                                          "https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/flashcards/v0.1/flashcards.jsonld"]}))
+
+
+  (let []
+    (clojure.pprint/pprint verb-ids)
+    (clojure.pprint/pprint activity-type-ids))
+
+
+  )
+
 
 ;; Template filter config
 (s/def ::template
@@ -201,20 +273,25 @@
   filter-pred-spec)
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/path
   filter-pred-spec)
+(s/def :com.yetanalytics.xapipe.filter.stateless-predicates/concept
+  filter-pred-spec)
 
 (s/fdef stateless-predicates
   :args (s/cat :config filter-config-spec)
   :ret (s/keys :opt-un
                [:com.yetanalytics.xapipe.filter.stateless-predicates/template
-                :com.yetanalytics.xapipe.filter.stateless-predicates/path]))
+                :com.yetanalytics.xapipe.filter.stateless-predicates/path
+                :com.yetanalytics.xapipe.filter.stateless-predicates/concept]))
 
 (defn stateless-predicates
   "Stateless predicates are simple true/false"
   [{:keys [template
-           path]}]
+           path
+           concept]}]
   (cond-> {}
     template (assoc :template (template-filter-pred template))
-    path (assoc :path (path/path-filter-pred path))))
+    path     (assoc :path (path/path-filter-pred path))
+    concept  (assoc :concept (concept-filter-pred concept))))
 
 (s/def :com.yetanalytics.xapipe.filter.stateful-predicates/pattern
   pattern-filter-pred-spec)

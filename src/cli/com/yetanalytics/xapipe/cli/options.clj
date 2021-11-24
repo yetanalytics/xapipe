@@ -308,6 +308,28 @@
         (conj coll
               [(fpath/parse-path path)
                match-v])))]
+   [nil "--concept-profile-url IRI" "Profile URL/location from which to apply concept filters"
+    :id :filter-concept-profile-urls
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--concept-type Concept Type" "Specific type of concept to filter on. If not set, it will match all concepts in the Profile."
+    :id :filter-concept-types
+    :multi true
+    :validate [#(some #{%} #{"verb" "activityType"}) "Must be either 'verb' or 'activityType'"]
+    :default []
+    :update-fn conj]
+   [nil "--concept-activity-type-id IRI" "Activity Type IRIs to filter on. If left blank it will match all Activity Types in the Profile"
+    :id :filter-activity-type-ids
+    :multi true
+    :default []
+    :update-fn conj]
+   [nil "--concept-verb-id IRI" "Verb IRIs to filter on. If left blank it will match all Verbs in the Profile"
+    :id :filter-verb-ids
+    :multi true
+    :default []
+    :update-fn conj]
+
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]

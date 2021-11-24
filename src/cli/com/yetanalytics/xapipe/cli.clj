@@ -193,6 +193,10 @@
            filter-pattern-ids
            filter-ensure-paths
            filter-match-paths
+           filter-concept-profile-urls
+           filter-concept-types
+           filter-activity-type-ids
+           filter-verb-ids
 
            statement-buffer-size
            batch-buffer-size]}
@@ -251,7 +255,19 @@
     (assoc-in [:filter :path :ensure-paths] filter-ensure-paths)
 
     (not-empty filter-match-paths)
-    (assoc-in [:filter :path :match-paths] filter-match-paths)))
+    (assoc-in [:filter :path :match-paths] filter-match-paths)
+
+    (not-empty filter-concept-profile-urls)
+    (assoc-in [:filter :concept :profile-urls] filter-concept-profile-urls)
+
+    (not-empty filter-concept-types)
+    (assoc-in [:filter :concept :concept-types] filter-concept-types)
+
+    (not-empty filter-activity-type-ids)
+    (assoc-in [:filter :concept :activity-type-ids] filter-activity-type-ids)
+
+    (not-empty filter-verb-ids)
+    (assoc-in [:filter :concept :verb-ids] filter-verb-ids)))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)
