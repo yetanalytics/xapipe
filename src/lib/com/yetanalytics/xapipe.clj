@@ -40,6 +40,7 @@
    states-chan
    stop-chan
    batch-chan
+   cleanup-chan
    {:keys [conn-mgr
            http-client]
     :as conn-opts}
@@ -112,7 +113,7 @@
                                        post-request
                                        :backoff-opts backoff-opts))]
                     (do
-                      (a/<! (a/thread (mm/clean-tempfiles! attachments)))
+                      (a/<! (a/onto-chan! cleanup-chan batch false))
                       (case tag
                         ;; On success, update the cursor and keep listening
                         :response
@@ -170,10 +171,26 @@
                   (do
                     (log/info "Successful Completion")
                     (recur (state/set-status state :complete) state)))))))))
-    ;; Post-loop, kill the HTTP client and close the states chan
+    ;; Post-loop, kill the HTTP client and close the states + cleanup chans
     (client/shutdown conn-mgr)
     (.close ^CloseableHttpClient http-client)
-    (a/close! states-chan)))
+    (a/close! states-chan)
+    (a/close! cleanup-chan)))
+
+(defn- cleanup-loop
+  "Async loop to delete attachment tempfiles on a thread"
+  [cleanup-chan]
+  (log/debug "Cleanup loop init")
+  (a/go-loop []
+    (log/debug "Cleanup loop run")
+    (if-let [{:keys [attachments]} (a/<! cleanup-chan)]
+      (do
+        (when (not-empty attachments)
+          (log/debugf "Cleanup loop deleting %d attachments"
+                      (count attachments))
+          (a/<! (a/thread (mm/clean-tempfiles! attachments))))
+        (recur))
+      (log/debug "Cleanup loop close"))))
 
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)
@@ -310,6 +327,8 @@
                                           ::source :source
                                           :job)}})
                  nil))
+            ;; A channel to get dropped records
+            cleanup-chan (a/chan 100)
             ;; A channel that will get batches
             ;; NOTE: Apply other filtering here
             batch-chan
@@ -323,7 +342,8 @@
              :stateful-predicates
              (filt/stateful-predicates filter-config)
              :init-states filter-before
-             :cleanup-fn
+             :cleanup-chan cleanup-chan
+             #_#_:cleanup-fn
              (fn [{:keys [attachments]}]
                (when (not-empty attachments)
                  (a/thread (mm/clean-tempfiles! attachments))))
@@ -332,6 +352,8 @@
             _ (a/put! states-chan job-before)
             ;; Then set it as running for post
             running-state (state/set-status state-before :running)]
+        ;; Cleanup loop deletes tempfiles
+        (cleanup-loop cleanup-chan)
         ;; Post loop transfers statements until it reaches until or an error
         (post-loop
          (merge job-before
@@ -339,6 +361,7 @@
          states-chan
          stop-chan
          batch-chan
+         cleanup-chan
          {:conn-mgr conn-mgr
           :http-client target-client}
          reporter)

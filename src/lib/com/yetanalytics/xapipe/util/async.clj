@@ -26,6 +26,8 @@
 (s/def ::emit-fn
   fn?) ;; TODO: fspec
 
+(s/def ::cleanup-chan cspec/channel?)
+
 (s/fdef batch-filter
   :args (s/cat :a ::cspec/channel
                :b ::cspec/channel
@@ -37,7 +39,8 @@
                                  ::init-states
                                  ::cleanup-fn
                                  ::metrics/reporter
-                                 ::emit-fn])))
+                                 ::emit-fn
+                                 ::cleanup-chan])))
 
 (defn- default-emit-fn
   [batch filter-state last-dropped]
@@ -88,6 +91,7 @@
   state for each stateful predicate.
 
   If :cleanup-fn is provided, run it on dropped records
+  If :cleanup-chan is provided, send dropped records there
 
   Will remember the last record dropped for use in cursors and such
 
@@ -98,7 +102,8 @@
              init-states
              cleanup-fn
              reporter
-             emit-fn]
+             emit-fn
+             cleanup-chan]
       :or {stateless-predicates {}
            stateful-predicates {}
            reporter (metrics/->NoopReporter)
@@ -155,6 +160,8 @@
                     (do
                       (when cleanup-fn
                         (cleanup-fn v))
+                      (when cleanup-chan
+                        (a/>! cleanup-chan v))
                       (recur new-states v))))
                 ;; A is closed, we should close B
                 (do
