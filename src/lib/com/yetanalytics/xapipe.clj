@@ -235,6 +235,7 @@
             :as          get-params}    :get-params
            get-req-config      :request-config
            source-backoff-opts :backoff-opts
+           source-batch-size   :batch-size
            :as                 source-config} :source
           {target-batch-size   :batch-size
            post-req-config     :request-config
@@ -325,7 +326,8 @@
                                           :job)}})
                  nil))
             ;; A channel to get dropped records
-            cleanup-chan (a/chan 100)
+            cleanup-chan (a/chan (* source-batch-size
+                                    get-buffer-size))
             ;; A channel that will get batches
             ;; NOTE: Apply other filtering here
             batch-chan
