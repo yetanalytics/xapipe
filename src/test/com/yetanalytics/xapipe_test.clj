@@ -277,9 +277,13 @@
                               target (sup/lrs)]
              (testing (format "testing filter: %s" tag)
                (doseq [s-batch (partition-all 25
-                                              (interleave
-                                               other-statements
-                                               target-statements))]
+                                              (concat
+                                               (interleave
+                                                (take (count target-statements)
+                                                      other-statements)
+                                                target-statements)
+                                               (drop (count target-statements)
+                                                     other-statements)))]
                  ;; Bump stored time by at least 1 ms for each batch
                  (Thread/sleep 1)
                  ((:load source) s-batch))
@@ -384,4 +388,17 @@
               :template-ids []}
              :pattern
              {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
-              :pattern-ids []}}}))
+              :pattern-ids []}}}
+
+           "No target statements passed"
+           []
+           (into []
+                 (sup/gen-statements
+                  50
+                  :profiles
+                  ["dev-resources/profiles/calibration_a.jsonld"]
+                  :parameters {:seed 42}))
+           {:filter
+            {:path
+             {:match-paths [[[["id"]]
+                             "not-an-id"]]}}}))
