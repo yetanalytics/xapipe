@@ -1,12 +1,15 @@
 .phony: test-lib bench clean bundle bundle-help
 
 clean:
-	rm -rf target
+	rm -rf target dev-resources/bench/*.json
 
 test-lib:
 	clojure -X:cli:test :dirs '["src/test"]'
 
-bench:
+dev-resources/bench/payload.json:
+	clojure -Xtest:bench write-payload
+
+bench: dev-resources/bench/payload.json
 	clojure -Xtest:bench
 
 target/bundle/xapipe.jar:
