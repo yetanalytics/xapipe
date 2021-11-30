@@ -253,6 +253,10 @@
                         (last (sort [cursor-before
                                      ?query-since]))
                         cursor-before)
+
+            ;; Send the initial state
+            _ (a/put! states-chan
+                      (update job-before :state state/set-updated))
             ;; A channel that will produce get responses
             get-chan (client/get-chan
                       (a/chan
@@ -317,8 +321,6 @@
                (when (not-empty attachments)
                  (a/thread (mm/clean-tempfiles! attachments))))
              :reporter reporter)
-            ;; Send the init state
-            _ (a/put! states-chan job-before)
             ;; Then set it as running for post
             running-state (-> state-before
                               (state/set-status :running)
