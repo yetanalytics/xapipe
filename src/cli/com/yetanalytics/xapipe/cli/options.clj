@@ -316,7 +316,7 @@
    [nil "--concept-type CONCEPT-TYPE" "Specific type of concept to filter on. If not set, it will match all concepts in the Profile."
     :id :filter-concept-types
     :multi true
-    :validate [#(some #{%} #{"verb" "activityType"}) "Must be either 'verb' or 'activityType'"]
+    :validate [#(some #{%} #{"Verb" "ActivityType" "AttachmentUsageType"}) "Must be either 'verb' or 'activityType'"]
     :default []
     :update-fn conj]
    [nil "--activity-type-id IRI" "Activity Type IRIs to filter on. If left blank it will match all Activity Types in the Profile"

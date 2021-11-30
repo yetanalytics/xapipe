@@ -101,7 +101,12 @@
            :filter-pattern-profile-urls [],
            :filter-pattern-ids []
            :filter-ensure-paths []
-           :filter-match-paths []},
+           :filter-match-paths []
+           :filter-concept-profile-urls []
+           :filter-concept-types []
+           :filter-activity-type-ids []
+           :filter-verb-ids []
+           :filter-attachment-usage-types []},
           :errors nil}
          (select-keys
           (cli/parse-opts [] job-options)
@@ -134,7 +139,12 @@
    :metrics-reporter "noop",
    :prometheus-push-gateway "0.0.0.0:9091"
    :filter-ensure-paths []
-   :filter-match-paths []})
+   :filter-match-paths []
+   :filter-concept-profile-urls []
+   :filter-concept-types []
+   :filter-activity-type-ids []
+   :filter-verb-ids []
+   :filter-attachment-usage-types []})
 
 ;; Matches the fixture job we have
 (def json-job
@@ -227,7 +237,12 @@
     "--ensure-path" "$.id"
     "--match-path" "$.verb.id=http://example.com/verb"
     "--match-path" "$.actor={\"mbox\":\"mailto:bob@example.com\",\"objectType\":\"Agent\"}"
-    ]
+    "--concept-profile-url" "http://example.org/profile.jsonld"
+    "--concept-type" "Verb"
+    "--activity-type-id" "http://example.org/profile.jsonld#activity-type"
+    "--verb-id" "http://example.org/profile.jsonld#verb"
+    "--attachment-usage-type" "http://example.org/profile.jsonld#aut"]
+
    {:source-password "bar",
     :filter-pattern-profile-urls ["http://example.org/profile.jsonld"],
     :delete-job "foo",
@@ -277,5 +292,10 @@
     :filter-match-paths [[[["verb"]["id"]]
                           "http://example.com/verb"]
                          [[["actor"]] {"mbox" "mailto:bob@example.com"
-                                       "objectType" "Agent"}]]}
+                                       "objectType" "Agent"}]]
+    :filter-concept-profile-urls ["http://example.org/profile.jsonld"]
+    :filter-concept-types ["Verb"]
+    :filter-activity-type-ids [ "http://example.org/profile.jsonld#activity-type"]
+    :filter-verb-ids ["http://example.org/profile.jsonld#verb"]
+    :filter-attachment-usage-types [ "http://example.org/profile.jsonld#aut"]}
    []))

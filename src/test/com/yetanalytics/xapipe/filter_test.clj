@@ -96,6 +96,68 @@
         [b-profile] 1 b-template-ids b-statements
         [b-profile] 5 b-template-ids b-statements))))
 
+(deftest concept-filter-test
+  (let [concept-filter-xf (fn [cfg]
+                             (let [pred (concept-filter-pred
+                                         cfg)]
+                               (filter
+                                pred)))
+        ;; Profile emits a single sequence of 9 statements in a single
+        ;; primary pattern: Two verbs, two object activity types, 4 context
+        ;; activity types and an attachment usage type
+        conc-profile "dev-resources/profiles/calibration_concept.jsonld"
+        conc-stmt    (into []
+                           (sup/gen-statements
+                            9
+                            :profiles [conc-profile]
+                            :parameters {:seed 42}))
+        diff-profile "dev-resources/profiles/calibration_a.jsonld"
+        diff-stmt    (into []
+                           (sup/gen-statements
+                            9
+                            :profiles [diff-profile]
+                            :parameters {:seed 42}))]
+    (testing "All Statements Pass when profile but no concept-type or ids are provided, and all fail when not containing concepts from the profile"
+      (are [profile-urls passed-num statements]
+          (= passed-num
+             (count (sequence (concept-filter-xf
+                               {:profile-urls profile-urls})
+                              (mapv
+                               (fn [s]
+                                 {:statement s
+                                  :attachments []})
+                               statements))))
+
+        ;; Pass all profile statements
+        [conc-profile] 9 conc-stmt
+        ;; Fail all non-profile statements
+        [conc-profile] 0 diff-stmt))
+    #_(testing "Filtering by single or multiple template IDs"
+      (are [profile-urls n-templates template-ids statements]
+          ;; For a given grouping of IDs, the resulting statements
+          ;; are a subset of the given profile
+          (every?
+           (fn [ids]
+             (cset/subset?
+              (into #{}
+                    (comp
+                     (template-filter-xf
+                      {:profile-urls profile-urls
+                       :template-ids ids})
+                     (map :statement))
+                    (mapv
+                     (fn [s]
+                       {:statement s
+                        :attachments []})
+                     all-statements))
+              (set statements)))
+           (partition-all n-templates template-ids))
+
+        [a-profile] 1 a-template-ids a-statements
+        [a-profile] 5 a-template-ids a-statements
+        [b-profile] 1 b-template-ids b-statements
+        [b-profile] 5 b-template-ids b-statements))))
+
 (deftest pattern-filter-pred-test
   (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
         ;; This strict pattern expects activities 1, 2 and 3, in order

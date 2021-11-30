@@ -116,14 +116,15 @@
                        (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
         validators (cond-> []
                      (empty? concept-types)
-                     (concat vrb-ids act-ids att-ids)
+                     (concat (concept/verb-validators vrb-ids)
+                             (concept/activity-type-validators act-ids)
+                             (concept/attachment-usage-validators att-ids))
                      (some #{"Verb"} (set concept-types))
                      (into (concept/verb-validators vrb-ids))
                      (some #{"ActivityType"} (set concept-types))
                      (into (concept/activity-type-validators act-ids))
                      (some #{"AttachmentUsageType"} (set concept-types))
-                     (into (concept/attachment-usage-validators att-ids))
-                     )
+                     (into (concept/attachment-usage-validators att-ids)))
         _ (clojure.pprint/pprint (count validators))]
     (fn [{:keys [statement attachments]}]
       (some?
