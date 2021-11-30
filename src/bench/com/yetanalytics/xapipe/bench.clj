@@ -43,21 +43,21 @@
       (json/generate-stream s w))))
 
 (defn run-lrs
-  [{:keys [path]
-    :or {path "dev-resources/bench/payload.json"}}]
+  [{:keys [payload-path]
+    :or {payload-path "dev-resources/bench/payload.json"}}]
   (let [lrs (sup/lrs
-             :stream-path path
+             :stream-path payload-path
              :port 8080)]
     ((:start lrs))))
 
 (defn run-bench [{:keys [payload-path
                          source-port
                          target-port
-                         total-statements]
+                         num-statements]
                   :or {payload-path "dev-resources/bench/payload.json"
                        source-port 8080
                        target-port 8081
-                       total-statements 10000}}]
+                       num-statements 10000}}]
   (printf "\nInitializing source LRS from %s\n\n" payload-path)
   (sup/with-running [source (sup/lrs
                              :stream-path payload-path
@@ -102,7 +102,7 @@
           total-ms (- t-after t-before)
           s-per-sec (double
                      (* 1000
-                        (/ total-statements
+                        (/ num-statements
                            total-ms)))]
       (pprint/print-table
        [{"s/sec throughput" s-per-sec}]))))
