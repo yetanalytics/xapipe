@@ -29,7 +29,8 @@
 
                      clj-commons/iapetos {:mvn/version "0.1.12"}
                      io.prometheus/simpleclient_hotspot {:mvn/version "0.12.0"}}}
-  :test {:extra-paths ["src/test"]
+  :test {:extra-paths ["src/test"
+                       "src/bench"]
          :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}
                       io.github.cognitect-labs/test-runner
                       {:git/url "https://github.com/cognitect-labs/test-runner"
@@ -52,8 +53,7 @@
                                     com.yetanalytics/xapi-schema]}}
          :exec-fn cognitect.test-runner.api/test}
   :bench {:extra-paths ["src/bench"]
-          :ns-default com.yetanalytics.xapipe.bench
-          :exec-fn run-bench}
+          :ns-default com.yetanalytics.xapipe.bench}
   :build {:paths ["src/build"]
           :deps {io.github.clojure/tools.build {:git/tag "v0.6.6" :git/sha "4d41c26"}}
           :ns-default com.yetanalytics.xapipe.build}}}

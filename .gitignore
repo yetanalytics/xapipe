@@ -16,3 +16,4 @@ failures/
 /store/
 /.test_store/
 /tmp/
+/dev-resources/bench/*.json

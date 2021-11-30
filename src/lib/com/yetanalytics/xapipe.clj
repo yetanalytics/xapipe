@@ -49,7 +49,9 @@
     (loop [state init-state
            last-state nil]
       ;; Emit NOVEL States
-      (when (not= state last-state)
+      (when (not=
+             (dissoc state :updated)
+             (dissoc last-state :updated))
         (a/>! states-chan (assoc job :state state)))
       ;; add any errors and flush the metrics before continue
       (let [[job-errors
@@ -82,9 +84,15 @@
                 ;; A stop is called!
                 (case status
                   :paused
-                  (recur (state/set-status state :paused) state)
+                  (recur (-> state
+                             (state/set-status :paused)
+                             state/set-updated)
+                         state)
                   :error
-                  (recur (state/add-error state error) state)))
+                  (recur (-> state
+                             (state/add-error error)
+                             state/set-updated)
+                         state)))
               (if-some [{:keys [batch
                                 filter-state
                                 last-dropped]
@@ -130,7 +138,8 @@
                              (count attachments)))
                           (recur (-> state
                                      (state/update-cursor cursor)
-                                     (state/update-filter filter-state))
+                                     (state/update-filter filter-state)
+                                     state/set-updated)
                                  state))
                         ;; If the post fails, Send the error to the stop channel
                         ;; emit and stop.
@@ -145,7 +154,10 @@
                             (a/>! stop-chan {:status :error
                                              :error error})
                             (log/error "Stopping on POST error")
-                            (recur (state/add-error state error) state))))))
+                            (recur (-> state
+                                       (state/add-error error)
+                                       state/set-updated)
+                                   state))))))
                   ;; If there are no statements the filter is dropping
                   ;; use get the last dropped stored and use it to update
                   ;; the cursor
@@ -158,8 +170,10 @@
                         _ (log/debugf "Empty Batch, cursor update to: %s" cursor)]
                     (recur (-> state
                                (state/update-cursor cursor)
-                               (state/update-filter filter-state))
+                               (state/update-filter filter-state)
+                               state/set-updated)
                            state)))
+
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
@@ -170,7 +184,10 @@
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
-                    (recur (state/set-status state :complete) state)))))))))
+                    (recur (-> state
+                               (state/set-status :complete)
+                               state/set-updated)
+                           state)))))))))
     ;; Post-loop, kill the HTTP client and close the states + cleanup chans
     (client/shutdown conn-mgr)
     (.close ^CloseableHttpClient http-client)
@@ -191,9 +208,9 @@
 
 (defn- init-buffers
   [{{{source-batch-size :batch-size} :source
-    :keys [get-buffer-size
-           statement-buffer-size
-           batch-buffer-size]}
+     :keys [get-buffer-size
+            statement-buffer-size
+            batch-buffer-size]}
     :config}]
   {:get-buffer (a/buffer get-buffer-size)
    :statement-buffer (a/buffer statement-buffer-size)
@@ -291,6 +308,10 @@
                         (last (sort [cursor-before
                                      ?query-since]))
                         cursor-before)
+
+            ;; Send the initial state
+            _ (a/put! states-chan
+                      (update job-before :state state/set-updated))
             ;; A channel that will produce get responses
             get-chan (client/get-chan
                       (a/chan
@@ -354,10 +375,10 @@
              :init-states filter-before
              :cleanup-chan cleanup-chan
              :reporter reporter)
-            ;; Send the init state
-            _ (a/put! states-chan job-before)
             ;; Then set it as running for post
-            running-state (state/set-status state-before :running)]
+            running-state (-> state-before
+                              (state/set-status :running)
+                              state/set-updated)]
         ;; Cleanup loop deletes tempfiles
         (cleanup-loop cleanup-chan)
         ;; Post loop transfers statements until it reaches until or an error

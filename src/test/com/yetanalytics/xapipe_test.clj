@@ -230,8 +230,12 @@
                                 :source {:errors []}
                                 :target {:errors []}
                                 :filter {}})
-                 (a/<!! (store-states states store))
-                 (store/read-job store job-id))))))))
+                 (update
+                  (a/<!! (store-states states store))
+                  :state dissoc :updated)
+                 (update
+                  (store/read-job store job-id)
+                  :state dissoc :updated))))))))
 
 (deftest resume-test
   (sup/with-running [source (sup/lrs

@@ -115,7 +115,7 @@
                 :target {:errors []},
                 :errors [],
                 :filter {}}}}
-             (mem/dump store)))
+             (update-in (mem/dump store) [job-id :state] dissoc :updated)))
       ;; Resume from cli
       (testing "xapipe resumes a paused job"
         (let [job-id (-> tail-states last :id)]
@@ -203,7 +203,7 @@
                 :target {:errors [{:type :target, :message "Max retries reached: Connection refused"}]},
                 :errors [],
                 :filter {}}}}
-             (mem/dump store)))
+             (update-in (mem/dump store) [job-id :state] dissoc :updated)))
       (with-redefs [cli/create-store (constantly store)]
         (testing "xapipe normally can't resume with errors"
           (is (= 1
@@ -342,7 +342,9 @@
                        :filter {}},
                       :get-buffer-size 10,
                       :batch-timeout 200}
-                     (edn/read-string message)))))))
+                     (update
+                      (edn/read-string message)
+                      :state dissoc :updated)))))))
       (finally
         (.delete ^File (io/file ".test_store/foo.edn"))
         (.delete ^File (io/file ".test_store"))))))
