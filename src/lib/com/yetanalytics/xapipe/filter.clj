@@ -75,34 +75,56 @@
   :args (s/cat :template-cfg ::template)
   :ret filter-pred-spec)
 
+
+
+(comment
+  (def profiles
+    [{:concepts
+      [{:type "Verb" :id 1} {:type "ActivityType" :id 2} {:type "Verb" :id 3} {:type "ActivityType" :id 4}]}
+     {:concepts
+      [{:type "Verb" :id 5} {:type "ActivityType" :id 6} {:type "Verb" :id 7} {:type "ActivityType" :id 8}]}
+     {}])
+
+  (def concepts
+    (reduce (fn [concepts profile]
+              (into concepts (:concepts profile)))
+            []
+            profiles))
+
+
+
+
+
+  )
+
 (defn concept-filter-pred
-  "Given config for a Statement Template-based filter, return a predicate
+  "Given config for a Concept-based filter, return a predicate
   function to filter records."
   [{:keys [profile-urls
            activity-type-ids
            verb-ids
+           attachment-usage-types
            concept-types]}]
-  (let [concepts
-        (reduce (fn [acc {:keys [concepts]}]
-                  (cond-> acc
-                    (some? concepts) (concat concepts)))
-                []
-                (map get-profile profile-urls))
-        vrb-ids (or verb-ids
-                    (map #(:id %)
-                         (filter #(= (:type %) "Verb") concepts)))
-        act-ids (or activity-type-ids
-                    (map #(:id %)
-                         (filter #(= (:type %) "ActivityType") concepts)))
-        vrb-validators (map concept/verb-validator vrb-ids)
-        act-validators (map concept/activity-type-validator act-ids)
+  (let [concepts   (reduce (fn [concepts profile]
+                             (into concepts (:concepts profile)))
+                           [] (map get-profile profile-urls))
+        vrb-ids    (or verb-ids
+                       (map :id (filter #(= (:type %) "Verb") concepts)))
+        act-ids    (or activity-type-ids
+                       (map :id (filter #(= (:type %) "ActivityType") concepts)))
+        att-ids    (or attachment-usage-types
+                       (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
         validators (cond-> []
                      (empty? concept-types)
-                     (concat vrb-validators act-validators)
-                     (some #{"activity-types"} (set concept-types))
-                     (concat act-validators)
-                     (some #{"verbs"} (set concept-types))
-                     (concat vrb-validators))]
+                     (concat vrb-ids act-ids att-ids)
+                     (some #{"Verb"} (set concept-types))
+                     (into (concept/verb-validators vrb-ids))
+                     (some #{"ActivityType"} (set concept-types))
+                     (into (concept/activity-type-validators act-ids))
+                     (some #{"AttachmentUsageType"} (set concept-types))
+                     (into (concept/attachment-usage-validators att-ids))
+                     )
+        _ (clojure.pprint/pprint (count validators))]
     (fn [{:keys [statement attachments]}]
       (some?
        (some (fn [v] (v statement)) validators)))))
@@ -113,11 +135,12 @@
                           {:profile-urls ["https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/dod-isd/v1.0/dod-isd.jsonld"
                                           "https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/flashcards/v0.1/flashcards.jsonld"]}))
 
+  (concept-filter-pred {:profile-urls ["https://raw.githubusercontent.com/yetanalytics/xapipe/main/dev-resources/profiles/calibration_a.jsonld"]
+                        :concept-types ["Verb"]})
 
-  (let []
-    (clojure.pprint/pprint verb-ids)
-    (clojure.pprint/pprint activity-type-ids))
 
+  (clojure.pprint/pprint (concept-filter-pred
+                          {:attachment-usage-types ["http://www.google.com"]}))
 
   )
 

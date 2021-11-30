@@ -197,6 +197,7 @@
            filter-concept-types
            filter-activity-type-ids
            filter-verb-ids
+           filter-attachment-usage-types
 
            statement-buffer-size
            batch-buffer-size]}
@@ -267,7 +268,11 @@
     (assoc-in [:filter :concept :activity-type-ids] filter-activity-type-ids)
 
     (not-empty filter-verb-ids)
-    (assoc-in [:filter :concept :verb-ids] filter-verb-ids)))
+    (assoc-in [:filter :concept :verb-ids] filter-verb-ids)
+
+    (not-empty filter-attachment-usage-types)
+    (assoc-in [:filter :concept :attachment-usage-types]
+              filter-attachment-usage-types)))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)

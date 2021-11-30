@@ -1,0 +1,192 @@
+{
+  "id" : "https://xapinet.org/xapi/yet/calibration-concept",
+  "definition" : {
+    "en" : "This xAPI Profile is intended for experimental purposes only and can be used to show the basic Concept filtering capabilitites of LRSPipe"
+  },
+  "@context" : "https://w3id.org/xapi/profiles/context",
+  "prefLabel" : {
+    "en" : "Concept Calibration - Experimental xAPI Profile"
+  },
+  "type" : "Profile",
+  "seeAlso" : "https://github.com/yetanalytics/xapipe",
+  "author" : {
+    "url" : "https://www.yetanalytics.com/",
+    "name" : "Yet Analytics",
+    "type" : "Organization"
+  },
+  "conformsTo" : "https://w3id.org/xapi/profiles#1.0",
+  "versions" : [
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "generatedAtTime" : "2020-03-24T19:16:07.395Z"
+    }
+  ],
+  "patterns" : [
+    {
+      "definition" : {
+        "en" : "Main Pattern"
+      },
+      "primary" : true,
+      "prefLabel" : {
+        "en" : "Testing Pattern 1"
+      },
+      "type" : "Pattern",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/patterns#pattern-1",
+      "alternates" : [
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#verb-1",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#verb-2",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-object",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-parent",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-category",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-grouping",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-other",
+        "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#attachment-usage-1"
+      ]
+    }
+  ],
+  "concepts" : [
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1",
+      "type" : "Verb",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en-US" : "Verb 1"
+      },
+      "definition" : {
+        "en-US" : "Test Verb 1"
+      }
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-2",
+      "type" : "Verb",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en-US" : "Verb 2"
+      },
+      "definition" : {
+        "en-US" : "Test Verb 2"
+      }
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1",
+      "type" : "ActivityType",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en-US" : "Activity Type 1"
+      },
+      "definition" : {
+        "en-US" : "Test Activity Type"
+      }
+    },
+    {
+      "id": "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#attachment-usage-1",
+      "inScheme": "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "type": "AttachmentUsageType",
+      "definition": {
+        "en": "Test Attachment Usage Type"
+      },
+      "prefLabel": {
+        "en": "Test Attachment Usage Type"
+      }
+    }
+  ],
+  "templates" : [
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#verb-1",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "Verb Template 1"
+      },
+      "definition" : {
+        "en" : "The statement template using Verb 1."
+      },
+      "verb" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1"
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#verb-2",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "Verb Template 2"
+      },
+      "definition" : {
+        "en" : "The statement template using Verb 2."
+      },
+      "verb" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-2"
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-object",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "Object Activity Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using Activity Type 1 for object."
+      },
+      "objectActivityType" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-parent",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "parent Activity Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using Activity Type 1 for parent context."
+      },
+      "contextParentActivityType" : ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-category",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "category Activity Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using Activity Type 1 for category context."
+      },
+      "contextCategoryActivityType" : ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-grouping",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "grouping Activity Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using Activity Type 1 for grouping context."
+      },
+      "contextGroupingActivityType" : ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#activity-type-other",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "other Activity Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using Activity Type 1 for other context."
+      },
+      "contextOtherActivityType" : ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+    },
+    {
+      "id" : "https://xapinet.org/xapi/yet/calibration-concept/v1/templates#attachment-usage-1",
+      "type" : "StatementTemplate",
+      "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
+      "prefLabel" : {
+        "en" : "Attachment Usage Type Template"
+      },
+      "definition" : {
+        "en" : "The statement template using attachment usage 1 for attachment usage type"
+      },
+      "attachmentUsageType" : ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#attachment-usage-1"]
+    }
+  ]
+}
