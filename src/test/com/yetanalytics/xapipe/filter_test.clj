@@ -96,6 +96,128 @@
         [b-profile] 1 b-template-ids b-statements
         [b-profile] 5 b-template-ids b-statements))))
 
+(deftest concept-filter-test
+  (let [concept-filter-xf (fn [cfg]
+                            (let [pred (concept-filter-pred
+                                        cfg)]
+                              (filter
+                               pred)))
+        ;; Profile emits a single sequence of 9 statements in a single
+        ;; primary pattern: Two verbs, two object activity types, 4 context
+        ;; activity types and an attachment usage type
+        conc-profile "dev-resources/profiles/calibration_concept.jsonld"
+        conc-stmt    (into []
+                           (sup/gen-statements
+                            9
+                            :profiles [conc-profile]
+                            :parameters {:seed 42}
+                            :personae [{:name "rgregerg",
+                                        :objectType "Group",
+                                        :member [{:name "rolf",
+                                                  :mbox "mailto:rolf@example.org"}]}]))
+        diff-profile "dev-resources/profiles/calibration_a.jsonld"
+        diff-stmt    (into []
+                           (sup/gen-statements
+                            9
+                            :profiles [diff-profile]
+                            :parameters {:seed 42}))]
+    (testing "All Statements Pass when profile-urls but no concept-type or
+ids are provided, and all fail when not containing any concepts from the profile"
+      (are [profile-urls passed-num statements]
+          (= passed-num
+             (count (sequence (concept-filter-xf
+                               {:profile-urls profile-urls
+                                :concept-types []
+                                :activity-type-ids []
+                                :verb-ids []
+                                :attachment-usage-types []})
+                              (mapv
+                               (fn [s]
+                                 {:statement s
+                                  :attachments []})
+                               statements))))
+        ;; Pass all profile statements
+        [conc-profile] 9 conc-stmt
+        ;; Fail all non-profile statements
+        [conc-profile] 0 diff-stmt))
+    (testing "Filtering by content types, but no specific ids"
+      (are [profile-urls concept-types passed-num statements]
+          (= passed-num
+             (count (sequence (concept-filter-xf
+                               {:profile-urls profile-urls
+                                :concept-types concept-types
+                                :activity-type-ids []
+                                :verb-ids []
+                                :attachment-usage-types []})
+                              (mapv
+                               (fn [s]
+                                 {:statement s
+                                  :attachments []})
+                               statements))))
+
+        ;; All Statements have one of the two Verbs
+        [conc-profile] ["Verb"] 9 conc-stmt
+        ;; All Statements have one of the three activity types
+        [conc-profile] ["ActivityType"] 9 conc-stmt
+        ;; Only one statement has the Attachment Usage Type
+        [conc-profile] ["AttachmentUsageType"] 1 conc-stmt))
+    (testing "Filtering by specific verb ids"
+      (are [verb-ids concept-types passed-num statements]
+          (= passed-num
+             (count (sequence (concept-filter-xf
+                               {:verb-ids verb-ids
+                                :concept-types concept-types
+                                :profile-urls []
+                                :activity-type-ids []
+                                :attachment-usage-types []})
+                              (mapv
+                               (fn [s]
+                                 {:statement s
+                                  :attachments []})
+                               statements))))
+
+        ;; All but one statement has verb-1
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1"]
+        [] 8 conc-stmt
+        ;; One statement has verb-2
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-2"]
+        [] 1 conc-stmt
+        ;; No statements have verb-3
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-3"]
+        [] 0 conc-stmt
+        ;; No statements should pass if concept-types is not empty but
+        ;; doesn't contain Verb
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-2"]
+        ["ActivityType"] 0 conc-stmt))
+     (testing "Filtering by specific activity type ids"
+      (are [activity-type-ids concept-types passed-num statements]
+          (= passed-num
+             (count (sequence (concept-filter-xf
+                               {:profile-urls []
+                                :activity-type-ids activity-type-ids
+                                :concept-types concept-types
+                                :verb-ids []
+                                :attachment-usage-types []})
+                              (mapv
+                               (fn [s]
+                                 {:statement s
+                                  :attachments []})
+                               statements))))
+
+        ;; 8 statements have type 1 as the object's type
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+        [] 8 conc-stmt
+        ;; One statement has type 2
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-2"]
+        [] 1 conc-stmt
+        ;; 4 Statements contain type 3 (this also tests all context activity matching)
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-3"]
+        [] 4 conc-stmt
+        ;; No statements should pass if concept-types is not empty but
+        ;; doesn't contain ActivityType
+        ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1"]
+        ["Verb"] 0 conc-stmt))))
+
 (deftest pattern-filter-pred-test
   (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
         ;; This strict pattern expects activities 1, 2 and 3, in order
