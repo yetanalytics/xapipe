@@ -27,7 +27,7 @@
            profile
            seed
            out]
-    :or {num-statements 10000
+    :or {num-statements 10050
          profile "dev-resources/profiles/calibration.jsonld"
          seed 42
          out "dev-resources/bench/payload.json"}}]
@@ -72,12 +72,18 @@
 
 (defn run-bench [{:keys [payload-path
                          source-port
+                         source-batch-size
                          target-port
-                         num-statements]
+                         target-batch-size
+                         num-statements
+                         warmup-batches]
                   :or {payload-path "dev-resources/bench/payload.json"
                        source-port 8080
+                       source-batch-size 50
                        target-port 8081
-                       num-statements 10000}}]
+                       target-batch-size 50
+                       num-statements 10050
+                       warmup-batches 1}}]
   (printf "\nInitializing source LRS from %s\n\n" payload-path)
   (sup/with-running [source (sup/lrs
                              :stream-path payload-path
@@ -85,12 +91,15 @@
                      target (sup/lrs
                              :sink true
                              :port target-port)]
-    (let [[since until] (sup/lrs-stored-range source)
+    (let [total-statements (- num-statements
+                              (* warmup-batches target-batch-size))
+          [since until] (sup/lrs-stored-range source)
           job-id (.toString (java.util.UUID/randomUUID))
           job {:id job-id,
                :config
                {:source
-                {:request-config
+                {:batch-size source-batch-size
+                 :request-config
                  {:url-base (format "http://0.0.0.0:%d"
                                     source-port),
                   :xapi-prefix "/xapi"},
@@ -98,7 +107,8 @@
                  {:since since
                   :until until}},
                 :target
-                {:request-config
+                {:batch-size target-batch-size
+                 :request-config
                  {:url-base (format "http://0.0.0.0:%d"
                                     target-port),
                   :xapi-prefix "/xapi"}}},
@@ -117,12 +127,12 @@
                               {:type ::job-error
                                :state (:state (last all-states))})))
 
-          total-ms (job-time-ms all-states)
+          total-ms (job-time-ms (drop warmup-batches all-states))
           s-per-sec (double
                      (* 1000
-                        (/ num-statements
+                        (/ total-statements
                            total-ms)))]
       (pprint/print-table
-       [{"statements" num-statements
+       [{"statements" total-statements
          "total time (ms)" total-ms
          "s/sec throughput" s-per-sec}]))))

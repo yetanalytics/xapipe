@@ -6,7 +6,7 @@ clean:
 test-lib:
 	clojure -X:cli:test :dirs '["src/test"]'
 
-BENCH_SIZE ?= 10000
+BENCH_SIZE ?= 10050
 BENCH_PROFILE ?= dev-resources/profiles/calibration.jsonld
 
 dev-resources/bench/payload.json:
