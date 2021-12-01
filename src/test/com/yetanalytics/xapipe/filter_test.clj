@@ -98,10 +98,10 @@
 
 (deftest concept-filter-test
   (let [concept-filter-xf (fn [cfg]
-                             (let [pred (concept-filter-pred
-                                         cfg)]
-                               (filter
-                                pred)))
+                            (let [pred (concept-filter-pred
+                                        cfg)]
+                              (filter
+                               pred)))
         ;; Profile emits a single sequence of 9 statements in a single
         ;; primary pattern: Two verbs, two object activity types, 4 context
         ;; activity types and an attachment usage type
@@ -120,20 +120,22 @@
                            (sup/gen-statements
                             9
                             :profiles [diff-profile]
-                            :parameters {:seed 42}))
-        _ (clojure.pprint/pprint conc-stmt)]
+                            :parameters {:seed 42}))]
     (testing "All Statements Pass when profile-urls but no concept-type or
 ids are provided, and all fail when not containing any concepts from the profile"
       (are [profile-urls passed-num statements]
           (= passed-num
              (count (sequence (concept-filter-xf
-                               {:profile-urls profile-urls})
+                               {:profile-urls profile-urls
+                                :concept-types []
+                                :activity-type-ids []
+                                :verb-ids []
+                                :attachment-usage-types []})
                               (mapv
                                (fn [s]
                                  {:statement s
                                   :attachments []})
                                statements))))
-
         ;; Pass all profile statements
         [conc-profile] 9 conc-stmt
         ;; Fail all non-profile statements
@@ -143,7 +145,10 @@ ids are provided, and all fail when not containing any concepts from the profile
           (= passed-num
              (count (sequence (concept-filter-xf
                                {:profile-urls profile-urls
-                                :concept-types concept-types})
+                                :concept-types concept-types
+                                :activity-type-ids []
+                                :verb-ids []
+                                :attachment-usage-types []})
                               (mapv
                                (fn [s]
                                  {:statement s
@@ -161,7 +166,10 @@ ids are provided, and all fail when not containing any concepts from the profile
           (= passed-num
              (count (sequence (concept-filter-xf
                                {:verb-ids verb-ids
-                                :concept-types concept-types})
+                                :concept-types concept-types
+                                :profile-urls []
+                                :activity-type-ids []
+                                :attachment-usage-types []})
                               (mapv
                                (fn [s]
                                  {:statement s
@@ -185,8 +193,11 @@ ids are provided, and all fail when not containing any concepts from the profile
       (are [activity-type-ids concept-types passed-num statements]
           (= passed-num
              (count (sequence (concept-filter-xf
-                               {:activity-type-ids activity-type-ids
-                                :concept-types concept-types})
+                               {:profile-urls []
+                                :activity-type-ids activity-type-ids
+                                :concept-types concept-types
+                                :verb-ids []
+                                :attachment-usage-types []})
                               (mapv
                                (fn [s]
                                  {:statement s

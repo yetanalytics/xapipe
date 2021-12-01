@@ -48,11 +48,6 @@
 (s/def ::profile-urls
   (s/every ::profile-url))
 
-(s/def ::template-ids
-  (s/every ::profile-url))
-
-
-
 ;; Concept filter fns
 
 (s/def ::activity-type-ids
@@ -61,41 +56,24 @@
 (s/def ::verb-ids
   (s/every ::profile-url))
 
+(s/def ::attachment-uage-types
+  (s/every ::profile-url))
+
 (s/def ::concept-types
-  ;; TODO: actual options
-  (s/every string?))
+  #(s/every string?
+            #_#{"Verb" "ActivityType" "AttachmentUsageType"}))
 
 (s/def ::concept
   (s/keys :req-un [::profile-urls
+                   ::concept-types
                    ::activity-type-ids
                    ::verb-ids
-                   ::concept-types]))
+                   ::attachment-usage-types]))
 
-(s/fdef template-filter-pred
-  :args (s/cat :template-cfg ::template)
+(s/fdef concept-filter-pred
+  :args (s/cat :concept-cfg ::concept)
   :ret filter-pred-spec)
 
-
-
-(comment
-  (def profiles
-    [{:concepts
-      [{:type "Verb" :id 1} {:type "ActivityType" :id 2} {:type "Verb" :id 3} {:type "ActivityType" :id 4}]}
-     {:concepts
-      [{:type "Verb" :id 5} {:type "ActivityType" :id 6} {:type "Verb" :id 7} {:type "ActivityType" :id 8}]}
-     {}])
-
-  (def concepts
-    (reduce (fn [concepts profile]
-              (into concepts (:concepts profile)))
-            []
-            profiles))
-
-
-
-
-
-  )
 
 (defn concept-filter-pred
   "Given config for a Concept-based filter, return a predicate
@@ -108,11 +86,11 @@
   (let [concepts   (reduce (fn [concepts profile]
                              (into concepts (:concepts profile)))
                            [] (map get-profile profile-urls))
-        vrb-ids    (or verb-ids
+        vrb-ids    (or (not-empty verb-ids)
                        (map :id (filter #(= (:type %) "Verb") concepts)))
-        act-ids    (or activity-type-ids
+        act-ids    (or (not-empty activity-type-ids)
                        (map :id (filter #(= (:type %) "ActivityType") concepts)))
-        att-ids    (or attachment-usage-types
+        att-ids    (or (not-empty attachment-usage-types)
                        (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
         validators (cond-> []
                      (empty? concept-types)
@@ -128,49 +106,15 @@
     (fn [{:keys [statement attachments]}]
       (some?
        (some (fn [v]
-               (let [result
-                     (per/validate-statement-vs-template
-                      v statement :fn-type :predicate)]
-                 result))
+               (per/validate-statement-vs-template
+                        v statement :fn-type :predicate))
              validators)))))
 
-(comment
-
-  (clojure.pprint/pprint (concept-filter-pred
-                          {:profile-urls ["https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/dod-isd/v1.0/dod-isd.jsonld"
-                                          "https://raw.githubusercontent.com/adlnet/xapi-authored-profiles/master/flashcards/v0.1/flashcards.jsonld"]}))
-
-  (concept-filter-pred {:profile-urls ["https://raw.githubusercontent.com/yetanalytics/xapipe/main/dev-resources/profiles/calibration_a.jsonld"]
-                        :concept-types ["Verb"]})
-
-
-  (clojure.pprint/pprint (concept-filter-pred
-                          {:attachment-usage-types ["http://www.google.com"]}))
-
-  (clojure.pprint/pprint (cheshire.core/parse-string (slurp "sim-all-concept.json")))
-  (def data (per-json/json->edn (slurp "sim-all-concept.json") :keywordize? true))
-  (def data1 (per-json/json->edn (slurp "sim-1-concept.json") :keywordize? false))
-  (def data1 (per-json/json->edn (slurp "sim-attach-concept.json") :keywordize? false))
-  (def prof-pred (concept-filter-pred {:profile-urls ["dev-resources/profiles/calibration_concept.jsonld"]
-                                       :concept-types ["AttachmentUsageType"]}))
-
-  (count data)
-  (clojure.pprint/pprint data1)
-  (clojure.pprint/pprint (prof-pred
-                          {:statement data1}))
-
-
-  (per/validate-statement-vs-template
-   (first (concept/attachment-usage-validators ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#attachment-usage-1"]))
-   data1 :fn-type :predicate)
-
-  (prof-pred data1)
-
-
-  )
-
-
 ;; Template filter config
+
+(s/def ::template-ids
+  (s/every ::profile-url))
+
 (s/def ::template
   (s/keys :req-un [::profile-urls
                    ::template-ids]))
@@ -315,7 +259,8 @@
 ;; Config map for all filtering
 (def filter-config-spec
   (s/keys :opt-un [::template
-                   ::pattern]))
+                   ::pattern
+                   ::concept]))
 
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/template
   filter-pred-spec)
