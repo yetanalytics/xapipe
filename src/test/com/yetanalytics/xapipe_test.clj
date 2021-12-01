@@ -46,22 +46,26 @@
             ;; Run the job
             {:keys [stop-fn states]} (run-job job)
             ;; Get all the states
-            all-states (a/<!! (a/into [] states))]
+            all-states (a/<!! (a/into [] states))
+            {{:keys [status
+                     cursor]} :state} (last all-states)]
         ;; At this point we're done or have errored.
-        (let [{{:keys [status
-                       cursor]} :state} (last all-states)]
-          (when (= status :error)
-            (log/error "Job Error" job))
-          (testing "successful completion"
-            (is (= :complete status)))
-          (testing "all statements transferred except empty ref"
-            (is (= 452 (sup/lrs-count target))))
-          (testing "read up to end"
-            (is (= (Instant/parse until) (Instant/parse cursor))))
-          (testing "matching statement ids and order"
-            (let [source-idset (into #{} (sup/lrs-ids source))]
-              (is (every? #(contains? source-idset %)
-                          (sup/lrs-ids target))))))))))
+        (when (= status :error)
+          (log/error "Job Error" job))
+        (testing "successful completion"
+          (is (= :complete status)))
+        (testing "all statements transferred except empty ref"
+          (is (= 452 (sup/lrs-count target))))
+        (testing "read up to end"
+          (is (= (Instant/parse until) (Instant/parse cursor))))
+        (testing "matching statement ids and order"
+          (let [source-idset (into #{} (sup/lrs-ids source))]
+            (is (every? #(contains? source-idset %)
+                        (sup/lrs-ids target)))))
+        (testing "all states are timestamped"
+          (is (every?
+               #(get-in % [:state :updated])
+               all-states)))))))
 
 ;; For brevity, we use a helper to do the job gen for other tests
 (defn- init-run-job
@@ -108,7 +112,11 @@
                 :state
                 :source
                 :errors
-                not-empty))))))
+                not-empty))
+        (testing "all states are timestamped"
+          (is (every?
+               #(get-in % [:state :updated])
+               all-states)))))))
 
 (deftest run-job-target-error-test
   (sup/with-running [source (sup/lrs
@@ -139,7 +147,11 @@
                 :state
                 :target
                 :errors
-                not-empty))))))
+                not-empty))
+        (testing "all states are timestamped"
+          (is (every?
+               #(get-in % [:state :updated])
+               all-states)))))))
 
 ;; TODO: If you stop a running job, it may post to target several times
 ;; This can be fixed with more stop-chan checks
@@ -169,7 +181,11 @@
           (is (= 0 (sup/lrs-count target))))
         (testing "cursor is not moved"
           (is (= (repeat 3 since)
-                 (map #(get-in % [:state :cursor]) all-states))))))))
+                 (map #(get-in % [:state :cursor]) all-states))))
+        (testing "all states are timestamped"
+          (is (every?
+               #(get-in % [:state :updated])
+               all-states)))))))
 
 (deftest run-job-backpressure-test
   (sup/with-running [source (sup/lrs
