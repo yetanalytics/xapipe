@@ -318,22 +318,28 @@
             ;; Cleanup loop deletes tempfiles from batch + post
             cloop (cleanup-loop cleanup-chan)
 
-            ;; Batch + filter statements from statement chan to batch chan
-            _ (ua/batch-filter
-               statement-chan
-               batch-chan
-               target-batch-size
-               batch-timeout
-               :stateless-predicates
-               (filt/stateless-predicates filter-config)
-               :stateful-predicates
-               (filt/stateful-predicates filter-config)
-               :init-states filter-before
-               :cleanup-chan cleanup-chan
-               :reporter reporter)
+            ;; Start the job by initializing the get loop
+            gloop (client/get-loop
+                   get-chan
+                   stop-chan
+                   get-req-config
+                   ;; Derive a since point for the query
+                   (assoc get-params :since
+                          (if ?query-since
+                            (last (sort [cursor-before
+                                         ?query-since]))
+                            cursor-before))
+                   poll-interval
+                   ;; kwargs
+                   :backoff-opts
+                   source-backoff-opts
+                   :conn-opts
+                   {:conn-mgr conn-mgr
+                    :http-client source-client}
+                   :reporter reporter)
 
-            ;; Pipeline from get-chan to statement chan
-            gloop (a/pipeline-blocking
+                        ;; Pipeline from get-chan to statement chan
+            sloop (a/pipeline-blocking
                    1
                    statement-chan
                    (comp
@@ -359,6 +365,21 @@
                                               ::source :source
                                               :job)}})
                      nil))
+
+            ;; Batch + filter statements from statement chan to batch chan
+            bloop (ua/batch-filter
+                   statement-chan
+                   batch-chan
+                   target-batch-size
+                   batch-timeout
+                   :stateless-predicates
+                   (filt/stateless-predicates filter-config)
+                   :stateful-predicates
+                   (filt/stateful-predicates filter-config)
+                   :init-states filter-before
+                   :cleanup-chan cleanup-chan
+                   :reporter reporter)
+
             ;; Post loop transfers statements until it reaches until or an error
             ploop (post-loop
                    (merge job-before
@@ -374,35 +395,14 @@
                    cleanup-chan
                    {:conn-mgr conn-mgr
                     :http-client target-client}
-                   reporter)
-            ]
-
-        ;; Start the job by initializing the get loop
-        (client/get-chan
-         get-chan
-         stop-chan
-         get-req-config
-         ;; Derive a since point for the query
-         (assoc get-params :since
-                (if ?query-since
-                  (last (sort [cursor-before
-                               ?query-since]))
-                  cursor-before))
-         poll-interval
-         ;; kwargs
-         :backoff-opts
-         source-backoff-opts
-         :conn-opts
-         {:conn-mgr conn-mgr
-          :http-client source-client}
-         :reporter reporter)
+                   reporter)]
 
         ;; waits for things to stop, then cleans up
         (a/go
-          ;; Wait for get
-          (a/<! gloop)
-          ;; Wait for POST
-          (a/<! ploop)
+          (a/<! (a/into [] (a/merge [gloop
+                                     sloop
+                                     bloop
+                                     ploop] 4)))
 
           ;; With both clients shutdown, we shut down the conn mgr
           (client/shutdown conn-mgr)

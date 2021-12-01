@@ -90,7 +90,7 @@
 
   Will remember the last record dropped for use in cursors and such
 
-  Returns channel b"
+  Returns a channel that will close when done processing."
   [a b size timeout-ms
    & {:keys [stateless-predicates
              stateful-predicates
@@ -165,5 +165,4 @@
                                          states
                                          last-dropped)]
                     (a/>! b emit-event))
-                  (a/close! b))))))))
-    b))
+                  (a/close! b))))))))))
