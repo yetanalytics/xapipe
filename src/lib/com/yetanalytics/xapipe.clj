@@ -70,7 +70,7 @@
         (state/errors? state)
         (log/error "POST loop stopping with errors")
 
-        (not= :running (:status state))
+        (not (#{:running :init} (:status state)))
         (log/info "Stopping")
 
         :else
@@ -137,6 +137,7 @@
                              :xapipe/attachments
                              (count attachments)))
                           (recur (-> state
+                                     (state/set-status :running)
                                      (state/update-cursor cursor)
                                      (state/update-filter filter-state)
                                      state/set-updated)
@@ -169,6 +170,7 @@
                                             current-cursor]))
                         _ (log/debugf "Empty Batch, cursor update to: %s" cursor)]
                     (recur (-> state
+                               (state/set-status :running)
                                (state/update-cursor cursor)
                                (state/update-filter filter-state)
                                state/set-updated)
@@ -283,7 +285,12 @@
       :complete (throw (ex-info "Cannot start a completed job"
                                 {:type ::cannot-start-completed
                                  :job  job-before}))
-      (let [;; Instantiate buffers so we can observe them
+      (let [;; Get a timestamp for the instant before initialization
+            init-stamp (t/now-stamp)
+            ;; The states channel emits the job as it runs
+            states-chan (a/chan)
+
+            ;; Instantiate buffers so we can observe them
             {:keys [get-buffer
                     statement-buffer
                     batch-buffer
@@ -298,93 +305,33 @@
             target-client (or http-client
                               (client/init-client
                                conn-mgr target-client-opts))
-            ;; set up channels and start
-            states-chan (a/chan)
+
             stop-chan (a/promise-chan)
             stop-fn   #(a/put! stop-chan {:status :paused})
 
-            ;; Derive a since point for the query
-            get-since (if ?query-since
-                        (last (sort [cursor-before
-                                     ?query-since]))
-                        cursor-before)
-
-            ;; Send the initial state
-            _ (a/put! states-chan
-                      (update job-before :state state/set-updated))
-            ;; A channel that will produce get responses
-            get-chan (client/get-chan
-                      (a/chan
-                       get-buffer)
-                      stop-chan
-                      get-req-config
-                      (assoc get-params :since get-since)
-                      poll-interval
-                      ;; kwargs
-                      :backoff-opts
-                      source-backoff-opts
-                      :conn-opts
-                      {:conn-mgr conn-mgr
-                       :http-client source-client}
-                      :reporter reporter)
+            ;; A channel for get responses
+            get-chan (a/chan get-buffer)
             ;; A channel that holds statements + attachments
-            statement-chan
-            (a/chan statement-buffer)
-
-            ;; Pipeline responses to statement chan, short circuiting errs
-            _ (a/pipeline-blocking
-               1
-               statement-chan
-               (comp
-                ;; handle error resps
-                (map (fn [[tag x]]
-                       (case tag
-                         :response x
-                         :exception
-                         (throw (ex-info
-                                 (format "Source Error: %s"
-                                         (ex-message x))
-                                 {:type ::source}
-                                 x)))))
-                ;; coerce resp to statements
-                (mapcat xapi/response->statements))
-               get-chan
-               true
-               (fn [ex]
-                 (a/put! stop-chan
-                         {:status :error
-                          :error {:message (ex-message ex)
-                                  :type (case (some-> ex ex-data :type)
-                                          ::source :source
-                                          :job)}})
-                 nil))
+            statement-chan (a/chan statement-buffer)
+            ;; A channel for batches of statements to target
+            batch-chan (a/chan batch-buffer)
             ;; A channel to get dropped records
-            cleanup-chan (a/chan cleanup-buffer)
-            ;; A channel that will get batches
-            ;; NOTE: Apply other filtering here
-            batch-chan
-            (ua/batch-filter
-             statement-chan
-             (a/chan batch-buffer)
-             target-batch-size
-             batch-timeout
-             :stateless-predicates
-             (filt/stateless-predicates filter-config)
-             :stateful-predicates
-             (filt/stateful-predicates filter-config)
-             :init-states filter-before
-             :cleanup-chan cleanup-chan
-             :reporter reporter)
-            ;; Then set it as running for post
-            running-state (-> state-before
-                              (state/set-status :running)
-                              state/set-updated)]
-        ;; Cleanup loop deletes tempfiles
+            cleanup-chan (a/chan cleanup-buffer)]
+
+        ;; Topology, in reverse order:
+
+        ;; Cleanup loop deletes tempfiles from batch + post
         (cleanup-loop cleanup-chan)
+
         ;; Post loop transfers statements until it reaches until or an error
         (post-loop
          (merge job-before
-                {:state running-state})
+                {:state (-> state-before
+                            (cond->
+                                ;; If a job is paused, re-init
+                                (= :paused (:status state-before))
+                                (state/set-status :init))
+                            (assoc :updated init-stamp))})
          states-chan
          stop-chan
          batch-chan
@@ -392,6 +339,70 @@
          {:conn-mgr conn-mgr
           :http-client target-client}
          reporter)
+
+        ;; Batch + filter statements from statement chan to batch chan
+        (ua/batch-filter
+         statement-chan
+         batch-chan
+         target-batch-size
+         batch-timeout
+         :stateless-predicates
+         (filt/stateless-predicates filter-config)
+         :stateful-predicates
+         (filt/stateful-predicates filter-config)
+         :init-states filter-before
+         :cleanup-chan cleanup-chan
+         :reporter reporter)
+
+        ;; Pipeline responses to statement chan, short circuiting errs
+        (a/pipeline-blocking
+         1
+         statement-chan
+         (comp
+          ;; handle error resps
+          (map (fn [[tag x]]
+                 (case tag
+                   :response x
+                   :exception
+                   (throw (ex-info
+                           (format "Source Error: %s"
+                                   (ex-message x))
+                           {:type ::source}
+                           x)))))
+          ;; coerce resp to statements
+          (mapcat xapi/response->statements))
+         get-chan
+         true
+         (fn [ex]
+           (a/put! stop-chan
+                   {:status :error
+                    :error {:message (ex-message ex)
+                            :type (case (some-> ex ex-data :type)
+                                    ::source :source
+                                    :job)}})
+           nil))
+
+        ;; GET Data from source
+        ;; This starts the job
+        (client/get-chan
+         get-chan
+         stop-chan
+         get-req-config
+         ;; Derive a since point for the query
+         (assoc get-params :since
+                (if ?query-since
+                  (last (sort [cursor-before
+                               ?query-since]))
+                  cursor-before))
+         poll-interval
+         ;; kwargs
+         :backoff-opts
+         source-backoff-opts
+         :conn-opts
+         {:conn-mgr conn-mgr
+          :http-client source-client}
+         :reporter reporter)
+
         ;; Return the state emitter and stop fn
         {:states states-chan
          :stop-fn stop-fn}))))

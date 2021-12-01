@@ -103,7 +103,7 @@
                     stop-fn
                     states]} (init-run-job config)
             all-states (a/<!! (a/into [] states))]
-        (is (= [:init :running :error]
+        (is (= [:init :error]
                (map
                 #(get-in % [:state :status])
                 all-states)))
@@ -138,7 +138,7 @@
                     stop-fn
                     states]} (init-run-job config)
             all-states (a/<!! (a/into [] states))]
-        (is (= [:init :running :error]
+        (is (= [:init :error]
                (map
                 #(get-in % [:state :status])
                 all-states)))
@@ -174,13 +174,13 @@
             ;; Immediately call the stop-fn!
             _ (stop-fn)
             all-states (a/<!! (a/into [] states))]
-        (testing "initializes, runs once but pauses"
-          (is (= [:init :running :paused]
+        (testing "initializes, immediate pause"
+          (is (= [:init :paused]
                  (mapv #(get-in % [:state :status]) all-states))))
         (testing "nothing gets through"
           (is (= 0 (sup/lrs-count target))))
         (testing "cursor is not moved"
-          (is (= (repeat 3 since)
+          (is (= (repeat 2 since)
                  (map #(get-in % [:state :cursor]) all-states))))
         (testing "all states are timestamped"
           (is (every?
@@ -203,14 +203,13 @@
                      :batch-size 50}}
             {:keys [states
                     stop-fn]} (init-run-job config)
-            ;; take the first two to get it running
-            head-states (a/<!! (a/into [] (a/take 2 states)))
+            ;; take the init state and it will start
+            head-state (a/<!! states)
             ;; Wait long enough for one GET + Post
             _ (Thread/sleep 1000)]
-        (testing "head states"
-          (is (= [:init :running]
-                 (map #(get-in % [:state :status])
-                      head-states))))
+        (testing "head state"
+          (is (= :init
+                 (get-in head-state [:state :status]))))
         (testing "one batch gets through"
           (is (= 50 (sup/lrs-count target))))
         (stop-fn)

@@ -63,8 +63,8 @@
              "-p" (format "until=%s" until)
              ;; use an atom we can DUMP
              "-s" "mem"))
-          ;; take 2 states so some communication might happen
-          _ (a/<!! (a/into [] (a/take 2 states)))
+          ;; take init state so comms happens
+          _ (a/<!! states)
           ;; Wait for it
           _ (Thread/sleep 1000)
           ;; SHUT IT DOWN
@@ -158,8 +158,8 @@
              "-p" (format "until=%s" until)
              ;; use an atom we can DUMP
              "-s" "mem"))
-          ;; take 2 states so some communication might happen
-          _ (a/<!! (a/into [] (a/take 2 states)))
+          ;; take init state so comms happens
+          _ (a/<!! states)
           ;; Wait for it
           _ (Thread/sleep 1000)
           ;; What remains?
