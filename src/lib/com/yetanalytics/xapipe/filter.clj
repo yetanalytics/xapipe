@@ -60,8 +60,7 @@
   (s/every ::profile-url))
 
 (s/def ::concept-types
-  #(s/every string?
-            #_#{"Verb" "ActivityType" "AttachmentUsageType"}))
+  (s/every #{"Verb" "ActivityType" "AttachmentUsageType"}))
 
 (s/def ::concept
   (s/keys :req-un [::profile-urls
@@ -104,10 +103,11 @@
                      (some #{"AttachmentUsageType"} (set concept-types))
                      (into (concept/attachment-usage-validators att-ids)))]
     (fn [{:keys [statement attachments]}]
+
       (some?
        (some (fn [v]
                (per/validate-statement-vs-template
-                        v statement :fn-type :predicate))
+                        v statement))
              validators)))))
 
 ;; Template filter config
