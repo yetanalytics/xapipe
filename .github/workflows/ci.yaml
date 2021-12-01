@@ -19,6 +19,6 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
-            ${{ runner.os }}-cljdeps-
+            ${{ runner.os }}-deps-
       - name: Run make target ${{ matrix.target }}
         run: make ${{ matrix.target }}
