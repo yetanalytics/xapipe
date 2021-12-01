@@ -4,9 +4,6 @@ on: [push]
 
 jobs:
   test:
-    strategy:
-      matrix:
-        target: [test-lib, bundle-help]
     runs-on: ubuntu-latest
     steps:
       - name: Setup CI Environment
@@ -19,6 +16,6 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
-            ${{ runner.os }}-cljdeps-
-      - name: Run make target ${{ matrix.target }}
-        run: make ${{ matrix.target }}
+            ${{ runner.os }}-deps-
+      - name: Test lib
+        run: make test-lib
