@@ -262,26 +262,16 @@
         (not-empty filter-activity-type-ids)
         (not-empty filter-verb-ids)
         (not-empty filter-attachment-usage-types))
-    (assoc-in [:filter :concept]
-              (let [conceptmap
-                    {:profile-urls
-                     (into [] filter-concept-profile-urls)
-                     :concept-types
-                     (into [] filter-concept-types)
-                     :activity-type-ids
-                     (into [] filter-activity-type-ids)
-                     :verb-ids
-                     (into [] filter-verb-ids)
-                     :attachment-usage-types
-                     (into [] filter-attachment-usage-types)}
-                    _ (clojure.pprint/pprint conceptmap)]
-                conceptmap))))
-
-(comment
-
-
-
-  )
+    (assoc-in [:filter :concept] {:profile-urls
+                                  (into [] filter-concept-profile-urls)
+                                  :concept-types
+                                  (into [] filter-concept-types)
+                                  :activity-type-ids
+                                  (into [] filter-activity-type-ids)
+                                  :verb-ids
+                                  (into [] filter-verb-ids)
+                                  :attachment-usage-types
+                                  (into [] filter-attachment-usage-types)})))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)

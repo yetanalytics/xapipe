@@ -100,7 +100,6 @@
                      (some #{"AttachmentUsageType"} (set concept-types))
                      (into (concept/attachment-usage-validators att-ids)))]
     (fn [{:keys [statement attachments]}]
-
       (some?
        (some (fn [v]
                (per/validate-statement-vs-template
