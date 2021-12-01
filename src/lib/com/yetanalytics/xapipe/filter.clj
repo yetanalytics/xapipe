@@ -124,11 +124,15 @@
                      (some #{"ActivityType"} (set concept-types))
                      (into (concept/activity-type-validators act-ids))
                      (some #{"AttachmentUsageType"} (set concept-types))
-                     (into (concept/attachment-usage-validators att-ids)))
-        _ (clojure.pprint/pprint (count validators))]
+                     (into (concept/attachment-usage-validators att-ids)))]
     (fn [{:keys [statement attachments]}]
       (some?
-       (some (fn [v] (v statement)) validators)))))
+       (some (fn [v]
+               (let [result
+                     (per/validate-statement-vs-template
+                      v statement :fn-type :predicate)]
+                 result))
+             validators)))))
 
 (comment
 
@@ -142,6 +146,26 @@
 
   (clojure.pprint/pprint (concept-filter-pred
                           {:attachment-usage-types ["http://www.google.com"]}))
+
+  (clojure.pprint/pprint (cheshire.core/parse-string (slurp "sim-all-concept.json")))
+  (def data (per-json/json->edn (slurp "sim-all-concept.json") :keywordize? true))
+  (def data1 (per-json/json->edn (slurp "sim-1-concept.json") :keywordize? false))
+  (def data1 (per-json/json->edn (slurp "sim-attach-concept.json") :keywordize? false))
+  (def prof-pred (concept-filter-pred {:profile-urls ["dev-resources/profiles/calibration_concept.jsonld"]
+                                       :concept-types ["AttachmentUsageType"]}))
+
+  (count data)
+  (clojure.pprint/pprint data1)
+  (clojure.pprint/pprint (prof-pred
+                          {:statement data1}))
+
+
+  (per/validate-statement-vs-template
+   (first (concept/attachment-usage-validators ["https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#attachment-usage-1"]))
+   data1 :fn-type :predicate)
+
+  (prof-pred data1)
+
 
   )
 
