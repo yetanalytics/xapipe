@@ -71,6 +71,36 @@ bin/run.sh --source-url http://0.0.0.0:8080/xapi \
 
 As with Template Filtering, the `--pattern-id` flags are optional and further limit the forwarding to only the desired Patterns. If the `--pattern-id` flag is omitted the job will filter on all available Patterns in the Profile.
 
+### Concept Filtering
+
+You can also filter on xAPI Profile Concepts alone, without matching specific Templates in the Profile. You can filter on `Verb`, `ActivityType` and/or `AttachmentUsageType`. You can either provide a Profile and specify the types of Concepts to filter on, or you can provide specific IDs. If you provide specific IDs they will override whatever concepts are in the Profile.
+
+Below is an example of filtering on all the Verbs in a Profile:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id concept-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --concept-profile-url "../location-of-profile.jsonld" \
+           --concept-type "Verb"
+```
+
+If you omit concept-type(s) it will filter on all concept types in the Profile. Additionally if you provide a concept-type it will not match any other concepts even if you provide specific IDs.
+
+This is an example of filtering on two specific verb ids:
+
+``` shell
+bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id concept-job-1 \
+           --source-username my_key --source-password my_secret \
+           --target-username my_key --target-password my_secret \
+           --verb-id "https://xapinet.org/xapi/yet/verb-id-1"
+           --verb-id "https://xapinet.org/xapi/yet/verb-id-2"
+```
+
 ### JsonPath Presence Filtering
 
 In cases where you want to ensure that every statement posted to the target LRS has data at a given path, use the `--ensure-path` option:

@@ -12,7 +12,8 @@
             [com.yetanalytics.pan.objects.profile :as prof]
             [com.yetanalytics.pan.objects.template :as template]
             [com.yetanalytics.xapipe.client.multipart-mixed :as mm]
-            [com.yetanalytics.xapipe.filter.path :as path]))
+            [com.yetanalytics.xapipe.filter.path :as path]
+            [com.yetanalytics.xapipe.filter.concept :as concept]))
 
 (s/def ::profile-url string?) ;; These can be from disk, so don't spec 'em too hard
 (s/def ::template-id ::template/id)
@@ -47,10 +48,69 @@
 (s/def ::profile-urls
   (s/every ::profile-url))
 
+;; Concept filter fns
+
+(s/def ::activity-type-ids ::concept/activity-type-ids)
+
+(s/def ::verb-ids ::concept/verb-ids)
+
+(s/def ::attachment-usage-types ::concept/attachment-usage-type-ids)
+
+(s/def ::concept-types
+  (s/every #{"Verb" "ActivityType" "AttachmentUsageType"}))
+
+(s/def ::concept
+  (s/keys :req-un [::profile-urls
+                   ::concept-types
+                   ::activity-type-ids
+                   ::verb-ids
+                   ::attachment-usage-types]))
+
+(s/fdef concept-filter-pred
+  :args (s/cat :concept-cfg ::concept)
+  :ret filter-pred-spec)
+
+
+(defn concept-filter-pred
+  "Given config for a Concept-based filter, return a predicate
+  function to filter records."
+  [{:keys [profile-urls
+           activity-type-ids
+           verb-ids
+           attachment-usage-types
+           concept-types]}]
+  (let [concepts   (reduce (fn [concepts profile]
+                             (into concepts (:concepts profile)))
+                           [] (map get-profile profile-urls))
+        vrb-ids    (or (not-empty verb-ids)
+                       (map :id (filter #(= (:type %) "Verb") concepts)))
+        act-ids    (or (not-empty activity-type-ids)
+                       (map :id (filter #(= (:type %) "ActivityType") concepts)))
+        att-ids    (or (not-empty attachment-usage-types)
+                       (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
+        validators (cond-> []
+                     (empty? concept-types)
+                     (concat (concept/verb-validators vrb-ids)
+                             (concept/activity-type-validators act-ids)
+                             (concept/attachment-usage-validators att-ids))
+                     (some #{"Verb"} (set concept-types))
+                     (into (concept/verb-validators vrb-ids))
+                     (some #{"ActivityType"} (set concept-types))
+                     (into (concept/activity-type-validators act-ids))
+                     (some #{"AttachmentUsageType"} (set concept-types))
+                     (into (concept/attachment-usage-validators att-ids)))]
+    (fn [{:keys [statement attachments]}]
+      (some?
+       (some (fn [v]
+               (per/validate-statement-vs-template
+                        v statement))
+             validators)))))
+
+;; Template filter config
+
 (s/def ::template-ids
   (s/every ::profile-url))
 
-;; Template filter config
 (s/def ::template
   (s/keys :req-un [::profile-urls
                    ::template-ids]))
@@ -195,26 +255,32 @@
 ;; Config map for all filtering
 (def filter-config-spec
   (s/keys :opt-un [::template
-                   ::pattern]))
+                   ::pattern
+                   ::concept]))
 
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/template
   filter-pred-spec)
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/path
+  filter-pred-spec)
+(s/def :com.yetanalytics.xapipe.filter.stateless-predicates/concept
   filter-pred-spec)
 
 (s/fdef stateless-predicates
   :args (s/cat :config filter-config-spec)
   :ret (s/keys :opt-un
                [:com.yetanalytics.xapipe.filter.stateless-predicates/template
-                :com.yetanalytics.xapipe.filter.stateless-predicates/path]))
+                :com.yetanalytics.xapipe.filter.stateless-predicates/path
+                :com.yetanalytics.xapipe.filter.stateless-predicates/concept]))
 
 (defn stateless-predicates
   "Stateless predicates are simple true/false"
   [{:keys [template
-           path]}]
+           path
+           concept]}]
   (cond-> {}
     template (assoc :template (template-filter-pred template))
-    path (assoc :path (path/path-filter-pred path))))
+    path     (assoc :path (path/path-filter-pred path))
+    concept  (assoc :concept (concept-filter-pred concept))))
 
 (s/def :com.yetanalytics.xapipe.filter.stateful-predicates/pattern
   pattern-filter-pred-spec)

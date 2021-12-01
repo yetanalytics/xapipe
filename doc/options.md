@@ -67,6 +67,11 @@ All options:
       --pattern-id IRI                  []                    Pattern IRIs to filter on
       --ensure-path JSONPATH            []                    A JSONPath expression used to filter statements to only those with data at the given path
       --match-path JSONPATH=JSON        []                    A JSONPath expression and matching value used to filter statements to only those with data matching the value at the given path
+      --concept-profile-url IRI         []                    Profile URL/location from which to apply concept filters
+      --concept-type CONCEPT-TYPE       []                    Specific type of concept to filter on. If not set, it will match all concepts in the Profile.
+      --activity-type-id IRI            []                    Activity Type IRIs to filter on. If left blank it will match all Activity Types in the Profile
+      --verb-id IRI                     []                    Verb IRIs to filter on. If left blank it will match all Verbs in the Profile
+      --attachment-usage-type IRI       []                    Attachment Usage Type IRIs to filter on. If left blank it will match all Attachment usage types in the Profile
       --statement-buffer-size SIZE                            Desired size of statement buffer
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
 ```
