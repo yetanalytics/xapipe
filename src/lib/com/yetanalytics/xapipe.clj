@@ -192,9 +192,7 @@
                            state)))))))))
     ;; Post-loop, kill the HTTP client and close the states + cleanup chans
     (client/shutdown conn-mgr)
-    (.close ^CloseableHttpClient http-client)
-    (a/close! states-chan)
-    (a/close! cleanup-chan)))
+    (.close ^CloseableHttpClient http-client)))
 
 (defn- cleanup-loop
   "Async loop to delete attachment tempfiles on a thread"
@@ -316,74 +314,71 @@
             ;; A channel for batches of statements to target
             batch-chan (a/chan batch-buffer)
             ;; A channel to get dropped records
-            cleanup-chan (a/chan cleanup-buffer)]
+            cleanup-chan (a/chan cleanup-buffer)
 
-        ;; Topology, in reverse order:
+            ;; Cleanup loop deletes tempfiles from batch + post
+            cloop (cleanup-loop cleanup-chan)
 
-        ;; Cleanup loop deletes tempfiles from batch + post
-        (cleanup-loop cleanup-chan)
+            ;; Batch + filter statements from statement chan to batch chan
+            _ (ua/batch-filter
+               statement-chan
+               batch-chan
+               target-batch-size
+               batch-timeout
+               :stateless-predicates
+               (filt/stateless-predicates filter-config)
+               :stateful-predicates
+               (filt/stateful-predicates filter-config)
+               :init-states filter-before
+               :cleanup-chan cleanup-chan
+               :reporter reporter)
 
-        ;; Post loop transfers statements until it reaches until or an error
-        (post-loop
-         (merge job-before
-                {:state (-> state-before
-                            (cond->
-                                ;; If a job is paused, re-init
-                                (= :paused (:status state-before))
-                                (state/set-status :init))
-                            (assoc :updated init-stamp))})
-         states-chan
-         stop-chan
-         batch-chan
-         cleanup-chan
-         {:conn-mgr conn-mgr
-          :http-client target-client}
-         reporter)
+            ;; Pipeline from get-chan to statement chan
+            gloop (a/pipeline-blocking
+                   1
+                   statement-chan
+                   (comp
+                    ;; handle error resps
+                    (map (fn [[tag x]]
+                           (case tag
+                             :response x
+                             :exception
+                             (throw (ex-info
+                                     (format "Source Error: %s"
+                                             (ex-message x))
+                                     {:type ::source}
+                                     x)))))
+                    ;; coerce resp to statements
+                    (mapcat xapi/response->statements))
+                   get-chan
+                   true
+                   (fn [ex]
+                     (a/put! stop-chan
+                             {:status :error
+                              :error {:message (ex-message ex)
+                                      :type (case (some-> ex ex-data :type)
+                                              ::source :source
+                                              :job)}})
+                     nil))
+            ;; Post loop transfers statements until it reaches until or an error
+            ploop (post-loop
+                   (merge job-before
+                          {:state (-> state-before
+                                      (cond->
+                                          ;; If a job is paused, re-init
+                                          (= :paused (:status state-before))
+                                        (state/set-status :init))
+                                      (assoc :updated init-stamp))})
+                   states-chan
+                   stop-chan
+                   batch-chan
+                   cleanup-chan
+                   {:conn-mgr conn-mgr
+                    :http-client target-client}
+                   reporter)
+            ]
 
-        ;; Batch + filter statements from statement chan to batch chan
-        (ua/batch-filter
-         statement-chan
-         batch-chan
-         target-batch-size
-         batch-timeout
-         :stateless-predicates
-         (filt/stateless-predicates filter-config)
-         :stateful-predicates
-         (filt/stateful-predicates filter-config)
-         :init-states filter-before
-         :cleanup-chan cleanup-chan
-         :reporter reporter)
-
-        ;; Pipeline responses to statement chan, short circuiting errs
-        (a/pipeline-blocking
-         1
-         statement-chan
-         (comp
-          ;; handle error resps
-          (map (fn [[tag x]]
-                 (case tag
-                   :response x
-                   :exception
-                   (throw (ex-info
-                           (format "Source Error: %s"
-                                   (ex-message x))
-                           {:type ::source}
-                           x)))))
-          ;; coerce resp to statements
-          (mapcat xapi/response->statements))
-         get-chan
-         true
-         (fn [ex]
-           (a/put! stop-chan
-                   {:status :error
-                    :error {:message (ex-message ex)
-                            :type (case (some-> ex ex-data :type)
-                                    ::source :source
-                                    :job)}})
-           nil))
-
-        ;; GET Data from source
-        ;; This starts the job
+        ;; Start the job by initializing the get loop
         (client/get-chan
          get-chan
          stop-chan
@@ -402,6 +397,20 @@
          {:conn-mgr conn-mgr
           :http-client source-client}
          :reporter reporter)
+
+        ;; waits for things to stop, then cleans up
+        (a/go
+          ;; Wait for get
+          (a/<! gloop)
+          ;; Wait for POST
+          (a/<! ploop)
+
+          ;; Close cleanup + drain
+          (a/close! cleanup-chan)
+          (a/<! cloop)
+
+          ;; Close the states chan to terminate
+          (a/close! states-chan))
 
         ;; Return the state emitter and stop fn
         {:states states-chan
