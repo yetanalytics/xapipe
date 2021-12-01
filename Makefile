@@ -1,13 +1,24 @@
 .phony: test-lib bench clean bundle bundle-help
 
 clean:
-	rm -rf target
+	rm -rf target dev-resources/bench/*.json
 
 test-lib:
 	clojure -X:cli:test :dirs '["src/test"]'
 
-bench:
-	clojure -Xtest:bench
+BENCH_SIZE ?= 10000
+BENCH_PROFILE ?= dev-resources/profiles/calibration.jsonld
+
+dev-resources/bench/payload.json:
+	clojure -Xtest:bench write-payload \
+		:num-statements $(BENCH_SIZE) \
+		:profile '"$(BENCH_PROFILE)"' \
+		:out '"dev-resources/bench/payload.json"'
+
+bench: dev-resources/bench/payload.json
+	clojure -Xtest:bench run-bench \
+		:num-statements $(BENCH_SIZE) \
+		:payload-path '"dev-resources/bench/payload.json"'
 
 target/bundle/xapipe.jar:
 	clojure -T:build uber

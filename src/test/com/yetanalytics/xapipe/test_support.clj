@@ -87,13 +87,19 @@
   :dump - A function of no args that will dump memory LRS state
   :load - A function of two args, statements and attachments to load data
   :request-config - A request config ala xapipe.client"
-  [& {:keys [sink
+  [& {:keys [stream-path
+             sink
              seed-path
              port]}]
   (let [port (or port
                  (get-free-port))
-        lrs (if sink
+        lrs (cond
+              sink
               (lrst/->SinkLRS)
+
+              stream-path
+              (lrst/stream-lrs stream-path)
+              :else
               (new-lrs
                (cond->
                    {:mode :sync}
@@ -116,23 +122,29 @@
         server (-> service
                    i/xapi-default-interceptors
                    http/create-server)]
-    {:lrs            lrs
-     :port           port
-     :start          #(do
-                        (log/debugf "Starting LRS on port %d" port)
-                        (http/start server))
-     :stop           #(do
-                        (log/debugf "Stopping LRS on port %d" port)
-                        (http/stop server))
-     :dump           #(mem/dump lrs)
-     :load           (fn [statements & [attachments]]
-                       (lrs/store-statements
-                        lrs
-                        {}
-                        (into [] statements)
-                        (into [] attachments)))
-     :request-config {:url-base    (format "http://0.0.0.0:%d" port)
-                      :xapi-prefix "/xapi"}}))
+    (cond-> {:lrs            lrs
+             :port           port
+             :start          #(do
+                                (log/debugf "Starting LRS on port %d" port)
+                                (http/start server))
+             :stop           #(do
+                                (log/debugf "Stopping LRS on port %d" port)
+                                (http/stop server))
+             :dump           #(mem/dump lrs)
+             :load           (fn [statements & [attachments]]
+                               (lrs/store-statements
+                                lrs
+                                {}
+                                (into [] statements)
+                                (into [] attachments)))
+             :request-config {:url-base    (format "http://0.0.0.0:%d" port)
+                              :xapi-prefix "/xapi"}
+             :type (cond
+                     sink :sink
+                     stream-path :stream
+                     :else
+                     :mem)}
+      stream-path (assoc :stream-path stream-path))))
 
 (defmacro with-running
   "bindings => [name lrs ...]
@@ -202,14 +214,20 @@
       reverse))
 
 (defn lrs-stored-range
-  [{:keys [dump]}]
-  (if-let [ss (-> (dump)
-                  (get :state/statements)
-                  vals
-                  (not-empty))]
-    [(-> ss last (get "stored"))
-     (-> ss first (get "stored"))]
-    []))
+  [{:keys [dump
+           stream-path]
+    lrs-type :type}]
+  (case lrs-type
+    :stream
+    (lrst/get-stream-lrs-range stream-path)
+    :mem
+    (if-let [ss (-> (dump)
+                    (get :state/statements)
+                    vals
+                    (not-empty))]
+      [(-> ss last (get "stored"))
+       (-> ss first (get "stored"))]
+      [])))
 
 (defn gen-statements
   "Generate n statements with default profile and settings, or use provided"

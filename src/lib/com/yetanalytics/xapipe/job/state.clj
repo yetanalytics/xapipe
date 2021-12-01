@@ -37,13 +37,17 @@
     (fn []
       (sgen/return {}))))
 
+(s/def ::updated ::t/normalized-stamp)
+
 (def state-spec
   (s/keys :req-un [::source
                    ::target
                    ::errors
                    ::cursor
                    ::status
-                   ::filter]))
+                   ::filter]
+          ;; Timestamp is added/replaced at runtime
+          :opt-un [::updated]))
 
 (s/fdef errors?
   :args (s/cat :state state-spec)
@@ -207,3 +211,12 @@
                {:type :job
                 :message "Cannot update filter on job with errors"})
     (assoc state :filter filter-state)))
+
+(s/fdef set-updated
+  :args (s/cat :state state-spec)
+  :ret (s/and state-spec
+              #(:updated %)))
+
+(defn set-updated
+  [state]
+  (assoc state :updated (t/now-stamp)))

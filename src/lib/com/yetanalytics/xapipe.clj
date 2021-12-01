@@ -79,9 +79,13 @@
                 ;; A stop is called!
                 (case status
                   :paused
-                  (recur (state/set-status state :paused))
+                  (recur (-> state
+                             (state/set-status :paused)
+                             state/set-updated))
                   :error
-                  (recur (state/add-error state error))))
+                  (recur (-> state
+                             (state/add-error error)
+                             state/set-updated))))
               (if-some [{:keys [batch
                                 filter-state]
                          :or {filter-state {}}} v]
@@ -124,7 +128,8 @@
                            (count attachments)))
                         (recur (-> state
                                    (state/update-cursor cursor)
-                                   (state/update-filter filter-state))))
+                                   (state/update-filter filter-state)
+                                   state/set-updated)))
                       ;; If the post fails, Send the error to the stop channel
                       ;; emit and stop.
                       :exception
@@ -138,7 +143,9 @@
                           (a/>! stop-chan {:status :error
                                            :error error})
                           (log/error "Stopping on POST error")
-                          (recur (state/add-error state error)))))))
+                          (recur (-> state
+                                     (state/add-error error)
+                                     state/set-updated)))))))
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
@@ -149,7 +156,9 @@
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
-                    (recur (state/set-status state :complete))))))))))
+                    (recur (-> state
+                               (state/set-status :complete)
+                               state/set-updated))))))))))
     ;; Post-loop, kill the HTTP client and close the states chan
     (client/shutdown conn-mgr)
     (.close ^CloseableHttpClient http-client)
@@ -244,6 +253,10 @@
                         (last (sort [cursor-before
                                      ?query-since]))
                         cursor-before)
+
+            ;; Send the initial state
+            _ (a/put! states-chan
+                      (update job-before :state state/set-updated))
             ;; A channel that will produce get responses
             get-chan (client/get-chan
                       (a/chan
@@ -308,10 +321,10 @@
                (when (not-empty attachments)
                  (a/thread (mm/clean-tempfiles! attachments))))
              :reporter reporter)
-            ;; Send the init state
-            _ (a/put! states-chan job-before)
             ;; Then set it as running for post
-            running-state (state/set-status state-before :running)]
+            running-state (-> state-before
+                              (state/set-status :running)
+                              state/set-updated)]
         ;; Post loop transfers statements until it reaches until or an error
         (post-loop
          (merge job-before

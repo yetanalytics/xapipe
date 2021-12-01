@@ -116,3 +116,12 @@
           ;; the platform lib. In clojure instants are precise so we can just do
           ;; it. In cljs, we need to override it
           (normalize-inst (parse-inst timestamp)))))))
+
+(s/fdef now-stamp
+  :args (s/cat)
+  :ret ::normalized-stamp)
+
+(defn now-stamp
+  "Return the current time as a normalized stamp"
+  []
+  (normalize-inst (Instant/now)))
