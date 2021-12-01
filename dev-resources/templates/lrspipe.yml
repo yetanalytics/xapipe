@@ -1,0 +1,204 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'LRSPipe Application Template'
+Parameters:
+  # Networking
+  VPCId:
+    Description: 'VPC on which to run LRSPipe'
+    Type: AWS::EC2::VPC::Id
+  LrsPipeSubnet:
+    Description: Subnet on which to run LRSPipe Server
+    Type: AWS::EC2::Subnet::Id
+
+  # Pipe Server
+  InstanceType:
+    Type: String
+    Description: EC2 Instance Type to launch.
+    Default: c5.large
+    AllowedValues:
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+  InstanceAmiId:
+    Description: AMI (image) to use on EC2 instances.
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  InstanceKeyName:
+    Description: Name of an EC2 key pair that can be used to connect to the server (optional)
+    Type: String
+  InstanceSSHCidr:
+    Description: CIDR Range for SSH Access to instances
+    Type: String
+    Default: '173.147.0.0/16'
+  LrsPipeConfig:
+    Description: JSON Configuration of the LRSPipe Job
+    Type: String
+  LrsPipeVersion:
+    Description: Version of LRSPipe to download and install (public release versions on GitHub)
+    Type: String
+    Default: v0.0.10
+
+
+Conditions:
+  InstanceKeyNameProvided:
+    !Not [!Equals [!Ref InstanceKeyName, '']]
+
+Resources:
+
+  # Servers
+
+  PipeInstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref InstanceSSHCidr
+        Description: 'ssh from allowed IP'
+
+  PipeInstance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:
+            - 00_installPipe
+            - 01_setupCfnHup
+            - 02_configurePipe
+            - 03_enablePipe
+            - 04_startPipe
+          UpdateEnvironment:
+            - 00_installPipe
+            - 02_configurePipe
+            - 05_restartPipe
+        00_installPipe:
+          files:
+            "/tmp/xapipe.zip":
+              source: !Join
+                - '/'
+                - - "https://github.com/yetanalytics/xapipe/releases/download"
+                  - !Ref LrsPipeVersion
+                  - "xapipe.zip"
+              mode: "000755"
+              owner: "root"
+              group: "root"
+          commands:
+            00make_dir:
+              cwd: "~"
+              command: "sudo mkdir /opt/xapipe"
+            01unzip_lrs:
+              cwd: "~"
+              command: "sudo unzip /tmp/xapipe.zip -d /opt/xapipe/"
+        01_setupCfnHup:
+          files:
+            '/etc/cfn/cfn-hup.conf':
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=1
+              mode: '000400'
+              owner: root
+              group: root
+            "/lib/systemd/system/cfn-hup.service":
+              content: !Sub |
+                [Unit]
+                Description=cfn-hup daemon
+                [Service]
+                Type=simple
+                ExecStart=/opt/aws/bin/cfn-hup
+                Restart=always
+                [Install]
+                WantedBy=multi-user.target
+            '/etc/cfn/hooks.d/xapipe-auto-reloader.conf':
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.02_configurePipe
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateEnvironment
+                runas=root
+              mode: '000400'
+              owner: root
+              group: root
+          commands:
+            01enable_cfn_hup:
+              command: !Sub |
+                systemctl enable cfn-hup.service
+            02start_cfn_hup:
+              command: !Sub |
+                systemctl start cfn-hup.service
+        02_configurePipe:
+          files:
+            '/opt/xapipe/job-config.json':
+              content: !Ref LrsPipeConfig
+              mode: '000755'
+              owner: root
+              group: root
+            '/lib/systemd/system/xapipe.service':
+              content: !Sub |
+                [Unit]
+                Description=LRSPipe Service
+                [Service]
+                User=root
+                WorkingDirectory=/opt/xapipe
+                ExecStart=/opt/xapipe/bin/run.sh --json-file job-config.json
+                SuccessExitStatus=143
+                TimeoutStopSec=10
+                Restart=on-failure
+                RestartSec=5
+                [Install]
+                WantedBy=multi-user.target
+              mode: '000755'
+              owner: root
+              group: root
+        03_enablePipe:
+          commands:
+            01enable_pipe:
+              command: !Sub |
+                systemctl enable xapipe.service
+        04_startPipe:
+          commands:
+            01start_pipe:
+              command: !Sub |
+                systemctl start xapipe.service
+        05_restartPipe:
+          commands:
+            01daemon_reload:
+              command: |
+                systemctl daemon-reload
+            02restart_pipe:
+              command: !Sub |
+                systemctl restart xapipe.service
+    Properties:
+      ImageId: !Ref InstanceAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !If
+        - InstanceKeyNameProvided
+        - !Ref InstanceKeyName
+        - !Ref AWS::NoValue
+      SecurityGroupIds:
+        - !Ref PipeInstanceSG
+      SubnetId: !Ref LrsPipeSubnet
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          echo 'Yet LRSPipe ${LrsPipeVersion}'
+          # run configsets
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets default
+          # signal CF
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region}
+
+Outputs:
+  JobConfig:
+    Description: LRSPipe Current Job Config
+    Value: !Ref LrsPipeConfig
+    Export:
+      Name: !Sub '${AWS::StackName}:LrsPipeConfig'
+  LrsPipeSubmit:
+    Description: LRSPipe Subnet
+    Value: !Ref LrsPipeSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}:LrsPipeSubnet'
