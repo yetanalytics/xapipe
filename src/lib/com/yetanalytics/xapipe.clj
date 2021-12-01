@@ -190,8 +190,7 @@
                                (state/set-status :complete)
                                state/set-updated)
                            state)))))))))
-    ;; Post-loop, kill the HTTP client and close the states + cleanup chans
-    (client/shutdown conn-mgr)
+    ;; Post-loop, kill the HTTP client
     (.close ^CloseableHttpClient http-client)))
 
 (defn- cleanup-loop
@@ -404,6 +403,9 @@
           (a/<! gloop)
           ;; Wait for POST
           (a/<! ploop)
+
+          ;; With both clients shutdown, we shut down the conn mgr
+          (client/shutdown conn-mgr)
 
           ;; Close cleanup + drain
           (a/close! cleanup-chan)
