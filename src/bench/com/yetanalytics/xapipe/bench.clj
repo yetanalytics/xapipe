@@ -43,15 +43,25 @@
                 :parameters {:seed seed}))]
       (json/generate-stream s w))))
 
-(defn run-lrs
+(defn run-source-lrs
   "Run an LRS that will stream out statements from a file"
-  [{:keys [payload-path]
-    :or {payload-path "dev-resources/bench/payload.json"}}]
+  [{:keys [payload-path
+           port]
+    :or {payload-path "dev-resources/bench/payload.json"
+         port 8080}}]
   (let [lrs (sup/lrs
              :stream-path payload-path
-             :port 8080)]
+             :port port)]
     ((:start lrs))))
 
+(defn run-target-lrs
+  "Run a dummy LRS that will accept statements but not store them"
+  [{:keys [port]
+    :or {port 8081}}]
+  (let [lrs (sup/lrs
+             :sink true
+             :port port)]
+    ((:start lrs))))
 
 (defn- job-time-ms
   "Derive total job time in ms from run states"
