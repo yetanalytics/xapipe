@@ -50,14 +50,11 @@
 
 ;; Concept filter fns
 
-(s/def ::activity-type-ids
-  (s/every ::profile-url))
+(s/def ::activity-type-ids ::concept/activity-type-ids)
 
-(s/def ::verb-ids
-  (s/every ::profile-url))
+(s/def ::verb-ids ::concept/verb-ids)
 
-(s/def ::attachment-uage-types
-  (s/every ::profile-url))
+(s/def ::attachment-usage-types ::concept/attachment-usage-type-ids)
 
 (s/def ::concept-types
   (s/every #{"Verb" "ActivityType" "AttachmentUsageType"}))
