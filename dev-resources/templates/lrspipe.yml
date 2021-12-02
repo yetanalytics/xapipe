@@ -36,7 +36,12 @@ Parameters:
   LrsPipeVersion:
     Description: Version of LRSPipe to download and install (public release versions on GitHub)
     Type: String
-    Default: v0.0.10
+    Default: v0.0.11
+
+  LogRetentionInDays:
+    Description: How long to retain Cloudwatch Logs
+    Type: Number
+    Default: 7
 
 
 Conditions:
@@ -45,7 +50,15 @@ Conditions:
 
 Resources:
 
-  # Servers
+  # Logs
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/yet/lrspipe/${AWS::StackName}'
+      RetentionInDays: !Ref LogRetentionInDays
+
+  # Security
 
   PipeInstanceSG:
     Type: AWS::EC2::SecurityGroup
@@ -59,6 +72,52 @@ Resources:
         CidrIp: !Ref InstanceSSHCidr
         Description: 'ssh from allowed IP'
 
+  # Policy
+  InstancePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Description: IAM Policy for an Instance.
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-${AWS::Region}-lrspipe-instance-policy'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Allow access to write to log group
+          - Effect: Allow
+            Action:
+              - 'logs:DescribeLogGroups'
+            Resource:
+              - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+          - Effect: Allow
+            Action:
+              - 'logs:DescribeLogGroups'
+              - 'logs:CreateLogStream'
+              - 'logs:DescribeLogStreams'
+              - 'logs:PutLogEvents'
+            Resource:
+              - !GetAtt LogGroup.Arn
+
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ec2.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+        - !Ref InstancePolicy
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess # allow x-ray writes
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles: [!Ref InstanceRole]
+
+  # Server
   PipeInstance:
     Type: AWS::EC2::Instance
     Metadata:
@@ -67,13 +126,17 @@ Resources:
           default:
             - 00_installPipe
             - 01_setupCfnHup
-            - 02_configurePipe
-            - 03_enablePipe
-            - 04_startPipe
+            - 02_configureCloudwatch
+            - 03_restartCloudwatch
+            - 04_configurePipe
+            - 05_enablePipe
+            - 06_startPipe
           UpdateEnvironment:
-            - 00_installPipe
-            - 02_configurePipe
-            - 05_restartPipe
+            - 02_configureCloudwatch
+            - 03_restartCloudwatch
+            - 04_configurePipe
+            - 05_enablePipe
+            - 07_restartPipe
         00_installPipe:
           files:
             "/tmp/xapipe.zip":
@@ -89,7 +152,7 @@ Resources:
             00make_dir:
               cwd: "~"
               command: "sudo mkdir /opt/xapipe"
-            01unzip_lrs:
+            01unzip_pipe:
               cwd: "~"
               command: "sudo unzip /tmp/xapipe.zip -d /opt/xapipe/"
         01_setupCfnHup:
@@ -117,7 +180,7 @@ Resources:
               content: !Sub |
                 [cfn-auto-reloader-hook]
                 triggers=post.update
-                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.02_configurePipe
+                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.04_configurePipe
                 action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateEnvironment
                 runas=root
               mode: '000400'
@@ -130,7 +193,66 @@ Resources:
             02start_cfn_hup:
               command: !Sub |
                 systemctl start cfn-hup.service
-        02_configurePipe:
+        02_configureCloudwatch:
+          packages:
+            rpm:
+              amazon-cloudwatch-agent: https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+          files:
+            '/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json':
+              content: !Sub |
+                {
+                  "metrics": {
+                    "append_dimensions": {
+                      "AutoScalingGroupName": "${!aws:AutoScalingGroupName}",
+                      "ImageId": "${!aws:ImageId}",
+                      "InstanceId": "${!aws:InstanceId}",
+                      "InstanceType": "${!aws:InstanceType}"
+                    },
+                    "metrics_collected": {
+                      "cpu": {
+                        "measurement": [
+                          "usage_active",
+                          "usage_nice",
+                          "usage_system",
+                          "usage_user"
+                        ]
+                      },
+                      "mem": {
+                        "measurement": [
+                          "mem_used_percent"
+                        ]
+                      },
+                      "swap": {
+                        "measurement": [
+                          "swap_used_percent"
+                        ]
+                      }
+                    }
+                  },
+                  "logs":{
+                    "logs_collected": {
+                      "files":{
+                        "collect_list": [
+                          {
+                            "file_path": "/opt/xapipe/logs/*",
+                            "auto_removal": true,
+                            "log_group_name": "${LogGroup}",
+                            "log_stream_name": "lrspipe-instance-{instance_id}"
+                          }
+                        ]
+                      }
+                    },
+                    "log_stream_name": "lrspipe-instance-{instance_id}"
+                  }
+                }
+        # Invoke amazon-cloudwatch-agent-ctl to restart the AmazonCloudWatchAgent.
+        03_restartCloudwatch:
+          commands:
+            01_stop_service:
+              command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop
+            02_start_service:
+              command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+        04_configurePipe:
           files:
             '/opt/xapipe/job-config.json':
               content: !Ref LrsPipeConfig
@@ -154,17 +276,17 @@ Resources:
               mode: '000755'
               owner: root
               group: root
-        03_enablePipe:
+        05_enablePipe:
           commands:
             01enable_pipe:
               command: !Sub |
                 systemctl enable xapipe.service
-        04_startPipe:
+        06_startPipe:
           commands:
             01start_pipe:
               command: !Sub |
                 systemctl start xapipe.service
-        05_restartPipe:
+        07_restartPipe:
           commands:
             01daemon_reload:
               command: |
@@ -181,6 +303,7 @@ Resources:
         - !Ref AWS::NoValue
       SecurityGroupIds:
         - !Ref PipeInstanceSG
+      IamInstanceProfile: !Ref InstanceProfile
       SubnetId: !Ref LrsPipeSubnet
       UserData:
         Fn::Base64: !Sub |
