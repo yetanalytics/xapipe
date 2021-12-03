@@ -27,7 +27,7 @@
            profile
            seed
            out]
-    :or {num-statements 10050
+    :or {num-statements 10000
          profile "dev-resources/profiles/calibration.jsonld"
          seed 42
          out "dev-resources/bench/payload.json"}}]
