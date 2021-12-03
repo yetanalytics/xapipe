@@ -3,8 +3,10 @@
 clean:
 	rm -rf target dev-resources/bench/*.json
 
+JAVA_MODULES ?= $(shell cat .java_modules)
+
 test:
-	clojure -X:cli:test :dirs '["src/test"]'
+	clojure -J--limit-modules -J$(JAVA_MODULES) -X:cli:test :dirs '["src/test"]'
 
 BENCH_SIZE ?= 10000
 BENCH_PROFILE ?= dev-resources/profiles/calibration.jsonld
@@ -31,7 +33,6 @@ target/bundle/bin:
 # Make Runtime Environment (i.e. JREs)
 # Will only produce a single jre for macos/linux matching your machine
 MACHINE ?= $(shell bin/machine.sh)
-JAVA_MODULES ?= $(shell cat .java_modules)
 
 target/bundle/runtimes:
 	mkdir -p target/bundle/runtimes
