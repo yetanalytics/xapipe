@@ -16,7 +16,7 @@ dev-resources/bench/payload.json:
 		:out '"dev-resources/bench/payload.json"'
 
 bench: dev-resources/bench/payload.json
-	clojure -Xtest:bench run-bench \
+	clojure -Xtest:bench run-bench-matrix \
 		:num-statements $(BENCH_SIZE) \
 		:payload-path '"dev-resources/bench/payload.json"'
 
