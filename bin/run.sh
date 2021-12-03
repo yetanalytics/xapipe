@@ -2,4 +2,4 @@
 
 MACHINE=`bin/machine.sh`
 
-runtimes/$MACHINE/bin/java -server -Dhttps.protocols=TLSv1.2 -jar xapipe.jar $@
+runtimes/$MACHINE/bin/java -server -jar xapipe.jar $@

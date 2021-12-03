@@ -13,9 +13,14 @@
 
 (deftest get-profile-test
   (testing "slurps the profile from wherever"
-    (is
-     (s/valid? ::prof/profile
-               (get-profile "dev-resources/profiles/calibration.jsonld")))))
+    (testing "a local file"
+      (is
+       (s/valid? ::prof/profile
+                 (get-profile "dev-resources/profiles/calibration.jsonld"))))
+    (testing "a remote file via https"
+      (is
+       (s/valid? ::prof/profile
+                 (get-profile "https://raw.githubusercontent.com/yetanalytics/xapipe/925a16340a1c7f568b98b6d39d88d2e446ea87d5/dev-resources/profiles/calibration.jsonld"))))))
 
 (deftest template-filter-xf-test
   (let [;; Turn into a transducer to show sequence behavior

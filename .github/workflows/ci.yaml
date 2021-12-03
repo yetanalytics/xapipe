@@ -17,5 +17,5 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-deps-
-      - name: Test lib
-        run: make test-lib
+      - name: Run Tests
+        run: make test
