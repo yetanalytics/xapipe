@@ -339,9 +339,7 @@
                        :source {:errors []},
                        :target {:errors []},
                        :errors [],
-                       :filter {}},
-                      :get-buffer-size 10,
-                      :batch-timeout 200}
+                       :filter {}}}
                      (update
                       (edn/read-string message)
                       :state dissoc :updated)))))))
