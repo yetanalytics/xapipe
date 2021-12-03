@@ -205,6 +205,45 @@
           (a/<! (a/thread (mm/clean-tempfiles! attachments))))
         (recur)))))
 
+(defn- statement-loop
+  "Async loop to break GET batches into statements and handle attachments."
+  [get-chan
+   statement-chan
+   stop-chan]
+  (a/go-loop []
+    (if-let [[tag x] (a/<! get-chan)]
+      (do
+        (case tag
+          :response
+          (let [{{:keys [attachments]} :body
+                 :as resp} x
+                ;; Wrap errors and threadiness
+                {:keys [statements
+                        error]}
+                (if (not-empty attachments)
+                  ;; We have to do attachments in a thread
+                  (a/<!
+                   (a/thread
+                     (try {:statements (xapi/response->statements resp)}
+                          (catch Throwable ex
+                            {:error ex}))))
+                  (try {:statements (xapi/response->statements resp)}
+                       (catch Throwable ex
+                         {:error ex})))]
+            (if error
+              (a/>! stop-chan
+                    {:status :error
+                     :error {:message (ex-message error)
+                             :type :job}})
+              (a/<! (a/onto-chan! statement-chan statements false))))
+          :exception
+          (a/>! stop-chan
+                {:status :error
+                 :error {:message (ex-message x)
+                         :type :source}}))
+        (recur))
+      (a/close! statement-chan))))
+
 (defn- init-buffers
   [{{{source-batch-size :batch-size} :source
      :keys [get-buffer-size
@@ -338,33 +377,8 @@
                     :http-client source-client}
                    :reporter reporter)
 
-                        ;; Pipeline from get-chan to statement chan
-            sloop (a/pipeline-blocking
-                   1
-                   statement-chan
-                   (comp
-                    ;; handle error resps
-                    (map (fn [[tag x]]
-                           (case tag
-                             :response x
-                             :exception
-                             (throw (ex-info
-                                     (format "Source Error: %s"
-                                             (ex-message x))
-                                     {:type ::source}
-                                     x)))))
-                    ;; coerce resp to statements
-                    (mapcat xapi/response->statements))
-                   get-chan
-                   true
-                   (fn [ex]
-                     (a/put! stop-chan
-                             {:status :error
-                              :error {:message (ex-message ex)
-                                      :type (case (some-> ex ex-data :type)
-                                              ::source :source
-                                              :job)}})
-                     nil))
+            ;; Pipeline from get-chan to statement chan
+            sloop (statement-loop get-chan statement-chan stop-chan)
 
             ;; Batch + filter statements from statement chan to batch chan
             bloop (ua/batch-filter
