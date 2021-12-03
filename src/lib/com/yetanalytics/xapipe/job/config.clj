@@ -37,6 +37,9 @@
 ;; How long will we wait for a batch to fill?
 (s/def ::batch-timeout pos-int?)
 
+;; Buffer size for async tempfile cleanup
+(s/def ::cleanup-buffer-size nat-int?)
+
 ;; Filter config
 (s/def ::filter
   (s/with-gen filt/filter-config-spec
@@ -50,6 +53,7 @@
                    ::statement-buffer-size
                    ::batch-buffer-size
                    ::batch-timeout
+                   ::cleanup-buffer-size
                    ::filter]))
 
 ;; ensure a config has optional keys w/defaults
@@ -81,7 +85,8 @@
     [get-buffer-size
      statement-buffer-size
      batch-buffer-size
-     batch-timeout]
+     batch-timeout
+     cleanup-buffer-size]
     :or
     {get-buffer-size 10
      batch-timeout   200}}]
@@ -98,11 +103,16 @@
         (or batch-buffer-size
             (max 1
                  (quot statement-buffer-size
-                       post-batch-size)))]
+                       post-batch-size)))
+        cleanup-buffer-size
+        (or cleanup-buffer-size
+            get-batch-size
+            0)]
     {:get-buffer-size       get-buffer-size
      :statement-buffer-size statement-buffer-size
      :batch-buffer-size     batch-buffer-size
      :batch-timeout         batch-timeout
+     :cleanup-buffer-size   cleanup-buffer-size
      :source
      (-> source-config
          (assoc :batch-size get-batch-size

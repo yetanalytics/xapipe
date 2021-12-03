@@ -340,6 +340,9 @@
     :validate [nat-int? "Must be a natural integer"]]
    [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
+    :validate [nat-int? "Must be a natural integer"]]
+   [nil "--cleanup-buffer-size SIZE" "Desired size of tempfile cleanup buffer"
+    :parse-fn #(Long/parseLong %)
     :validate [nat-int? "Must be a natural integer"]]])
 
 (def-option-specs job-options {::filter-ensure-paths ::fpath/ensure-paths
