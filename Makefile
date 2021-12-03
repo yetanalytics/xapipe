@@ -1,9 +1,9 @@
-.phony: test-lib bench clean bundle bundle-help
+.phony: test bench clean bundle bundle-help
 
 clean:
 	rm -rf target dev-resources/bench/*.json
 
-test-lib:
+test:
 	clojure -X:cli:test :dirs '["src/test"]'
 
 BENCH_SIZE ?= 10000
