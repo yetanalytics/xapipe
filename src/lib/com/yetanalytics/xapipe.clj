@@ -248,13 +248,19 @@
   [{{{source-batch-size :batch-size} :source
      :keys [get-buffer-size
             statement-buffer-size
-            batch-buffer-size]}
+            batch-buffer-size
+            cleanup-buffer-size]
+     ;; TODO: actual cleanup buffer arg
+     :or {cleanup-buffer-size 100}}
     :config}]
-  {:get-buffer (a/buffer get-buffer-size)
-   :statement-buffer (a/buffer statement-buffer-size)
-   :batch-buffer (a/buffer batch-buffer-size)
-   :cleanup-buffer (a/buffer (* source-batch-size
-                                get-buffer-size))})
+  {:get-buffer (when-not (zero? get-buffer-size)
+                 (a/buffer get-buffer-size))
+   :statement-buffer (when-not (zero? statement-buffer-size)
+                       (a/buffer statement-buffer-size))
+   :batch-buffer (when-not (zero? batch-buffer-size)
+                   (a/buffer batch-buffer-size))
+   :cleanup-buffer (when-not (zero? cleanup-buffer-size)
+                     (a/buffer cleanup-buffer-size))})
 
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)

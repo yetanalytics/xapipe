@@ -24,15 +24,15 @@
 
 ;; How many get requests to read-ahead
 ;; default: 10
-(s/def ::get-buffer-size pos-int?)
+(s/def ::get-buffer-size nat-int?)
 
 ;; How many statements to buffer
 ;; default: source batch-size * get-buffer-size
-(s/def ::statement-buffer-size pos-int?)
+(s/def ::statement-buffer-size nat-int?)
 
 ;; how many batches of (target batch size) to buffer
 ;; default: statement-buffer-size / target batch-size
-(s/def ::batch-buffer-size pos-int?)
+(s/def ::batch-buffer-size nat-int?)
 
 ;; How long will we wait for a batch to fill?
 (s/def ::batch-timeout pos-int?)
