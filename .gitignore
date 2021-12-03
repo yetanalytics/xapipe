@@ -16,4 +16,6 @@ failures/
 /store/
 /.test_store/
 /tmp/
+/logs/
+.DS_Store
 /dev-resources/bench/*.json
