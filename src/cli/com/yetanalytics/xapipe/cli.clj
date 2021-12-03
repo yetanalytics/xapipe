@@ -447,17 +447,17 @@
 
     (not= get-buffer-size
           (get job :get-buffer-size))
-    (assoc :get-buffer-size get-buffer-size)
+    (assoc-in [:config :get-buffer-size] get-buffer-size)
 
     (not= batch-timeout
           (get job :batch-timeout))
-    (assoc :batch-timeout batch-timeout)
+    (assoc-in [:config :batch-timeout] batch-timeout)
 
     statement-buffer-size
-    (assoc :statement-buffer-size statement-buffer-size)
+    (assoc-in [:config :statement-buffer-size] statement-buffer-size)
 
     batch-buffer-size
-    (assoc :batch-buffer-size batch-buffer-size)))
+    (assoc-in [:config :batch-buffer-size] batch-buffer-size)))
 
 (s/fdef list-store-jobs
   :args (s/cat :store :com.yetanalytics.xapipe/store)
