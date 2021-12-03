@@ -70,21 +70,63 @@
    (-> states last :state :updated tu/parse-inst inst-ms)
    (-> states first :state :updated tu/parse-inst inst-ms)))
 
+(def col-headers
+  {:total-statements "statements"
+   :total-ms "total t (ms)"
+   :s-per-sec "s/sec"
+   :source-batch-size "src batch"
+   :target-batch-size "tgt batch"
+   :get-buffer-size "get buf"
+   :statement-buffer-size "s buf"
+   :batch-buffer-size "batch buf"
+   :batch-timeout "batch ms"})
+
+(def col-order
+  ["statements"
+   "src batch"
+   "get buf"
+   "s buf"
+   "batch buf"
+   "batch ms"
+   "tgt batch"
+   "total t (ms)"
+   "s/sec"])
+
+(defn- ->row
+  [row-map]
+  (into {}
+        (map (fn [[k v]]
+               [(get
+                 col-headers
+                 k
+                 (name k))
+                v]))
+        row-map))
+
 (defn run-bench [{:keys [payload-path
                          source-port
                          source-batch-size
                          target-port
                          target-batch-size
                          num-statements
-                         warmup-batches]
+                         warmup-batches
+                         get-buffer-size
+                         statement-buffer-size
+                         batch-buffer-size
+                         batch-timeout
+                         print-results]
                   :or {payload-path "dev-resources/bench/payload.json"
                        source-port 8080
                        source-batch-size 50
                        target-port 8081
                        target-batch-size 50
-                       num-statements 10050
-                       warmup-batches 1}}]
-  (printf "\nInitializing source LRS from %s\n\n" payload-path)
+                       num-statements 10000
+                       warmup-batches 0
+                       get-buffer-size 10
+                       batch-timeout 200
+                       print-results true}}]
+  (when print-results
+    (printf "\nInitializing source LRS from %s\n\n" payload-path))
   (sup/with-running [source (sup/lrs
                              :stream-path payload-path
                              :port source-port)
@@ -97,21 +139,27 @@
           job-id (.toString (java.util.UUID/randomUUID))
           job {:id job-id,
                :config
-               {:source
-                {:batch-size source-batch-size
-                 :request-config
-                 {:url-base (format "http://0.0.0.0:%d"
-                                    source-port),
-                  :xapi-prefix "/xapi"},
-                 :get-params
-                 {:since since
-                  :until until}},
-                :target
-                {:batch-size target-batch-size
-                 :request-config
-                 {:url-base (format "http://0.0.0.0:%d"
-                                    target-port),
-                  :xapi-prefix "/xapi"}}},
+               (cond-> {:batch-timeout batch-timeout
+                        :get-buffer-size get-buffer-size
+                        :source
+                        {:batch-size source-batch-size
+                         :request-config
+                         {:url-base (format "http://0.0.0.0:%d"
+                                            source-port),
+                          :xapi-prefix "/xapi"},
+                         :get-params
+                         {:since since
+                          :until until}},
+                        :target
+                        {:batch-size target-batch-size
+                         :request-config
+                         {:url-base (format "http://0.0.0.0:%d"
+                                            target-port),
+                          :xapi-prefix "/xapi"}}}
+                 statement-buffer-size
+                 (assoc :statement-buffer-size statement-buffer-size)
+                 batch-buffer-size
+                 (assoc :batch-buffer-size batch-buffer-size)),
                :state
                {:status :init,
                 :cursor "1970-01-01T00:00:00.000000000Z",
@@ -121,7 +169,6 @@
                 :filter {}}}
           ;; Run the job
           all-states (a/<!! (a/into [] (:states (xapipe/run-job job))))
-          ;; _ (pprint/pprint {:job-states (mapv :state all-states)})
           _ (when (-> all-states last :state :status (= :error))
               (throw (ex-info "Job Error!"
                               {:type ::job-error
@@ -131,8 +178,77 @@
           s-per-sec (double
                      (* 1000
                         (/ total-statements
-                           total-ms)))]
-      (pprint/print-table
-       [{"statements" total-statements
-         "total time (ms)" total-ms
-         "s/sec throughput" s-per-sec}]))))
+                           total-ms)))
+          run-config (-> all-states first :config)
+          row-data (merge
+                    {:total-statements total-statements
+                     :total-ms total-ms
+                     :s-per-sec s-per-sec}
+                    {:source-batch-size (-> run-config :source :batch-size)
+                     :target-batch-size (-> run-config :target :batch-size)}
+                    (select-keys run-config
+                                 [:get-buffer-size
+                                  :statement-buffer-size
+                                  :batch-buffer-size
+                                  :batch-timeout]))]
+      (when print-results
+        (pprint/print-table
+         col-order
+         [(->row row-data)]))
+      row-data)))
+
+(defn run-bench-matrix
+  [argm]
+  (pprint/print-table
+   (into ["label" "runs"]
+         col-order)
+   (map ->row
+        (map
+         (fn [{:keys [label
+                      num-runs
+                      warmup
+                      merge-args]}]
+           (assert (< 0 num-runs) "Must run at least once")
+           (let [run! #(run-bench
+                        (merge argm
+                               {:print-results false}
+                               merge-args))
+                 ;; Do the warmup
+                 _ (do
+                     (printf "%s warmup x %d " label warmup)
+                     (flush))
+                 _ (doseq [_ (repeatedly warmup run!)]
+                     (print "|")
+                     (flush))
+                 _ (do (print "\n\n") (flush))
+                 ;; Run the bench
+                 _ (do
+                     (printf "%s run x %d " label num-runs)
+                     (flush))
+                 runs (doall
+                       (for [r (repeatedly num-runs run!)]
+                         (do
+                           (print "|")
+                           (flush)
+                           r)))
+                 _ (do (print "\n\n") (flush))
+                 ]
+             (let [first-run (first runs)]
+               (merge (dissoc first-run
+                              :s-per-sec
+                              :total-ms)
+                      {:label label
+                       :runs num-runs
+                       :total-ms (maths/mean (map :total-ms runs))
+                       :s-per-sec (maths/mean (map :s-per-sec runs))}))))
+         [;; Default tuning args (including calculated)
+          {:label "defaults"
+           :num-runs 10
+           :warmup 5
+           :merge-args
+           {:source-batch-size 50
+            :target-batch-size 50
+            :get-buffer-size 10
+            :statement-buffer-size 500
+            :batch-buffer-size 10
+            :batch-timeout 200}}]))))

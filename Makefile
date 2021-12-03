@@ -1,12 +1,14 @@
-.phony: test-lib bench clean bundle bundle-help
+.phony: test bench clean bundle bundle-help
 
 clean:
 	rm -rf target dev-resources/bench/*.json
 
-test-lib:
-	clojure -X:cli:test :dirs '["src/test"]'
+JAVA_MODULES ?= $(shell cat .java_modules)
 
-BENCH_SIZE ?= 10050
+test:
+	clojure -J--limit-modules -J$(JAVA_MODULES) -X:cli:test :dirs '["src/test"]'
+
+BENCH_SIZE ?= 10000
 BENCH_PROFILE ?= dev-resources/profiles/calibration.jsonld
 
 dev-resources/bench/payload.json:
@@ -16,7 +18,7 @@ dev-resources/bench/payload.json:
 		:out '"dev-resources/bench/payload.json"'
 
 bench: dev-resources/bench/payload.json
-	clojure -Xtest:bench run-bench \
+	clojure -Xtest:bench run-bench-matrix \
 		:num-statements $(BENCH_SIZE) \
 		:payload-path '"dev-resources/bench/payload.json"'
 
@@ -31,7 +33,6 @@ target/bundle/bin:
 # Make Runtime Environment (i.e. JREs)
 # Will only produce a single jre for macos/linux matching your machine
 MACHINE ?= $(shell bin/machine.sh)
-JAVA_MODULES ?= $(shell cat .java_modules)
 
 target/bundle/runtimes:
 	mkdir -p target/bundle/runtimes
