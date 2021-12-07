@@ -33,9 +33,7 @@
     })
 
 (s/def ::filter
-  (s/with-gen filt/filter-state-spec
-    (fn []
-      (sgen/return {}))))
+  filt/filter-state-spec)
 
 (s/def ::updated ::t/normalized-stamp)
 
