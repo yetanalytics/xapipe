@@ -4,4 +4,5 @@
             [com.yetanalytics.xapipe.test-support :as sup]))
 
 (sup/def-ns-check-tests
-  com.yetanalytics.xapipe.job.json)
+  com.yetanalytics.xapipe.job.json
+  {:default {sup/stc-opts {:num-tests 10}}})
