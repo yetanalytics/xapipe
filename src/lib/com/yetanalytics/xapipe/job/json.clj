@@ -4,7 +4,28 @@
             [clojure.spec.gen.alpha :as sgen]
             [cheshire.core :as json]
             [com.yetanalytics.xapipe.job :as job]
-            [com.yetanalytics.xapipe.job.config :as config]))
+            [com.yetanalytics.xapipe.job.config :as config]
+            [clojure.string :as cs]
+            [xapi-schema.spec :as xs]))
+
+(defn- pack-subreg-keys
+  [job]
+  (if (some-> job :state :filter :pattern not-empty)
+    (update-in
+     job
+     [:state :filter :pattern]
+     (partial
+      reduce-kv
+      (fn [m k v]
+        (assoc
+         m
+         (if (vector? k)
+           (let [[reg subreg] k]
+             (format "%s.%s" reg subreg))
+           k)
+         v))
+      {}))
+    job))
 
 (s/def ::job-json
   (s/with-gen
@@ -13,7 +34,10 @@
     (fn []
       (sgen/fmap
        ;; job->json is identical to cheshire generate so this is OK
-       json/generate-string
+       ;; EXCEPT for the need to pack weird vector keys
+       (comp
+        json/generate-string
+        pack-subreg-keys)
        (s/gen job/job-spec)))))
 
 (defn- keywordize-status
@@ -60,6 +84,29 @@
          pattern))
        f))))
 
+(defn- unpack-subreg
+  [subreg-str]
+  (cs/split subreg-str #"\." 2))
+
+(defn- unpack-subreg-keys
+  [job]
+  (if (some-> job :state :filter :pattern not-empty)
+    (update-in
+     job
+     [:state :filter :pattern]
+     (partial
+      reduce-kv
+      (fn [m k v]
+        (assoc
+         m
+         (let [[reg ?subreg] (unpack-subreg (name k))]
+           (if ?subreg
+             [reg ?subreg]
+             reg))
+         v))
+      {}))
+    job))
+
 (s/fdef json->job
   :args (s/cat :json-str ::job-json)
   :ret job/job-spec)
@@ -71,6 +118,7 @@
       keywordize-status
       keywordize-job-error-types
       filter-states-to-sets
+      unpack-subreg-keys
       (update :config config/ensure-defaults)))
 
 (s/fdef job->json
