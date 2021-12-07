@@ -20,6 +20,46 @@
   [job]
   (update-in job [:state :status] (partial keyword nil)))
 
+(defn- keywordize-error-types
+  [errors]
+  (mapv
+   (fn [error]
+     (update error :type (partial keyword nil)))
+   errors))
+
+(defn- keywordize-job-error-types
+  [job]
+  (-> job
+      (update-in [:state :errors] keywordize-error-types)
+      (update-in [:state :source :errors] keywordize-error-types)
+      (update-in [:state :target :errors] keywordize-error-types)))
+
+(defn- filter-states-to-sets
+  [job]
+  (update-in
+   job
+   [:state :filter]
+   (fn [{:keys [pattern] :as f}]
+     (if (not-empty pattern)
+       (assoc
+        f
+        :pattern
+        (reduce-kv
+         (fn [m id-k pat-map]
+           (assoc
+            m
+            (name id-k)
+            (reduce-kv
+             (fn [pm pat-k fsm-v]
+               (assoc pm
+                      (name pat-k)
+                      (update fsm-v :states (partial into #{}))))
+             {}
+             pat-map)))
+         {}
+         pattern))
+       f))))
+
 (s/fdef json->job
   :args (s/cat :json-str ::job-json)
   :ret job/job-spec)
@@ -29,6 +69,8 @@
   [^String json-str]
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status
+      keywordize-job-error-types
+      filter-states-to-sets
       (update :config config/ensure-defaults)))
 
 (s/fdef job->json
