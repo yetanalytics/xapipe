@@ -1,13 +1,24 @@
 (ns com.yetanalytics.xapipe.util
   "Utility functions"
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]))
+
+(def pos-int-safe-gen
+  (s/with-gen pos-int?
+    (fn []
+      (sgen/large-integer* {:min 1 :max 100 :NaN? false}))))
+
+(def nat-int-safe-gen
+  (s/with-gen nat-int?
+    (fn []
+      (sgen/large-integer* {:min 0 :max 100 :NaN? false}))))
 
 ;; From `lrsql`
 
-(s/def ::budget      (s/and int? (fn [n] (< 0 n Integer/MAX_VALUE))))
-(s/def ::max-attempt (s/and int? (fn [n] (< 0 n Integer/MAX_VALUE))))
-(s/def ::j-range     (s/and int? (fn [n] (<= 0 n Integer/MAX_VALUE))))
-(s/def ::initial     (s/and int? (fn [n] (<= 0 n Integer/MAX_VALUE))))
+(s/def ::budget      pos-int-safe-gen)
+(s/def ::max-attempt pos-int-safe-gen)
+(s/def ::j-range     nat-int-safe-gen)
+(s/def ::initial     nat-int-safe-gen)
 
 (def backoff-opts-spec
   (s/keys :req-un [::budget ::max-attempt]
