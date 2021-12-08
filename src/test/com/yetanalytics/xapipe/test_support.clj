@@ -264,18 +264,25 @@
                   (or profiles
                       ["dev-resources/profiles/calibration.jsonld"]))))))))
 
+;; These syms have funky instrumentation and must be globally ommitted for now
+;; TODO: Fix + remove
+(def blacklist-syms
+  '#{com.yetanalytics.persephone.pattern.fsm/epsilon-closure
+     com.yetanalytics.persephone.pattern.fsm/read-next})
+
 (defn instrument-fixture
   ([]
    (instrument-fixture
     (remove
      (fn [sym]
-       (let [sym-ns (namespace sym)]
-         (or
-          ;; Datasim and LRS are only used in testing, and are not called
-          ;; by the lib or cli.
-          ;; Therefore we can omit them.
-          (cs/starts-with? sym-ns "com.yetanalytics.datasim")
-          (cs/starts-with? sym-ns "com.yetanalytics.lrs"))))
+       (or (contains? blacklist-syms sym)
+           (let [sym-ns (namespace sym)]
+             (or
+              ;; Datasim and LRS are only used in testing, and are not called
+              ;; by the lib or cli.
+              ;; Therefore we can omit them.
+              (cs/starts-with? sym-ns "com.yetanalytics.datasim")
+              (cs/starts-with? sym-ns "com.yetanalytics.lrs")))))
      (st/instrumentable-syms))))
   ([sym-or-syms]
    (fn [f]
