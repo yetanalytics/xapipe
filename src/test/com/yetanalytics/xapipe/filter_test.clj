@@ -250,18 +250,13 @@ ids are provided, and all fail when not containing any concepts from the profile
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
                   #{{:state 1,
-                     :accepted? false,
-                     :visited
-                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"]}}}}
+                     :accepted? false}}}}
                 true]
                ;; b continues
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
                   #{{:state 0,
-                     :accepted? false,
-                     :visited
-                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"
-                      "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-2"]}}}}
+                     :accepted? false}}}}
                 true]
                ;; c is accepted and terminates
                [{} true]]
@@ -272,9 +267,7 @@ ids are provided, and all fail when not containing any concepts from the profile
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
                   #{{:state 1,
-                     :accepted? false,
-                     :visited
-                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"]}}}}
+                     :accepted? false}}}}
                 true]
                ;; c drops
                [{} false]])))
