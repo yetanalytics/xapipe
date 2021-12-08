@@ -162,20 +162,20 @@
       :else              nil)))
 
 (s/def ::accepted? boolean?)
-(s/def ::states (s/coll-of int?
-                           :kind set?
-                           :into #{}))
+(s/def ::state nat-int?)
 
 (def state-info-spec
   (s/keys :req-un [::accepted?
-                   ::states]))
+                   ::state]))
 
 (def pattern-filter-state-spec
   (s/map-of
    state-key-spec
    (s/map-of
     ::pattern-id
-    state-info-spec)))
+    (s/coll-of state-info-spec
+               :kind set?
+               :into #{}))))
 
 ;; A stateful predicate for pattern filters
 (def pattern-filter-pred-spec
@@ -195,15 +195,15 @@
   :ret pattern-filter-pred-spec)
 
 (defn pattern-filter-pred
-  "Given a list of profile URLs generate a stateful predicate to filter
-  to only statements in patterns. If pattern ids are provided, limit filtered
-  statements to those."
   [{:keys [profile-urls
            pattern-ids]}]
   (let [fsm-map (-> profile-urls
                     (->> (map get-profile)
                          (map per/profile->fsms)
-                         (into {}))
+                         ;; This is to preserve meta
+                         ;; TODO: This meta should go away in future persephone
+                         ;; in future will not assume a single profile
+                         (reduce merge))
                     (cond->
                         (not-empty pattern-ids)
                       (select-keys pattern-ids)))]
@@ -211,43 +211,34 @@
          {:keys [statement]
           :as record}]
       (if-let [state-key (get-state-key statement)]
-        (let [;; Just the state concerned with this reg
-              reg-state (get state state-key)
+        (let [{:keys [error] :as ret} (per/match-statement-vs-profile
+                                       fsm-map state statement)]
+          (if error
+            [state false]
+            (let [reg-map (get ret state-key)
+                  {:keys [open
+                          accepted
+                          failed]} (reduce-kv
+                                    (fn [m pattern-id states]
+                                      (cond
+                                        (empty? states)
+                                        (assoc-in m [:failed pattern-id] states)
 
-              [new-reg-state
-               accepted-patterns]
-              (reduce
-               (fn [[reg-s accepted] [pat-key new-s]]
-                 (let [accepted? (:accepted? new-s)
-                       failed? (empty? (:states new-s))]
-                   [;; If the state is accepted or faled.
-                    ;; remove it
-                    (if (or accepted?
-                            failed?)
-                      (dissoc reg-s pat-key)
-                      ;; Otherwise, it is in-process
-                      (assoc reg-s pat-key new-s))
-                    ;; Track accepted for filter
-                    (cond-> accepted
-                      accepted?
-                      (conj pat-key))]))
-               [(or reg-state {})
-                #{}]
-               (for [[pat-key fsm] fsm-map]
-                 [pat-key
-                  (fsm/read-next
-                   fsm
-                   (get reg-state pat-key)
-                   statement)]))]
-          [;; Add the new in-process state or remove it
-           (if (empty? new-reg-state)
-             (dissoc state state-key)
-             (assoc state state-key new-reg-state))
-           ;; If we have in-process or are accepting, pass it
-           (if (or (not-empty new-reg-state)
-                   (not-empty accepted-patterns))
-             true
-             false)])
+                                        (some :accepted? states)
+                                        (assoc-in m [:accepted pattern-id] states)
+                                        :else
+                                        (assoc-in m [:open pattern-id] states)))
+                                    {:open {}
+                                     :accepted {}
+                                     :failed {}}
+                                    reg-map)]
+              [;; New State
+               (if (not-empty open)
+                 (assoc state state-key open)
+                 (dissoc state state-key))
+               ;; Predicate Result
+               (some? (or (not-empty open)
+                          (not-empty accepted)))])))
         [state false]))))
 
 (s/def ::path path/path-filter-cfg-spec)

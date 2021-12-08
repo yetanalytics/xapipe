@@ -249,12 +249,19 @@ ids are provided, and all fail when not containing any concepts from the profile
       [a b c] [;; a starts the pattern
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{1}, :accepted? false}}}
+                  #{{:state 1,
+                     :accepted? false,
+                     :visited
+                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"]}}}}
                 true]
                ;; b continues
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{0}, :accepted? false}}}
+                  #{{:state 0,
+                     :accepted? false,
+                     :visited
+                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"
+                      "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-2"]}}}}
                 true]
                ;; c is accepted and terminates
                [{} true]]
@@ -264,7 +271,10 @@ ids are provided, and all fail when not containing any concepts from the profile
                ;; a picks up
                [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{1}, :accepted? false}}}
+                  #{{:state 1,
+                     :accepted? false,
+                     :visited
+                     ["https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1"]}}}}
                 true]
                ;; c drops
                [{} false]])))
