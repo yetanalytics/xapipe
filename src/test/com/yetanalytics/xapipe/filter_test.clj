@@ -309,10 +309,11 @@ ids are provided, and all fail when not containing any concepts from the profile
               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
                  #{{:state 1,
-                    :accepted? false}}
-                 "f851859f-b0fe-4b36-9939-4276b96d302d"
-                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
-                  #{{:state 1, :accepted? false}}}}}
+                    :accepted? false}}}
+                "f851859f-b0fe-4b36-9939-4276b96d302d"
+                {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
+                 #{{:state 1, :accepted? false}}}
+                }
                true]
 
               ;; b continues
