@@ -34,6 +34,21 @@
             "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1",
             "sequence" : [
+                "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-2"
+            ]
+        },
+        {
+            "definition" : {
+                "en" : "Pattern 2"
+            },
+            "primary" : false,
+            "prefLabel" : {
+                "en" : "Learning Pattern 2"
+            },
+            "type" : "Pattern",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-2",
+            "sequence" : [
                 "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-1",
                 "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-2",
                 "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-3"
