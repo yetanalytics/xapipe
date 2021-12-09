@@ -1,4 +1,4 @@
-name: Docker
+name: CI
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - 'master'
 
 jobs:
-  docker:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Get an env
@@ -30,8 +30,25 @@ jobs:
       - name: Test Xapipe
         run: make test
 
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get an env
+        uses: yetanalytics/actions/setup-env@v0
+
+      - name: Cache Deps
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
       - name: Build Xapipe
-        run: make clean bundle BUNDLE_RUNTIMES=false
+        run: make bundle BUNDLE_RUNTIMES=false
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
