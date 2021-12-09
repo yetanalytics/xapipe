@@ -267,8 +267,7 @@
 ;; These syms have funky instrumentation and must be globally ommitted for now
 ;; TODO: Fix + remove
 (def blacklist-syms
-  '#{com.yetanalytics.persephone.pattern.fsm/epsilon-closure
-     com.yetanalytics.persephone.pattern.fsm/read-next})
+  '#{com.yetanalytics.persephone.pattern.fsm/epsilon-closure})
 
 (defn instrument-fixture
   ([]
