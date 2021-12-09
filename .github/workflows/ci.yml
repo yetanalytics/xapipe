@@ -27,8 +27,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deps-
 
+      - name: Test Xapipe
+        run: make test
+
       - name: Build Xapipe
-        run: make bundle BUNDLE_RUNTIMES=false
+        run: make clean bundle BUNDLE_RUNTIMES=false
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
