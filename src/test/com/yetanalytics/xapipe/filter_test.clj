@@ -254,15 +254,20 @@ ids are provided, and all fail when not containing any concepts from the profile
     (sup/art [testing-tag pred-config statements states]
              (testing testing-tag
                (let [pred (pattern-filter-pred
-                           pred-config)]
+                           pred-config)
+                     states' (map
+                              (fn [[smap match?]]
+                                [(:states-map smap)
+                                 match?])
+                              (rest
+                               (reductions
+                                (fn [[state _] s]
+                                  (pred state {:statement s}))
+                                [{} nil]
+                                statements)))]
                  (is
                   (= states
-                     (rest
-                      (reductions
-                       (fn [[state _] s]
-                         (pred state {:statement s}))
-                       [{} nil]
-                       statements))))))
+                     states'))))
 
              "In order, is matched"
              {:profile-urls [profile-url]
