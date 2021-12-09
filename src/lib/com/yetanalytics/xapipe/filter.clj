@@ -209,14 +209,16 @@
                       :states-map
                       (if open?
                         states-map
-                        (let [[sk pid] (first
-                                        (concat
-                                         accepts
-                                         rejects))
-                              wo (update states-map sk dissoc pid)]
-                          (cond-> wo
-                            (empty? (get wo sk))
-                            (dissoc sk)))))
+                        (reduce
+                         (fn [sm [sk pid]]
+                           (let [wo (update sm sk dissoc pid)]
+                             (cond-> wo
+                               (empty? (get wo sk))
+                               (dissoc sk))))
+                         states-map
+                         (concat
+                          accepts
+                          rejects))))
                ;; Predicate Result
                (some?
                 (or open?
