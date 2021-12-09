@@ -154,8 +154,15 @@
 (defn get-state-key
   "Given a statement, return a state key if possible, or nil"
   [statement]
-  (let [?reg (get-in statement ["context" "registration"])
-        ?subreg (get-in statement ["context" "extensions" per/subreg-iri])]
+  (let [?reg (get-in
+              statement
+              ["context"
+               "registration"])
+        ?subreg (get-in
+                 statement
+                 ["context"
+                  "extensions"
+                  "https://w3id.org/xapi/profiles/extensions/subregistration"])]
     (cond
       (and ?reg ?subreg) [?reg ?subreg]
       ?reg               ?reg
