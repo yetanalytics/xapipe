@@ -14,7 +14,7 @@
         org.clojure/tools.logging {:mvn/version "1.1.0"}
         com.yetanalytics/project-persephone
         {:git/url "https://github.com/yetanalytics/project-persephone.git"
-         :sha "8e3e9f1ee28f7a6a7dd286d098f31c4428117219"
+         :sha "32a8de46141324a4b7923e87a531a3800bdd9d38"
          :exclusions [org.clojure/clojurescript]}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
