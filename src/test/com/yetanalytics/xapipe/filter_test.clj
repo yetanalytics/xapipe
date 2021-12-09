@@ -8,8 +8,12 @@
             [com.yetanalytics.pan.objects.profile :as prof]))
 
 ;; We restrict instrumentation here because we don't want to test the libs
-(use-fixtures :once (sup/instrument-fixture
-                     (st/enumerate-namespace 'com.yetanalytics.xapipe.filter)))
+(use-fixtures
+  :once
+  (sup/instrument-fixture
+   (concat
+    (st/enumerate-namespace 'com.yetanalytics.xapipe.filter)
+    (st/enumerate-namespace 'com.yetanalytics.persephone.pattern.fsm))))
 
 (deftest get-profile-test
   (testing "slurps the profile from wherever"
