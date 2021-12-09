@@ -253,14 +253,23 @@ ids are provided, and all fail when not containing any concepts from the profile
                                :objectType "Agent"}]}])]
     (sup/art [testing-tag pred-config statements states]
              (testing testing-tag
-               (let [pred (pattern-filter-pred
-                           pred-config)
-                     states' (rest
-                              (reductions
-                               (fn [[state _] s]
-                                 (pred state {:statement s}))
-                               [{} nil]
-                               statements))]
+               (let [pred (try
+                            (pattern-filter-pred
+                             pred-config)
+                            (catch Exception _
+                              ::compile-exception))
+                     states' (if (= ::compile-exception pred)
+                               ::compile-exception
+                               (try
+                                 (doall
+                                  (rest
+                                   (reductions
+                                    (fn [[state _] s]
+                                      (pred state {:statement s}))
+                                    [{} nil]
+                                    statements)))
+                                 (catch Exception _
+                                   ::match-exception)))]
                  (is
                   (= states
                      states'))))
@@ -390,7 +399,21 @@ ids are provided, and all fail when not containing any concepts from the profile
                   "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"]],
                 :rejects [],
                 :states-map {}}
-               true]])))
+               true]]
+
+             "Invalid multiple profiles with conflicting profile ids"
+             {:profile-urls [profile-url
+                             profile-url]
+              :pattern-ids []}
+             [a]
+             ::compile-exception
+
+             "Invalid multiple profiles with conflicting pattern/template ids"
+             {:profile-urls [profile-url
+                             "dev-resources/profiles/calibration_strict_pattern_conflict.jsonld"]
+              :pattern-ids []}
+             [a]
+             ::compile-exception)))
 
 (deftest stateless-predicates-test
   (testing "transforms config into stateless predicates"
