@@ -131,12 +131,15 @@ Resources:
             - 04_configurePipe
             - 05_enablePipe
             - 06_startPipe
-          UpdateEnvironment:
-            - 02_configureCloudwatch
-            - 03_restartCloudwatch
+          UpdateConfig:
+            - 04_configurePipe
+            - 07_restartPipe
+          UpdateVersion:
+            - 08_stopPipe
+            - 00_installPipe
             - 04_configurePipe
             - 05_enablePipe
-            - 07_restartPipe
+            - 06_startPipe
         00_installPipe:
           files:
             "/tmp/xapipe.zip":
@@ -176,12 +179,22 @@ Resources:
                 Restart=always
                 [Install]
                 WantedBy=multi-user.target
-            '/etc/cfn/hooks.d/xapipe-auto-reloader.conf':
+            '/etc/cfn/hooks.d/xapipe-config-reloader.conf':
               content: !Sub |
                 [cfn-auto-reloader-hook]
                 triggers=post.update
                 path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.04_configurePipe
-                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateEnvironment
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateConfig
+                runas=root
+              mode: '000400'
+              owner: root
+              group: root
+            '/etc/cfn/hooks.d/xapipe-version-reloader.conf':
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.01_installPipe
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateVersion
                 runas=root
               mode: '000400'
               owner: root
@@ -294,6 +307,11 @@ Resources:
             02restart_pipe:
               command: !Sub |
                 systemctl restart xapipe.service
+        08_stopPipe:
+          commands:
+            01stop_pipe:
+              command: |
+                systemctl stop xapipe.service
     Properties:
       ImageId: !Ref InstanceAmiId
       InstanceType: !Ref InstanceType
