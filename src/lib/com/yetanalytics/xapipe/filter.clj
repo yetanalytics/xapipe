@@ -220,8 +220,7 @@
                  ;; On any accept
                  (not-empty accepts)
                  ;; No news is good news
-                 (and (empty? accepts)
-                      (empty? rejects))
+                 (empty? rejects)
                  ;; If rejects only, we need to check for open patterns
                  ;; after eviction since this must satisfy at least one
                  (some
