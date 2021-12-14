@@ -5,6 +5,9 @@ clean:
 
 JAVA_MODULES ?= $(shell cat .java_modules)
 
+target/nvd:
+	clojure -Xnvd check :classpath '"'"$$(clojure -Spath -Acli)"'"'
+
 test:
 	clojure -J--limit-modules -J$(JAVA_MODULES) -X:cli:test :dirs '["src/test"]'
 
