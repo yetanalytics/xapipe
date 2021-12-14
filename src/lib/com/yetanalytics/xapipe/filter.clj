@@ -146,6 +146,24 @@
   (s/or :init #{{}}
         :running per/state-info-map-spec))
 
+(s/fdef evict-keys
+  :args (s/cat :states-map ::per/states-map
+               :state-keys (s/every
+                            (s/tuple per/registration-key-spec
+                                     ::pattern-id)))
+  :ret ::per/states-map)
+
+(defn evict-keys
+  [states-map state-keys]
+  (reduce
+   (fn [sm [sk pid]]
+     (let [wo (update sm sk dissoc pid)]
+       (cond-> wo
+         (empty? (get wo sk))
+         (dissoc sk))))
+   states-map
+   state-keys))
+
 ;; A stateful predicate for pattern filters
 (def pattern-filter-pred-spec
   (s/fspec :args (s/cat :state pattern-filter-state-spec
@@ -186,27 +204,31 @@
                                        fsm-map state statement)]
           (if error
             [state false]
-            (let [open? (and (empty? accepts)
-                             (empty? rejects))]
+            (let [;; Remove any accepted/rejected from the state map
+                  ;; to save space!
+                  states-map' (evict-keys
+                               states-map
+                               (concat
+                                accepts
+                                rejects))]
               [;; New State
                (assoc ret
                       :states-map
-                      (if open?
-                        states-map
-                        (reduce
-                         (fn [sm [sk pid]]
-                           (let [wo (update sm sk dissoc pid)]
-                             (cond-> wo
-                               (empty? (get wo sk))
-                               (dissoc sk))))
-                         states-map
-                         (concat
-                          accepts
-                          rejects))))
+                      states-map')
                ;; Predicate Result
                (some?
-                (or open?
-                    (not-empty accepts)))])))
+                (or
+                 ;; intermediate pass
+                 (and (empty? accepts)
+                      (empty? rejects))
+                 ;; accepts w/no reject
+                 (and (not-empty accepts)
+                      (empty? rejects))
+                 ;; If rejects only, we need to check for open patterns
+                 ;; after eviction since this must satisfy at least one
+                 (get states-map'
+                      ;; the state key of the first reject
+                      (ffirst rejects))))])))
         ;; No registration, immediate return
         [state false]))))
 
