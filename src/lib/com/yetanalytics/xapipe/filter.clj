@@ -182,8 +182,7 @@
   :ret pattern-filter-pred-spec)
 
 (defn pattern-filter-pred
-  "Build a stateful predicate that matches profile patterns as far as it can.
-  NOTE: This function is NOT THREAD SAFE due to upstream"
+  "Build a stateful predicate that matches profile patterns as far as it can."
   [{:keys [profile-urls
            pattern-ids]}]
   (let [fsm-map (apply
