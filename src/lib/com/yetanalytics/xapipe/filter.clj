@@ -142,32 +142,6 @@
 
 (s/def ::pattern-id ::pat/id)
 
-(def state-key-spec
-  (s/or :registration :context/registration
-        :subreg (s/tuple :context/registration
-                         :context/registration)))
-
-(s/fdef get-state-key
-  :args (s/cat :statement ::xs/statement)
-  :ret (s/nilable state-key-spec))
-
-(defn get-state-key
-  "Given a statement, return a state key if possible, or nil"
-  [statement]
-  (let [?reg (get-in
-              statement
-              ["context"
-               "registration"])
-        ?subreg (get-in
-                 statement
-                 ["context"
-                  "extensions"
-                  "https://w3id.org/xapi/profiles/extensions/subregistration"])]
-    (cond
-      (and ?reg ?subreg) [?reg ?subreg]
-      ?reg               ?reg
-      :else              nil)))
-
 (def pattern-filter-state-spec
   (s/or :init #{{}}
         :running per/state-info-map-spec))
@@ -190,6 +164,8 @@
   :ret pattern-filter-pred-spec)
 
 (defn pattern-filter-pred
+  "Build a stateful predicate that matches profile patterns as far as it can.
+  NOTE: This function is NOT THREAD SAFE due to upstream"
   [{:keys [profile-urls
            pattern-ids]}]
   (let [fsm-map (apply
@@ -201,7 +177,8 @@
     (fn [state
          {:keys [statement]
           :as record}]
-      (if-let [state-key (get-state-key statement)]
+      ;; Simple optimization: If there is a registration, we try matching
+      (if (get-in statement ["context" "registration"])
         (let [{:keys [accepts
                       rejects
                       states-map
@@ -230,6 +207,7 @@
                (some?
                 (or open?
                     (not-empty accepts)))])))
+        ;; No registration, immediate return
         [state false]))))
 
 (s/def ::path path/path-filter-cfg-spec)
