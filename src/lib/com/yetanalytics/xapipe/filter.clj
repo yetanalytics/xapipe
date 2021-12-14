@@ -217,17 +217,19 @@
                ;; Predicate Result
                (some?
                 (or
-                 ;; intermediate pass
+                 ;; On any accept
+                 (not-empty accepts)
+                 ;; No news is good news
                  (and (empty? accepts)
-                      (empty? rejects))
-                 ;; accepts w/no reject
-                 (and (not-empty accepts)
                       (empty? rejects))
                  ;; If rejects only, we need to check for open patterns
                  ;; after eviction since this must satisfy at least one
-                 (get states-map'
-                      ;; the state key of the first reject
-                      (ffirst rejects))))])))
+                 (some
+                  ;; State keys could vary for subreg
+                  ;; We are checking for at least one still going
+                  (fn [[state-key _]]
+                    (get states-map' state-key))
+                  rejects)))])))
         ;; No registration, immediate return
         [state false]))))
 
