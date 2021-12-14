@@ -1,4 +1,4 @@
-.phony: test bench clean bundle bundle-help
+.phony: test bench clean bundle bundle-help ci
 
 clean:
 	rm -rf target dev-resources/bench/*.json
@@ -10,6 +10,8 @@ target/nvd:
 
 test:
 	clojure -J--limit-modules -J$(JAVA_MODULES) -X:cli:test :dirs '["src/test"]'
+
+ci: test target/nvd
 
 BENCH_SIZE ?= 10000
 BENCH_PROFILE ?= dev-resources/profiles/calibration.jsonld

@@ -18,4 +18,4 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-deps-
       - name: Run Tests
-        run: make test
+        run: make ci
