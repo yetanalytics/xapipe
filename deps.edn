@@ -12,9 +12,9 @@
                       org.clojure/clojurescript
                       org.clojure/data.json]}
         org.clojure/tools.logging {:mvn/version "1.1.0"}
-        com.yetanalytics/project-persephone
-        {:git/url "https://github.com/yetanalytics/project-persephone.git"
-         :sha "b167b4a05afe2f4c4b3ee86a1a077fa36d4e4732"
+        io.github.yetanalytics/project-persephone
+        {:git/sha "6f9c947"
+         :git/tag "v0.7.0"
          :exclusions [org.clojure/clojurescript]}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
