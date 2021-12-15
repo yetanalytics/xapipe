@@ -2,7 +2,7 @@
 
 # Yet Analytics LRSPipe
 
-[![CI](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yaml/badge.svg)](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yaml)
+[![CI](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yaml/badge.svg)](https://github.com/yetanalytics/xapipe/actions/workflows/ci.yml)
 [![Docker Image Version (tag latest semver)](https://img.shields.io/docker/v/yetanalytics/xapipe/latest?color=blue&label=docker&style=plastic)](https://hub.docker.com/r/yetanalytics/xapipe)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-5e0b73.svg)](CODE_OF_CONDUCT.md)
 
