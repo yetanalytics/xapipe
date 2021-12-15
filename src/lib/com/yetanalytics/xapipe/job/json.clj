@@ -1,31 +1,61 @@
 (ns com.yetanalytics.xapipe.job.json
   "JSON Serialization/Deserialization for Jobs"
-  (:require [clojure.spec.alpha :as s]
+  (:require [cheshire.core :as json]
+            [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
-            [cheshire.core :as json]
+            [cognitect.transit :as transit]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.config :as config]
-            [clojure.string :as cs]
-            [xapi-schema.spec :as xs]))
+            [xapi-schema.spec :as xs])
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
-(defn- pack-subreg-keys
-  [job]
-  (if (some-> job :state :filter :pattern not-empty)
-    (update-in
-     job
-     [:state :filter :pattern]
-     (partial
-      reduce-kv
-      (fn [m k v]
-        (assoc
-         m
-         (if (vector? k)
-           (let [[reg subreg] k]
-             (format "%s.%s" reg subreg))
-           k)
-         v))
-      {}))
-    job))
+(s/fdef write-transit-str
+  :args (s/cat :data any?)
+  :ret string?)
+
+(defn write-transit-str
+  [data]
+  (with-open [baos (ByteArrayOutputStream.)]
+    (let [w (transit/writer baos :json)]
+      (transit/write w data)
+      (.toString baos "UTF-8"))))
+
+(s/fdef read-transit-str
+  :args (s/cat :t-str
+               (s/with-gen string?
+                 (fn []
+                   (sgen/fmap
+                    write-transit-str
+                    (s/gen any?)))))
+  :ret any?)
+
+(defn read-transit-str
+  [^String t-str]
+  (with-open [bais (ByteArrayInputStream. (.getBytes t-str "UTF-8"))]
+    (let [r (transit/reader bais :json)]
+      (transit/read r))))
+
+(defn- pack-paths
+  "Transit encode a list of paths in data, if found"
+  [data paths]
+  (reduce
+   (fn [d p]
+     (cond-> d
+       (some? (get-in d p))
+       (update-in p write-transit-str)))
+   data
+   paths))
+
+(defn- unpack-paths
+  "Transit decode a list of paths in data, if found"
+  [data paths]
+  (reduce
+   (fn [d p]
+     (cond-> d
+       (some? (get-in d p))
+       (update-in p read-transit-str)))
+   data
+   paths))
 
 (s/def ::job-json
   (s/with-gen
@@ -34,10 +64,10 @@
     (fn []
       (sgen/fmap
        ;; job->json is identical to cheshire generate so this is OK
-       ;; EXCEPT for the need to pack weird vector keys
+       ;; EXCEPT for the need to pack stuff
        (comp
         json/generate-string
-        pack-subreg-keys)
+        #(pack-paths % [[:state :filter :pattern]]))
        (s/gen job/job-spec)))))
 
 (defn- keywordize-status
@@ -58,55 +88,6 @@
       (update-in [:state :source :errors] keywordize-error-types)
       (update-in [:state :target :errors] keywordize-error-types)))
 
-(defn- filter-states-to-sets
-  [job]
-  (update-in
-   job
-   [:state :filter]
-   (fn [{:keys [pattern] :as f}]
-     (if (not-empty pattern)
-       (assoc
-        f
-        :pattern
-        (reduce-kv
-         (fn [m id-k pat-map]
-           (assoc
-            m
-            (name id-k)
-            (reduce-kv
-             (fn [pm pat-k fsm-v]
-               (assoc pm
-                      (name pat-k)
-                      (update fsm-v :states (partial into #{}))))
-             {}
-             pat-map)))
-         {}
-         pattern))
-       f))))
-
-(defn- unpack-subreg
-  [subreg-str]
-  (cs/split subreg-str #"\." 2))
-
-(defn- unpack-subreg-keys
-  [job]
-  (if (some-> job :state :filter :pattern not-empty)
-    (update-in
-     job
-     [:state :filter :pattern]
-     (partial
-      reduce-kv
-      (fn [m k v]
-        (assoc
-         m
-         (let [[reg ?subreg] (unpack-subreg (name k))]
-           (if ?subreg
-             [reg ?subreg]
-             reg))
-         v))
-      {}))
-    job))
-
 (s/fdef json->job
   :args (s/cat :json-str ::job-json)
   :ret job/job-spec)
@@ -117,8 +98,7 @@
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status
       keywordize-job-error-types
-      filter-states-to-sets
-      unpack-subreg-keys
+      (unpack-paths [[:state :filter :pattern]])
       (update :config config/ensure-defaults)))
 
 (s/fdef job->json
@@ -126,4 +106,4 @@
   :ret ::job-json)
 
 (defn job->json [job]
-  (json/generate-string job))
+  (json/generate-string (pack-paths job [[:state :filter :pattern]])))

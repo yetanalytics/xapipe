@@ -149,7 +149,13 @@
 
 (def pattern-filter-state-spec
   (s/or :init #{{}}
-        :running per/state-info-map-spec))
+        :running
+        (s/with-gen per/state-info-map-spec
+          (fn []
+            (s/gen per/state-info-map-spec
+                   ;; TODO: gen error for pan strings
+                   {:com.yetanalytics.pan.axioms/string
+                    (fn [] (s/gen ::xs/iri))})))))
 
 (s/fdef evict-keys
   :args (s/cat :states-map ::per/states-map
