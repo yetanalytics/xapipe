@@ -275,7 +275,10 @@
           ;; by the lib or cli.
           ;; Therefore we can omit them.
           (cs/starts-with? sym-ns "com.yetanalytics.datasim")
-          (cs/starts-with? sym-ns "com.yetanalytics.lrs"))))
+          (cs/starts-with? sym-ns "com.yetanalytics.lrs")
+          ;; Pathetic is used in JSON path filters but has some spec issues
+          ;; TODO: Resolve + remove from this list
+          (cs/starts-with? sym-ns "com.yetanalytics.pathetic"))))
      (st/instrumentable-syms))))
   ([sym-or-syms]
    (fn [f]

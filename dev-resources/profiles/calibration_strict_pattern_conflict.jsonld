@@ -1,7 +1,7 @@
 {
-    "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern",
+    "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_conflict",
     "definition" : {
-        "en" : "This xAPI Profile is intended for experimental purposes only and can be used to show the basic Pattern selection behavior of simulated datasets"
+        "en" : "This xAPI Profile has its own ID but shares all other ids with the calibration_strict_pattern. It should be invalid when compiled together with it."
     },
     "@context" : "https://w3id.org/xapi/profiles/context",
     "prefLabel" : {

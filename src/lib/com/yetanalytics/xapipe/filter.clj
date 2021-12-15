@@ -142,40 +142,27 @@
 
 (s/def ::pattern-id ::pat/id)
 
-(def state-key-spec
-  (s/or :registration :context/registration
-        :subreg (s/tuple :context/registration
-                         :context/registration)))
-
-(s/fdef get-state-key
-  :args (s/cat :statement ::xs/statement)
-  :ret (s/nilable state-key-spec))
-
-(defn get-state-key
-  "Given a statement, return a state key if possible, or nil"
-  [statement]
-  (let [?reg (get-in statement ["context" "registration"])
-        ?subreg (get-in statement ["context" "extensions" per/subreg-iri])]
-    (cond
-      (and ?reg ?subreg) [?reg ?subreg]
-      ?reg               ?reg
-      :else              nil)))
-
-(s/def ::accepted? boolean?)
-(s/def ::states (s/coll-of int?
-                           :kind set?
-                           :into #{}))
-
-(def state-info-spec
-  (s/keys :req-un [::accepted?
-                   ::states]))
-
 (def pattern-filter-state-spec
-  (s/map-of
-   state-key-spec
-   (s/map-of
-    ::pattern-id
-    state-info-spec)))
+  (s/or :init #{{}}
+        :running per/state-info-map-spec))
+
+(s/fdef evict-keys
+  :args (s/cat :states-map ::per/states-map
+               :state-keys (s/every
+                            (s/tuple per/registration-key-spec
+                                     ::pattern-id)))
+  :ret ::per/states-map)
+
+(defn evict-keys
+  [states-map state-keys]
+  (reduce
+   (fn [sm [sk pid]]
+     (let [wo (update sm sk dissoc pid)]
+       (cond-> wo
+         (empty? (get wo sk))
+         (dissoc sk))))
+   states-map
+   state-keys))
 
 ;; A stateful predicate for pattern filters
 (def pattern-filter-pred-spec
@@ -195,59 +182,54 @@
   :ret pattern-filter-pred-spec)
 
 (defn pattern-filter-pred
-  "Given a list of profile URLs generate a stateful predicate to filter
-  to only statements in patterns. If pattern ids are provided, limit filtered
-  statements to those."
+  "Build a stateful predicate that matches profile patterns as far as it can."
   [{:keys [profile-urls
            pattern-ids]}]
-  (let [fsm-map (-> profile-urls
-                    (->> (map get-profile)
-                         (map per/profile->fsms)
-                         (into {}))
-                    (cond->
-                        (not-empty pattern-ids)
-                      (select-keys pattern-ids)))]
+  (let [fsm-map (apply
+                 per/compile-profiles->fsms
+                 (map get-profile profile-urls)
+                 (cond-> []
+                   (not-empty pattern-ids)
+                   (conj :selected-patterns pattern-ids)))]
     (fn [state
          {:keys [statement]
           :as record}]
-      (if-let [state-key (get-state-key statement)]
-        (let [;; Just the state concerned with this reg
-              reg-state (get state state-key)
-
-              [new-reg-state
-               accepted-patterns]
-              (reduce
-               (fn [[reg-s accepted] [pat-key new-s]]
-                 (let [accepted? (:accepted? new-s)
-                       failed? (empty? (:states new-s))]
-                   [;; If the state is accepted or faled.
-                    ;; remove it
-                    (if (or accepted?
-                            failed?)
-                      (dissoc reg-s pat-key)
-                      ;; Otherwise, it is in-process
-                      (assoc reg-s pat-key new-s))
-                    ;; Track accepted for filter
-                    (cond-> accepted
-                      accepted?
-                      (conj pat-key))]))
-               [(or reg-state {})
-                #{}]
-               (for [[pat-key fsm] fsm-map]
-                 [pat-key
-                  (fsm/read-next
-                   fsm
-                   (get reg-state pat-key)
-                   statement)]))]
-          [;; Add the new in-process state or remove it
-           (if (empty? new-reg-state)
-             (dissoc state state-key)
-             (assoc state state-key new-reg-state))
-           ;; If we have in-process or are accepting, pass it
-           (if (or (not-empty new-reg-state)
-                   (not-empty accepted-patterns))
-             true
-             false)])
+      ;; Simple optimization: If there is a registration, we try matching
+      (if (get-in statement ["context" "registration"])
+        (let [{:keys [accepts
+                      rejects
+                      states-map
+                      error] :as ret} (per/match-statement
+                                       fsm-map state statement)]
+          (if error
+            [state false]
+            (let [;; Remove any accepted/rejected from the state map
+                  ;; to save space!
+                  states-map' (evict-keys
+                               states-map
+                               (concat
+                                accepts
+                                rejects))]
+              [;; New State
+               (assoc ret
+                      :states-map
+                      states-map')
+               ;; Predicate Result
+               (some?
+                (or
+                 ;; On any accept
+                 (not-empty accepts)
+                 ;; No news is good news
+                 (empty? rejects)
+                 ;; If rejects only, we need to check for open patterns
+                 ;; after eviction since this must satisfy at least one
+                 (some
+                  ;; State keys could vary for subreg
+                  ;; We are checking for at least one still going
+                  (fn [[state-key _]]
+                    (get states-map' state-key))
+                  rejects)))])))
+        ;; No registration, immediate return
         [state false]))))
 
 (s/def ::path path/path-filter-cfg-spec)
