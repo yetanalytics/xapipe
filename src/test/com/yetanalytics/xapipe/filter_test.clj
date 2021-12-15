@@ -264,9 +264,13 @@ ids are provided, and all fail when not containing any concepts from the profile
                                     statements)))
                                  (catch Exception _
                                    ::match-exception)))]
-                 (is
-                  (= states
-                     states'))))
+                 (when-not (keyword? states')
+                   (testing "no meta"
+                     (is (every? (comp empty? meta) states'))))
+                 (testing "expected states"
+                   (is
+                    (= states
+                       states')))))
 
              "In order, is matched"
              {:profile-urls [profile-url]
