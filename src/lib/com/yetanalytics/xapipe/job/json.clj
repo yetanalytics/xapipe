@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.job.json
   "JSON Serialization/Deserialization for Jobs"
   (:require [cheshire.core :as json]
+            [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
             [cognitect.transit :as transit]
@@ -101,9 +102,34 @@
       (unpack-paths [[:state :filter :pattern]])
       (update :config config/ensure-defaults)))
 
+(s/def ::pretty boolean?)
+
 (s/fdef job->json
-  :args (s/cat :job job/job-spec)
+  :args (s/cat :job job/job-spec
+               :kwargs (s/keys* :opt-un [::pretty]))
   :ret ::job-json)
 
-(defn job->json [job]
-  (json/generate-string (pack-paths job [[:state :filter :pattern]])))
+(defn job->json [job & {:as kwargs}]
+  (json/generate-string
+   (pack-paths job [[:state :filter :pattern]])
+   kwargs))
+
+(s/fdef job->json-file!
+  :args (s/cat :job job/job-spec
+               :path (s/with-gen
+                       string?
+                       (fn []
+                         (sgen/return "/dev/null")))
+               :kwargs (s/keys* :opt-un [::pretty]))
+  :ret nil?)
+
+(defn job->json-file!
+  [job
+   path
+   & {:as kwargs}]
+  (with-open [w (io/writer path)]
+    (json/generate-stream
+     (pack-paths job [[:state :filter :pattern]])
+     w
+     kwargs)
+    nil))
