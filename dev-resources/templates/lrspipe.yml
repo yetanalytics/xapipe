@@ -36,7 +36,7 @@ Parameters:
   LrsPipeVersion:
     Description: Version of LRSPipe to download and install (public release versions on GitHub)
     Type: String
-    Default: v0.0.12
+    Default: v0.0.13
 
   LogRetentionInDays:
     Description: How long to retain Cloudwatch Logs
@@ -137,8 +137,6 @@ Resources:
           UpdateVersion:
             - 08_stopPipe
             - 00_installPipe
-            - 04_configurePipe
-            - 05_enablePipe
             - 06_startPipe
         00_installPipe:
           files:
@@ -152,10 +150,19 @@ Resources:
               owner: "root"
               group: "root"
           commands:
-            00make_dir:
+            00clear_previous_app:
               cwd: "~"
-              command: "sudo mkdir /opt/xapipe"
-            01unzip_pipe:
+              command: "sudo rm -rf /opt/xapipe"
+            01make_app_dir:
+              cwd: "~"
+              command: "sudo mkdir -p /opt/xapipe"
+            02make_data_dir:
+              cwd: "~"
+              command: "sudo mkdir -p /var/lib/xapipe"
+            03make_conf_dir:
+              cwd: "~"
+              command: "sudo mkdir -p /etc/xapipe"
+            04unzip_pipe:
               cwd: "~"
               command: "sudo unzip /tmp/xapipe.zip -d /opt/xapipe/"
         01_setupCfnHup:
@@ -181,7 +188,7 @@ Resources:
                 WantedBy=multi-user.target
             '/etc/cfn/hooks.d/xapipe-config-reloader.conf':
               content: !Sub |
-                [cfn-auto-reloader-hook]
+                [cfn-version-update-hook]
                 triggers=post.update
                 path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.04_configurePipe
                 action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateConfig
@@ -191,9 +198,9 @@ Resources:
               group: root
             '/etc/cfn/hooks.d/xapipe-version-reloader.conf':
               content: !Sub |
-                [cfn-auto-reloader-hook]
+                [cfn-config-update-hook]
                 triggers=post.update
-                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.01_installPipe
+                path=Resources.PipeInstance.Metadata.AWS::CloudFormation::Init.00_installPipe
                 action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region} --configsets UpdateVersion
                 runas=root
               mode: '000400'
@@ -267,7 +274,7 @@ Resources:
               command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
         04_configurePipe:
           files:
-            '/opt/xapipe/job-config.json':
+            '/etc/xapipe/job-conf.json':
               content: !Ref LrsPipeConfig
               mode: '000755'
               owner: root
@@ -279,7 +286,7 @@ Resources:
                 [Service]
                 User=root
                 WorkingDirectory=/opt/xapipe
-                ExecStart=/opt/xapipe/bin/run.sh --json-file job-config.json
+                ExecStart=/opt/xapipe/bin/run.sh --json-file /etc/xapipe/job-conf.json --file-store-dir /var/lib/xapipe/db
                 SuccessExitStatus=143
                 TimeoutStopSec=10
                 Restart=on-failure
@@ -333,11 +340,6 @@ Resources:
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource PipeInstance --region ${AWS::Region}
 
 Outputs:
-  JobConfig:
-    Description: LRSPipe Current Job Config
-    Value: !Ref LrsPipeConfig
-    Export:
-      Name: !Sub '${AWS::StackName}:LrsPipeConfig'
   LrsPipeSubmit:
     Description: LRSPipe Subnet
     Value: !Ref LrsPipeSubnet
