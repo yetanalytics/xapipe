@@ -74,6 +74,7 @@ All options:
       --attachment-usage-type IRI       []                    Attachment Usage Type IRIs to filter on. If left blank it will match all Attachment usage types in the Profile
       --statement-buffer-size SIZE                            Desired size of statement buffer
       --batch-buffer-size SIZE                                Desired size of statement batch buffer
+      --cleanup-buffer-size SIZE                              Desired size of tempfile cleanup buffer
 ```
 
 [<- Back to README](../README.md)

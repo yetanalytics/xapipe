@@ -253,7 +253,7 @@
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
+    :validate [nat-int? "Must be a natural integer"]
     :default 10]
    [nil "--batch-timeout TIMEOUT" "Msecs to wait for a fully formed batch"
     :parse-fn #(Long/parseLong %)
@@ -330,10 +330,13 @@
 
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
+    :validate [nat-int? "Must be a natural integer"]]
    [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]])
+    :validate [nat-int? "Must be a natural integer"]]
+   [nil "--cleanup-buffer-size SIZE" "Desired size of tempfile cleanup buffer"
+    :parse-fn #(Long/parseLong %)
+    :validate [nat-int? "Must be a natural integer"]]])
 
 (def-option-specs job-options {::filter-ensure-paths ::fpath/ensure-paths
                                ::filter-match-paths ::fpath/match-paths})

@@ -154,6 +154,7 @@
     :statement-buffer-size 500,
     :batch-buffer-size 10,
     :batch-timeout 200,
+    :cleanup-buffer-size 50,
     :source
     {:request-config
      {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"},
@@ -241,7 +242,8 @@
     "--concept-type" "Verb"
     "--activity-type-id" "http://example.org/profile.jsonld#activity-type"
     "--verb-id" "http://example.org/profile.jsonld#verb"
-    "--attachment-usage-type" "http://example.org/profile.jsonld#aut"]
+    "--attachment-usage-type" "http://example.org/profile.jsonld#aut"
+    "--cleanup-buffer-size" "1"]
 
    {:source-password "bar",
     :filter-pattern-profile-urls ["http://example.org/profile.jsonld"],
@@ -297,5 +299,6 @@
     :filter-concept-types ["Verb"]
     :filter-activity-type-ids [ "http://example.org/profile.jsonld#activity-type"]
     :filter-verb-ids ["http://example.org/profile.jsonld#verb"]
-    :filter-attachment-usage-types [ "http://example.org/profile.jsonld#aut"]}
+    :filter-attachment-usage-types [ "http://example.org/profile.jsonld#aut"]
+    :cleanup-buffer-size 1}
    []))

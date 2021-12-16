@@ -97,6 +97,7 @@
            :statement-buffer-size 1000,
            :batch-buffer-size 100,
            :batch-timeout 200,
+           :cleanup-buffer-size 50,
            :source
            {:request-config
             {:url-base "http://0.0.0.0:8080",

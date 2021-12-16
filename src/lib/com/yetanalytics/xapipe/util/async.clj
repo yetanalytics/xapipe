@@ -20,8 +20,10 @@
    keyword?
    any?))
 
-(s/def ::cleanup-fn
-  fn?)
+(s/def ::emit-fn
+  fn?) ;; TODO: fspec
+
+(s/def ::cleanup-chan cspec/channel?)
 
 (s/fdef batch-filter
   :args (s/cat :a ::cspec/channel
@@ -32,8 +34,45 @@
                         :opt-un [::stateless-predicates
                                  ::stateful-predicates
                                  ::init-states
-                                 ::cleanup-fn
-                                 ::metrics/reporter])))
+                                 ::metrics/reporter
+                                 ::emit-fn
+                                 ::cleanup-chan])))
+
+(defn- default-emit-fn
+  [batch filter-state last-dropped]
+  (when (or (not-empty batch) last-dropped)
+    {:batch batch
+     :filter-state filter-state
+     :last-dropped last-dropped}))
+
+(defn- apply-stateful-predicates
+  [states stateful-predicates v]
+  (if (not-empty stateful-predicates)
+    (let [checks (into {}
+                       (for [[k p] stateful-predicates]
+                         [k (p (get states k) v)]))
+          pass? (every? (comp true? second)
+                        (vals checks))]
+      {:pass? pass?
+       :states (reduce-kv
+                (fn [m k v]
+                  (assoc m k (first v)))
+                {}
+                checks)})
+    {:pass? true
+     :states states}))
+
+(defn- apply-predicates
+  [states stateless-pred stateful-predicates v]
+  (let [stateless-pass? (stateless-pred v)
+        {stateful-pass? :pass?
+         states :states} (apply-stateful-predicates
+                          states
+                          stateful-predicates
+                          v)]
+    {:pass? (and stateless-pass?
+                 stateful-pass?)
+     :states states}))
 
 (defn batch-filter
   "Given a channel a, get and attempt to batch records by size, sending them to
@@ -47,74 +86,83 @@
   To provide initial state, supply a :init-states key, which should contain
   state for each stateful predicate.
 
-  If :cleanup-fn is provided, run it on dropped records
+  If :cleanup-chan is provided, send dropped records there
 
-  Returns channel b"
+  Will remember the last record dropped for use in cursors and such
+
+  Returns a channel that will close when done processing."
   [a b size timeout-ms
    & {:keys [stateless-predicates
              stateful-predicates
              init-states
-             cleanup-fn
-             reporter]
+             reporter
+             emit-fn
+             cleanup-chan]
       :or {stateless-predicates {}
            stateful-predicates {}
-           reporter (metrics/->NoopReporter)}}]
+           reporter (metrics/->NoopReporter)
+           emit-fn default-emit-fn}}]
   (let [stateless-pred (if (empty? stateless-predicates)
                          (constantly true)
-                         (apply every-pred (vals stateless-predicates)))]
-    (a/go-loop [buf []
-                states (or init-states
-                           (into {}
-                                 (for [[k p] stateful-predicates]
-                                   [k {}])))]
-      ;; Send if the buffer is full
-      (if (= size (count buf))
-        (do (a/>! b {:batch buf
-                     :filter-state states})
-            (recur [] states))
-        (let [timeout-chan (a/timeout timeout-ms)
-              [v p] (a/alts! [a timeout-chan])]
-          (if (identical? p timeout-chan)
-            ;; We've timed out. Flush!
-            (do
-              (when (not-empty buf)
-                (a/>! b {:batch buf
-                         :filter-state states}))
-              (recur [] states))
-            (if-not (nil? v)
-              ;; We have a record
-              (if (stateless-pred v)
-                ;; If stateless passes, we do any stateful
-                (if (not-empty stateful-predicates)
-                  (let [checks (into {}
-                                     (for [[k p] stateful-predicates]
-                                       [k (p (get states k) v)]))
-                        pass? (every? (comp true? second)
-                                      (vals checks))]
-                    (when-not pass?
-                      (when cleanup-fn
-                        (cleanup-fn v)))
-                    (recur
-                     (if pass?
-                       (conj buf v)
-                       buf)
-                     ;; new states
-                     (reduce-kv
-                      (fn [m k v]
-                        (assoc m k (first v)))
-                      {}
-                      checks)))
-                  ;; Just stateless, OK to pass
-                  (recur (conj buf v) states))
-                (do
-                  (when cleanup-fn
-                    (cleanup-fn v))
-                  (recur buf states)))
-              ;; A is closed, we should close B
+                         (apply every-pred (vals stateless-predicates)))
+        init-states (or init-states
+                        (into {}
+                              (for [[k p] stateful-predicates]
+                                [k {}])))
+        buffer (a/buffer size)
+        buf-chan (a/chan buffer)]
+    (a/go-loop [states init-states
+                last-dropped nil]
+      (let [buf-count (count buffer)]
+        ;; Send if the buffer is full
+        (if (= size buf-count)
+          (do
+            (when-let [emit-event (emit-fn
+                                   (a/<!
+                                    (a/into []
+                                            (a/take buf-count buf-chan)))
+                                   states
+                                   last-dropped)]
+              (a/>! b emit-event))
+            (recur states nil))
+          (let [timeout-chan (a/timeout timeout-ms)
+                [v p] (a/alts! [a timeout-chan])]
+            (if (identical? p timeout-chan)
+              ;; We've timed out. Flush!
               (do
-                ;; But only after draining anything in the buffer
-                (when (not-empty buf)
-                  (a/>! b {:batch buf
-                           :filter-state states}))
-                (a/close! b)))))))
-    b))
+                (when-let [emit-event (emit-fn
+                                       (a/<!
+                                        (a/into []
+                                                (a/take buf-count buf-chan)))
+                                       states
+                                       last-dropped)]
+                  (a/>! b emit-event))
+                (recur states nil))
+              (if-not (nil? v)
+                ;; We have a record
+                (let [{:keys [pass?]
+                       new-states :states} (apply-predicates
+                                            states
+                                            stateless-pred
+                                            stateful-predicates
+                                            v)]
+
+                  (if pass?
+                    (do
+                      (a/>! buf-chan v)
+                      (recur new-states nil))
+                    (do
+                      (when cleanup-chan
+                        (a/>! cleanup-chan v))
+                      (recur new-states v))))
+                ;; A is closed, we should close B
+                (do
+                  ;; But only after draining anything in the buffer
+                  (when-let [emit-event (emit-fn
+                                         (a/<!
+                                          (a/into []
+                                                  (a/take buf-count buf-chan)))
+                                         states
+                                         last-dropped)]
+                    (a/>! b emit-event))
+                  (a/close! b))))))))))

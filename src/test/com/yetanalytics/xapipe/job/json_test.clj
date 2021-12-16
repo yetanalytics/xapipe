@@ -25,6 +25,7 @@
     :statement-buffer-size 500,
     :batch-buffer-size 10,
     :batch-timeout 200,
+    :cleanup-buffer-size 50,
     :source
     {:request-config
      {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"},
@@ -60,5 +61,6 @@
     (testing "input sanity"
       (is (nil? (s/explain-data job/job-spec complex-job))))
     (testing "Roundtrip"
-      (is (= complex-job
-             (-> complex-job job->json json->job))))))
+      (let [roundtripped (-> complex-job job->json json->job)]
+        (is (= complex-job
+               roundtripped))))))

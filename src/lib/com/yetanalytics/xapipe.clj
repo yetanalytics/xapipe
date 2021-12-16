@@ -40,14 +40,19 @@
    states-chan
    stop-chan
    batch-chan
+   cleanup-chan
    {:keys [conn-mgr
            http-client]
     :as conn-opts}
    reporter]
   (a/go
-    (loop [state init-state]
-      ;; Emit States
-      (a/>! states-chan (assoc job :state state))
+    (loop [state init-state
+           last-state nil]
+      ;; Emit NOVEL States
+      (when (not=
+             (dissoc state :updated)
+             (dissoc last-state :updated))
+        (a/>! states-chan (assoc job :state state)))
       ;; add any errors and flush the metrics before continue
       (let [[job-errors
              source-errors
@@ -65,7 +70,7 @@
         (state/errors? state)
         (log/error "POST loop stopping with errors")
 
-        (not= :running (:status state))
+        (not (#{:running :init} (:status state)))
         (log/info "Stopping")
 
         :else
@@ -81,88 +86,180 @@
                   :paused
                   (recur (-> state
                              (state/set-status :paused)
-                             state/set-updated))
+                             state/set-updated)
+                         state)
                   :error
                   (recur (-> state
                              (state/add-error error)
-                             state/set-updated))))
+                             state/set-updated)
+                         state)))
               (if-some [{:keys [batch
-                                filter-state]
+                                filter-state
+                                last-dropped]
                          :or {filter-state {}}} v]
-                (let [_ (log/debugf "%d statement batch for POST" (count batch))
-                      statements (mapv :statement batch)
-                      cursor (-> statements last (get "stored") t/normalize-stamp)
-                      _ (log/debugf "Cursor: %s" cursor)
-                      attachments (mapcat :attachments batch)
+                (if (not-empty batch)
+                  ;; If we have statements, post them
+                  (let [_ (log/debugf "%d statement batch for POST" (count batch))
+                        statements (mapv :statement batch)
+                        cursor (-> statements last (get "stored") t/normalize-stamp)
+                        _ (log/debugf "Cursor: %s" cursor)
+                        attachments (mapcat :attachments batch)
 
-                      _ (log/debugf "POSTing %d statements and %d attachments"
-                                    (count statements)
-                                    (count attachments))
-                      ;; Form a post request
+                        _ (log/debugf "POSTing %d statements and %d attachments"
+                                      (count statements)
+                                      (count attachments))
+                        ;; Form a post request
 
-                      post-request (merge
-                                    (client/post-request
-                                     post-req-config
-                                     statements
-                                     attachments)
-                                    ;; Use the conn + client
-                                    conn-opts)
-                      [tag x] (a/<! (client/async-request
-                                     post-request
-                                     :backoff-opts backoff-opts))]
-                  (do
-                    (a/<! (a/thread (mm/clean-tempfiles! attachments)))
-                    (case tag
-                      ;; On success, update the cursor and keep listening
-                      :response
-                      (let [{:keys [request-time]} x]
-                        (doto reporter
-                          (metrics/histogram
-                           :xapipe/target-request-time
-                           (metrics/millis->frac-secs request-time))
-                          (metrics/counter
-                           :xapipe/statements
-                           (count statements))
-                          (metrics/counter
-                           :xapipe/attachments
-                           (count attachments)))
-                        (recur (-> state
-                                   (state/update-cursor cursor)
-                                   (state/update-filter filter-state)
-                                   state/set-updated)))
-                      ;; If the post fails, Send the error to the stop channel
-                      ;; emit and stop.
-                      :exception
-                      (do
-                        (log/errorf x "POST Exception: %s %s" (ex-message x)
-                                    (some-> x
-                                            ex-data
-                                            :body))
-                        (let [error {:message (ex-message x)
-                                     :type    :target}]
-                          (a/>! stop-chan {:status :error
-                                           :error error})
-                          (log/error "Stopping on POST error")
+                        post-request (merge
+                                      (client/post-request
+                                       post-req-config
+                                       statements
+                                       attachments)
+                                      ;; Use the conn + client
+                                      conn-opts)
+                        [tag x] (a/<! (client/async-request
+                                       post-request
+                                       :backoff-opts backoff-opts))]
+                    (do
+                      (a/<! (a/onto-chan! cleanup-chan batch false))
+                      (case tag
+                        ;; On success, update the cursor and keep listening
+                        :response
+                        (let [{:keys [request-time]} x]
+                          (doto reporter
+                            (metrics/histogram
+                             :xapipe/target-request-time
+                             (metrics/millis->frac-secs request-time))
+                            (metrics/counter
+                             :xapipe/statements
+                             (count statements))
+                            (metrics/counter
+                             :xapipe/attachments
+                             (count attachments)))
                           (recur (-> state
-                                     (state/add-error error)
-                                     state/set-updated)))))))
+                                     (state/set-status :running)
+                                     (state/update-cursor cursor)
+                                     (state/update-filter filter-state)
+                                     state/set-updated)
+                                 state))
+                        ;; If the post fails, Send the error to the stop channel
+                        ;; emit and stop.
+                        :exception
+                        (do
+                          (log/errorf x "POST Exception: %s %s" (ex-message x)
+                                      (some-> x
+                                              ex-data
+                                              :body))
+                          (let [error {:message (ex-message x)
+                                       :type    :target}]
+                            (a/>! stop-chan {:status :error
+                                             :error error})
+                            (log/error "Stopping on POST error")
+                            (recur (-> state
+                                       (state/add-error error)
+                                       state/set-updated)
+                                   state))))))
+                  ;; If there are no statements the filter is dropping
+                  ;; use get the last dropped stored and use it to update
+                  ;; the cursor
+                  (let [{current-cursor :cursor} state
+                        cursor (last (sort [(-> last-dropped
+                                                (get-in [:statement
+                                                         "stored"])
+                                                t/normalize-stamp)
+                                            current-cursor]))
+                        _ (log/debugf "Empty Batch, cursor update to: %s" cursor)]
+                    (recur (-> state
+                               (state/set-status :running)
+                               (state/update-cursor cursor)
+                               (state/update-filter filter-state)
+                               state/set-updated)
+                           state)))
+
                 ;; Job finishes
                 ;; Might still be from pause/stop
                 (if-some [stop-data (a/poll! stop-chan)]
                   ;; If so, recur to exit with that
                   (do
                     (log/debug "Detected stop after POST." stop-data)
-                    (recur state))
+                    (recur state state))
                   ;; Otherwise we are complete!
                   (do
                     (log/info "Successful Completion")
                     (recur (-> state
                                (state/set-status :complete)
-                               state/set-updated))))))))))
-    ;; Post-loop, kill the HTTP client and close the states chan
-    (client/shutdown conn-mgr)
-    (.close ^CloseableHttpClient http-client)
-    (a/close! states-chan)))
+                               state/set-updated)
+                           state)))))))))
+    ;; Post-loop, kill the HTTP client
+    (.close ^CloseableHttpClient http-client)))
+
+(defn- cleanup-loop
+  "Async loop to delete attachment tempfiles on a thread"
+  [cleanup-chan]
+  (a/go-loop []
+    (when-let [{:keys [attachments]} (a/<! cleanup-chan)]
+      (do
+        (log/debugf "Cleanup loop deleting %d attachments"
+                    (count attachments))
+        (a/<! (a/thread (mm/clean-tempfiles! attachments)))
+        (recur)))))
+
+(defn- statement-loop
+  "Async loop to break GET batches into statements and handle attachments."
+  [get-chan
+   statement-chan
+   stop-chan]
+  (a/go-loop []
+    (if-let [[tag x] (a/<! get-chan)]
+      (do
+        (case tag
+          :response
+          (let [{{:keys [attachments]} :body
+                 :as resp} x
+                ;; Wrap errors and threadiness
+                {:keys [statements
+                        error]}
+                (if (not-empty attachments)
+                  ;; We have to do attachments in a thread
+                  (a/<!
+                   (a/thread
+                     (try {:statements (xapi/response->statements resp)}
+                          (catch Throwable ex
+                            {:error ex}))))
+                  (try {:statements (xapi/response->statements resp)}
+                       (catch Throwable ex
+                         {:error ex})))]
+            (if error
+              (a/>! stop-chan
+                    {:status :error
+                     :error {:message (ex-message error)
+                             :type :job}})
+              (a/<! (a/onto-chan! statement-chan statements false))))
+          :exception
+          (a/>! stop-chan
+                {:status :error
+                 :error {:message (ex-message x)
+                         :type :source}}))
+        (recur))
+      (a/close! statement-chan))))
+
+(defn- init-buffers
+  [{{{source-batch-size :batch-size} :source
+     :keys [get-buffer-size
+            statement-buffer-size
+            batch-buffer-size
+            cleanup-buffer-size]
+     ;; TODO: actual cleanup buffer arg
+     :or {cleanup-buffer-size 100}}
+    :config}]
+  {:get-buffer (when-not (zero? get-buffer-size)
+                 (a/buffer get-buffer-size))
+   :statement-buffer (when-not (zero? statement-buffer-size)
+                       (a/buffer statement-buffer-size))
+   :batch-buffer (when-not (zero? batch-buffer-size)
+                   (a/buffer batch-buffer-size))
+   :cleanup-buffer (when-not (zero? cleanup-buffer-size)
+                     (a/buffer cleanup-buffer-size))})
 
 (s/def ::source-client-opts ::client/http-client-opts)
 (s/def ::target-client-opts ::client/http-client-opts)
@@ -216,12 +313,8 @@
            target-backoff-opts :backoff-opts
            :as                 target-config} :target
           filter-config :filter
-          :keys [get-buffer-size
-                 statement-buffer-size
-                 batch-buffer-size
-                 batch-timeout]} :config
+          :keys [batch-timeout]} :config
          :as                     job-before}
-
         (update job :config config/ensure-defaults)]
     (case status-before
       :running  (throw (ex-info "Job already running!"
@@ -233,7 +326,17 @@
       :complete (throw (ex-info "Cannot start a completed job"
                                 {:type ::cannot-start-completed
                                  :job  job-before}))
-      (let [;; Http async conn pool + client
+      (let [;; Get a timestamp for the instant before initialization
+            init-stamp (t/now-stamp)
+            ;; The states channel emits the job as it runs
+            states-chan (a/chan)
+
+            ;; Instantiate buffers so we can observe them
+            {:keys [get-buffer
+                    statement-buffer
+                    batch-buffer
+                    cleanup-buffer]} (init-buffers job-before)
+            ;; Http async conn pool + client
             conn-mgr (or conn-mgr
                          (client/init-conn-mgr
                           conn-mgr-opts))
@@ -243,98 +346,98 @@
             target-client (or http-client
                               (client/init-client
                                conn-mgr target-client-opts))
-            ;; set up channels and start
-            states-chan (a/chan)
+
             stop-chan (a/promise-chan)
             stop-fn   #(a/put! stop-chan {:status :paused})
 
-            ;; Derive a since point for the query
-            get-since (if ?query-since
-                        (last (sort [cursor-before
-                                     ?query-since]))
-                        cursor-before)
-
-            ;; Send the initial state
-            _ (a/put! states-chan
-                      (update job-before :state state/set-updated))
-            ;; A channel that will produce get responses
-            get-chan (client/get-chan
-                      (a/chan
-                       get-buffer-size)
-                      stop-chan
-                      get-req-config
-                      (assoc get-params :since get-since)
-                      poll-interval
-                      ;; kwargs
-                      :backoff-opts
-                      source-backoff-opts
-                      :conn-opts
-                      {:conn-mgr conn-mgr
-                       :http-client source-client}
-                      :reporter reporter)
+            ;; A channel for get responses
+            get-chan (a/chan get-buffer)
             ;; A channel that holds statements + attachments
-            statement-chan
-            (a/chan statement-buffer-size)
+            statement-chan (a/chan statement-buffer)
+            ;; A channel for batches of statements to target
+            batch-chan (a/chan batch-buffer)
+            ;; A channel to get dropped records
+            cleanup-chan (a/chan cleanup-buffer
+                                 ;; Will only pass records with attachments
+                                 (filter
+                                  (comp
+                                   not-empty
+                                   :attachments)))
 
-            ;; Pipeline responses to statement chan, short circuiting errs
-            _ (a/pipeline-blocking
-               1
-               statement-chan
-               (comp
-                ;; handle error resps
-                (map (fn [[tag x]]
-                       (case tag
-                         :response x
-                         :exception
-                         (throw (ex-info
-                                 (format "Source Error: %s"
-                                         (ex-message x))
-                                 {:type ::source}
-                                 x)))))
-                ;; coerce resp to statements
-                (mapcat xapi/response->statements))
-               get-chan
-               true
-               (fn [ex]
-                 (a/put! stop-chan
-                         {:status :error
-                          :error {:message (ex-message ex)
-                                  :type (case (some-> ex ex-data :type)
-                                          ::source :source
-                                          :job)}})
-                 nil))
-            ;; A channel that will get batches
-            ;; NOTE: Apply other filtering here
-            batch-chan
-            (ua/batch-filter
-             statement-chan
-             (a/chan batch-buffer-size)
-             target-batch-size
-             batch-timeout
-             :stateless-predicates
-             (filt/stateless-predicates filter-config)
-             :stateful-predicates
-             (filt/stateful-predicates filter-config)
-             :init-states filter-before
-             :cleanup-fn
-             (fn [{:keys [attachments]}]
-               (when (not-empty attachments)
-                 (a/thread (mm/clean-tempfiles! attachments))))
-             :reporter reporter)
-            ;; Then set it as running for post
-            running-state (-> state-before
-                              (state/set-status :running)
-                              state/set-updated)]
-        ;; Post loop transfers statements until it reaches until or an error
-        (post-loop
-         (merge job-before
-                {:state running-state})
-         states-chan
-         stop-chan
-         batch-chan
-         {:conn-mgr conn-mgr
-          :http-client target-client}
-         reporter)
+            ;; Cleanup loop deletes tempfiles from batch + post
+            cloop (cleanup-loop cleanup-chan)
+
+            ;; Start the job by initializing the get loop
+            gloop (client/get-loop
+                   get-chan
+                   stop-chan
+                   get-req-config
+                   ;; Derive a since point for the query
+                   (assoc get-params :since
+                          (if ?query-since
+                            (last (sort [cursor-before
+                                         ?query-since]))
+                            cursor-before))
+                   poll-interval
+                   ;; kwargs
+                   :backoff-opts
+                   source-backoff-opts
+                   :conn-opts
+                   {:conn-mgr conn-mgr
+                    :http-client source-client}
+                   :reporter reporter)
+
+            ;; Pipeline from get-chan to statement chan
+            sloop (statement-loop get-chan statement-chan stop-chan)
+
+            ;; Batch + filter statements from statement chan to batch chan
+            bloop (ua/batch-filter
+                   statement-chan
+                   batch-chan
+                   target-batch-size
+                   batch-timeout
+                   :stateless-predicates
+                   (filt/stateless-predicates filter-config)
+                   :stateful-predicates
+                   (filt/stateful-predicates filter-config)
+                   :init-states filter-before
+                   :cleanup-chan cleanup-chan
+                   :reporter reporter)
+
+            ;; Post loop transfers statements until it reaches until or an error
+            ploop (post-loop
+                   (merge job-before
+                          {:state (-> state-before
+                                      (cond->
+                                          ;; If a job is paused, re-init
+                                          (= :paused (:status state-before))
+                                        (state/set-status :init))
+                                      (assoc :updated init-stamp))})
+                   states-chan
+                   stop-chan
+                   batch-chan
+                   cleanup-chan
+                   {:conn-mgr conn-mgr
+                    :http-client target-client}
+                   reporter)]
+
+        ;; waits for things to stop, then cleans up
+        (a/go
+          (a/<! (a/into [] (a/merge [gloop
+                                     sloop
+                                     bloop
+                                     ploop] 4)))
+
+          ;; With both clients shutdown, we shut down the conn mgr
+          (client/shutdown conn-mgr)
+
+          ;; Close cleanup + drain
+          (a/close! cleanup-chan)
+          (a/<! cloop)
+
+          ;; Close the states chan to terminate
+          (a/close! states-chan))
+
         ;; Return the state emitter and stop fn
         {:states states-chan
          :stop-fn stop-fn}))))

@@ -150,15 +150,15 @@
   #{[:init :running] ;; start
     [:init :error] ;; can't start
     [:init :complete] ;; no data
+    [:init :paused] ;; immediate pause
 
     [:running :complete] ;; until reached/exit
     [:running :error] ;; runtime error
     [:running :paused] ;; user pause
     [:running :running] ;; cursor update
 
-    [:paused :running] ;; resume
+    [:paused :init] ;; resume init
     [:paused :error] ;; can't resume
-    [:paused :paused] ;; immediate stop on resume
 
     [:error :running] ;; if errors clear
     [:error :paused] ;; same
@@ -170,6 +170,7 @@
                :new-status #{:running ;; in progress
                              :complete ;; complete
                              :paused ;; manual stop/pause
+                             :init ;; reinit
                              })
   :ret state-spec)
 
