@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.filter
   "Apply profile-based filtering to statement streams."
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [xapi-schema.spec :as xs]
             [cheshire.core :as json]
             [com.yetanalytics.persephone :as per]
@@ -140,11 +141,21 @@
                 v statement))
              validators)))))
 
-(s/def ::pattern-id ::pat/id)
+(s/def ::pattern-id
+  (s/with-gen ::pat/id
+    (fn []
+      ;; TODO: figure out gen issue with ::pat/id
+      (s/gen ::xs/iri))))
 
 (def pattern-filter-state-spec
   (s/or :init #{{}}
-        :running per/state-info-map-spec))
+        :running
+        (s/with-gen per/state-info-map-spec
+          (fn []
+            (s/gen per/state-info-map-spec
+                   ;; TODO: gen error for pan strings
+                   {:com.yetanalytics.pan.axioms/string
+                    (fn [] (s/gen ::xs/iri))})))))
 
 (s/fdef evict-keys
   :args (s/cat :states-map ::per/states-map

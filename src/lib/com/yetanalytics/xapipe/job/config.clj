@@ -6,6 +6,7 @@
             [com.yetanalytics.xapipe.util :as u]
             [com.yetanalytics.xapipe.util.time :as t]))
 
+;; TODO: The generated values here blow things up on large tests
 (s/def ::batch-size pos-int?) ;; limit param for get, batch size for post
 
 (s/def ::backoff-opts u/backoff-opts-spec)
