@@ -158,3 +158,40 @@
   (-> config
       (update-in [:source :request-config] sanitize-req-cfg)
       (update-in [:target :request-config] sanitize-req-cfg)))
+
+(s/fdef merge-config
+  :args (s/cat :config-a config-spec
+               :config-b config-spec)
+  :ret config-spec)
+
+(defn merge-config
+  [config-a
+   config-b]
+  (merge
+   config-a
+   config-b
+   {:source
+    (merge
+     (:source config-a)
+     (:source config-b)
+     {:request-config
+      (merge (get-in config-a [:source :request-config])
+             (get-in config-b [:source :request-config]))
+      :backoff-opts
+      (merge (get-in config-a [:source :backoff-opts])
+             (get-in config-b [:source :backoff-opts]))
+      :get-params
+      (merge (get-in config-a [:source :get-params])
+             (get-in config-b [:source :get-params]))})
+    :target
+    (merge
+     (:target config-a)
+     (:target config-b)
+     {:request-config
+      (merge (get-in config-a [:target :request-config])
+             (get-in config-b [:target :request-config]))
+      :backoff-opts
+      (merge (get-in config-a [:target :backoff-opts])
+             (get-in config-b [:target :backoff-opts]))})
+    :filter (merge (:filter config-a)
+                   (:filter config-b))}))
