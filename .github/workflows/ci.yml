@@ -23,9 +23,7 @@ jobs:
           path: |
             ~/.m2
             ~/.gitlibs
-          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-
+          key: ${{ runner.os }}-deps
 
       - name: Test Xapipe
         run: make test
