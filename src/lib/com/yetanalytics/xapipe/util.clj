@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]))
 
 ;; From `lrsql`
+;; TODO: The generated values here blow things up on large tests
 
 (s/def ::budget      (s/and int? (fn [n] (< 0 n Integer/MAX_VALUE))))
 (s/def ::max-attempt (s/and int? (fn [n] (< 0 n Integer/MAX_VALUE))))
