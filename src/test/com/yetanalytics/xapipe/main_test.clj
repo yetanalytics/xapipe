@@ -1,12 +1,12 @@
 (ns com.yetanalytics.xapipe.main-test
-  (:require [cheshire.core :as json]
-            [clojure.core.async :as a]
+  (:require [clojure.core.async :as a]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.json :as jj]
             [com.yetanalytics.xapipe.main :refer :all]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
@@ -245,7 +245,7 @@
                   {:request-config (:request-config target)}})]
         (is (-> (main*
                  "-s" "noop"
-                 "--json" (json/generate-string job))
+                 "--json" (jj/job->json job))
                 :status
                 (= 0)))
         (is (= 452 (sup/lrs-count target)))))))
@@ -258,24 +258,28 @@
     (testing "cli runs job with minimal args"
       (let [job-id "foo"
             [since until] (sup/lrs-stored-range source)
-            job (job/init-job
-                 job-id
-                 {:source
-                  {:request-config (:request-config source)
-                   :get-params     {:since since
-                                    :until until}}
-                  :target
-                  {:request-config (:request-config target)}})
-            ;; Put it in a file
             ^File tempfile (File/createTempFile "xapipe" "test")]
-        (spit tempfile (json/generate-string job))
         (try
-          (is (-> (main*
-                   "-s" "noop"
-                   "--json-file" (.getPath tempfile))
-                  :status
-                  (= 0)))
-          (is (= 452 (sup/lrs-count target)))
+          ;; Put init job in the file
+          (testing "Write a JSON job from args"
+            (is (-> (main*
+                     "-s" "noop"
+                     "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port source))
+                     "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port target))
+                     "-p" (format "since=%s" since)
+                     "-p" (format "until=%s" until)
+                     "--json-out" (.getPath tempfile))
+                    :status
+                    (= 0))))
+          (testing "Run a job off of it"
+            (is (-> (main*
+                     "-s" "noop"
+                     "--json-file" (.getPath tempfile))
+                    :status
+                    (= 0)))
+            (is (= 452 (sup/lrs-count target))))
           (finally
             (.delete tempfile)))))))
 
@@ -344,7 +348,7 @@
                        :errors [],
                        :filter {}}}
                      (update
-                      (edn/read-string message)
+                      (jj/json->job message)
                       :state dissoc :updated)))))))
       (finally
         (.delete ^File (io/file ".test_store/foo.edn"))
