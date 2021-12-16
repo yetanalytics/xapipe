@@ -1,11 +1,11 @@
 {
-    "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern",
+    "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt",
     "definition" : {
         "en" : "This xAPI Profile is intended for experimental purposes only and can be used to show the basic Pattern selection behavior of simulated datasets"
     },
     "@context" : "https://w3id.org/xapi/profiles/context",
     "prefLabel" : {
-        "en" : "Calibration_Strict_Pattern - Experimental xAPI Profile"
+        "en" : "Calibration_Strict_Pattern_Alt - Experimental xAPI Profile"
     },
     "type" : "Profile",
     "seeAlso" : "https://github.com/yetanalytics/datasim",
@@ -17,7 +17,7 @@
     "conformsTo" : "https://w3id.org/xapi/profiles#1.0",
     "versions" : [
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "generatedAtTime" : "2020-03-24T19:16:07.395Z"
         }
     ],
@@ -31,10 +31,10 @@
                 "en" : "Learning Pattern 1"
             },
             "type" : "Pattern",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1",
             "sequence" : [
-                "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-2"
+                "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-2"
             ]
         },
         {
@@ -46,20 +46,20 @@
                 "en" : "Learning Pattern 2"
             },
             "type" : "Pattern",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-2",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-2",
             "sequence" : [
-                "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1",
-                "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-2",
-                "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-3"
+                "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-1",
+                "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-2",
+                "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-3"
             ]
         }
     ],
     "concepts" : [
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-1",
             "type" : "Activity",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "activityDefinition" : {
                 "name" : {
                     "en-US" : "Activity 1"
@@ -71,9 +71,9 @@
             }
         },
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-2",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-2",
             "type" : "Activity",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "activityDefinition" : {
                 "name" : {
                     "en-US" : "Activity 2"
@@ -85,9 +85,9 @@
             }
         },
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-3",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-3",
             "type" : "Activity",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "activityDefinition" : {
                 "name" : {
                     "en-US" : "Activity 3"
@@ -99,8 +99,8 @@
             }
         },
         {
-            "id": "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#didnt",
-            "inScheme": "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id": "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#didnt",
+            "inScheme": "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "type": "Verb",
             "definition": {
                 "en": "Didn't do the thing"
@@ -110,8 +110,8 @@
             }
         },
         {
-            "id": "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#did",
-            "inScheme": "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id": "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#did",
+            "inScheme": "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "type": "Verb",
             "definition": {
                 "en": "Did the thing"
@@ -123,8 +123,8 @@
     ],
     "templates" : [
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-1",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-1",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "prefLabel" : {
                 "en" : "Activity Template 1"
             },
@@ -132,7 +132,7 @@
                 "en" : "The statement template and rules associated with Activity 1 getting done."
             },
             "type" : "StatementTemplate",
-            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#did",
+            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#did",
             "rules" : [
                 {
                     "location" : "$.id",
@@ -144,7 +144,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-1"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-1"
                     ],
                     "location" : "$.object.id",
                     "presence" : "included"
@@ -165,7 +165,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1"
                     ],
                     "location" : "$.context.contextActivities.category[0].id",
                     "presence" : "included"
@@ -173,8 +173,8 @@
             ]
         },
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-2",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-2",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "prefLabel" : {
                 "en" : "Activity Template 2"
             },
@@ -182,7 +182,7 @@
                 "en" : "The statement template and rules associated with Activity 2 getting done."
             },
             "type" : "StatementTemplate",
-            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#didnt",
+            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#didnt",
             "rules" : [
                 {
                     "location" : "$.id",
@@ -194,7 +194,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-2"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-2"
                     ],
                     "location" : "$.object.id",
                     "presence" : "included"
@@ -215,7 +215,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1"
                     ],
                     "location" : "$.context.contextActivities.category[0].id",
                     "presence" : "included"
@@ -223,8 +223,8 @@
             ]
         },
         {
-            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/templates#activity-3",
-            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1",
+            "id" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/templates#activity-3",
+            "inScheme" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1",
             "prefLabel" : {
                 "en" : "Activity Template 3"
             },
@@ -232,7 +232,7 @@
                 "en" : "The statement template and rules associated with Activity 3 getting done."
             },
             "type" : "StatementTemplate",
-            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#did",
+            "verb" : "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#did",
             "rules" : [
                 {
                     "location" : "$.id",
@@ -244,7 +244,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/concepts#activity-3"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/concepts#activity-3"
                     ],
                     "location" : "$.object.id",
                     "presence" : "included"
@@ -265,7 +265,7 @@
                 },
                 {
                     "any" : [
-                        "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1"
+                        "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1"
                     ],
                     "location" : "$.context.contextActivities.category[0].id",
                     "presence" : "included"

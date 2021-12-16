@@ -76,18 +76,19 @@
    :s-per-sec "s/sec"
    :source-batch-size "src batch"
    :target-batch-size "tgt batch"
-   :get-buffer-size "get buf"
+   :get-buffer-size "g buf"
    :statement-buffer-size "s buf"
-   :batch-buffer-size "batch buf"
-   :batch-timeout "batch ms"})
+   :batch-buffer-size "b buf"
+   :batch-timeout "b ms"
+   :cleanup-buffer-size "c buf"})
 
 (def col-order
-  ["statements"
-   "src batch"
-   "get buf"
+  ["src batch"
+   "g buf"
    "s buf"
-   "batch buf"
-   "batch ms"
+   "b buf"
+   "b ms"
+   "c buf"
    "tgt batch"
    "total t (ms)"
    "s/sec"])
@@ -113,6 +114,7 @@
                          get-buffer-size
                          statement-buffer-size
                          batch-buffer-size
+                         cleanup-buffer-size
                          batch-timeout
                          print-results]
                   :or {payload-path "dev-resources/bench/payload.json"
@@ -122,8 +124,6 @@
                        target-batch-size 50
                        num-statements 10000
                        warmup-batches 0
-                       get-buffer-size 10
-                       batch-timeout 200
                        print-results true}}]
   (when print-results
     (printf "\nInitializing source LRS from %s\n\n" payload-path))
@@ -139,9 +139,7 @@
           job-id (.toString (java.util.UUID/randomUUID))
           job {:id job-id,
                :config
-               (cond-> {:batch-timeout batch-timeout
-                        :get-buffer-size get-buffer-size
-                        :source
+               (cond-> {:source
                         {:batch-size source-batch-size
                          :request-config
                          {:url-base (format "http://0.0.0.0:%d"
@@ -156,10 +154,17 @@
                          {:url-base (format "http://0.0.0.0:%d"
                                             target-port),
                           :xapi-prefix "/xapi"}}}
+                 ;; Apply tuning args or leave defaults
+                 get-buffer-size
+                 (assoc :get-buffer-size get-buffer-size)
                  statement-buffer-size
                  (assoc :statement-buffer-size statement-buffer-size)
                  batch-buffer-size
-                 (assoc :batch-buffer-size batch-buffer-size)),
+                 (assoc :batch-buffer-size batch-buffer-size)
+                 batch-timeout
+                 (assoc :batch-timeout batch-timeout)
+                 cleanup-buffer-size
+                 (assoc :cleanup-buffer-size cleanup-buffer-size)),
                :state
                {:status :init,
                 :cursor "1970-01-01T00:00:00.000000000Z",
@@ -190,7 +195,8 @@
                                  [:get-buffer-size
                                   :statement-buffer-size
                                   :batch-buffer-size
-                                  :batch-timeout]))]
+                                  :batch-timeout
+                                  :cleanup-buffer-size]))]
       (when print-results
         (pprint/print-table
          col-order
@@ -251,4 +257,5 @@
             :get-buffer-size 10
             :statement-buffer-size 500
             :batch-buffer-size 10
-            :batch-timeout 200}}]))))
+            :batch-timeout 200
+            :cleanup-buffer-size 50}}]))))

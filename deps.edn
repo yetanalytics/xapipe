@@ -12,10 +12,11 @@
                       org.clojure/clojurescript
                       org.clojure/data.json]}
         org.clojure/tools.logging {:mvn/version "1.1.0"}
-        com.yetanalytics/project-persephone
-        {:git/url "https://github.com/yetanalytics/project-persephone.git"
-         :sha "b6f1155ee28cd77e2dba2ee3eb9b711a79c8f57d"
-         :exclusions [org.clojure/clojurescript]}}
+        io.github.yetanalytics/project-persephone
+        {:git/sha "3a97133"
+         :git/tag "v0.7.3"
+         :exclusions [org.clojure/clojurescript]}
+        com.cognitect/transit-clj {:mvn/version "1.0.324"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}

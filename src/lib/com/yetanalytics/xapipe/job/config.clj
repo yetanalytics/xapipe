@@ -6,6 +6,7 @@
             [com.yetanalytics.xapipe.util :as u]
             [com.yetanalytics.xapipe.util.time :as t]))
 
+;; TODO: The generated values here blow things up on large tests
 (s/def ::batch-size pos-int?) ;; limit param for get, batch size for post
 
 (s/def ::backoff-opts u/backoff-opts-spec)
@@ -24,18 +25,21 @@
 
 ;; How many get requests to read-ahead
 ;; default: 10
-(s/def ::get-buffer-size pos-int?)
+(s/def ::get-buffer-size nat-int?)
 
 ;; How many statements to buffer
 ;; default: source batch-size * get-buffer-size
-(s/def ::statement-buffer-size pos-int?)
+(s/def ::statement-buffer-size nat-int?)
 
 ;; how many batches of (target batch size) to buffer
 ;; default: statement-buffer-size / target batch-size
-(s/def ::batch-buffer-size pos-int?)
+(s/def ::batch-buffer-size nat-int?)
 
 ;; How long will we wait for a batch to fill?
 (s/def ::batch-timeout pos-int?)
+
+;; Buffer size for async tempfile cleanup
+(s/def ::cleanup-buffer-size nat-int?)
 
 ;; Filter config
 (s/def ::filter
@@ -50,6 +54,7 @@
                    ::statement-buffer-size
                    ::batch-buffer-size
                    ::batch-timeout
+                   ::cleanup-buffer-size
                    ::filter]))
 
 ;; ensure a config has optional keys w/defaults
@@ -81,7 +86,8 @@
     [get-buffer-size
      statement-buffer-size
      batch-buffer-size
-     batch-timeout]
+     batch-timeout
+     cleanup-buffer-size]
     :or
     {get-buffer-size 10
      batch-timeout   200}}]
@@ -98,11 +104,16 @@
         (or batch-buffer-size
             (max 1
                  (quot statement-buffer-size
-                       post-batch-size)))]
+                       post-batch-size)))
+        cleanup-buffer-size
+        (or cleanup-buffer-size
+            get-batch-size
+            0)]
     {:get-buffer-size       get-buffer-size
      :statement-buffer-size statement-buffer-size
      :batch-buffer-size     batch-buffer-size
      :batch-timeout         batch-timeout
+     :cleanup-buffer-size   cleanup-buffer-size
      :source
      (-> source-config
          (assoc :batch-size get-batch-size

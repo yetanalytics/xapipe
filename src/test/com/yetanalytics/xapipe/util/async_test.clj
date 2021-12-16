@@ -11,12 +11,17 @@
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
              50
              500
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
@@ -45,6 +50,11 @@
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
@@ -52,7 +62,7 @@
              500
              :stateless-predicates
              {:odd? odd?}
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
@@ -86,7 +96,10 @@
         (let [batches (a/<!! (a/into [] b-chan))]
           (testing "returns nothing"
             (is (= []
-                   (mapcat :batch batches))))))))
+                   (mapcat :batch batches))))
+          (testing "Returns the last record dropped"
+            (is (= [999]
+                   (map :last-dropped batches))))))))
   (testing "With stateful predicates"
     (let [limit-pred (fn [n v]
                        (if (= n 500)
@@ -95,6 +108,11 @@
           a-chan (a/chan 1000)
           b-chan (a/chan 20)
           dropped (atom [])
+          cleanup-chan (a/chan)
+          _ (a/go-loop []
+              (when-let [v (a/<! cleanup-chan)]
+                (swap! dropped conj v)
+                (recur)))
           _ (batch-filter
              a-chan
              b-chan
@@ -104,7 +122,7 @@
              {:limit limit-pred}
              :init-states
              {:limit 0}
-             :cleanup-fn (fn [rec] (swap! dropped conj rec)))]
+             :cleanup-chan cleanup-chan)]
 
       (a/onto-chan! a-chan (range 1000))
 
@@ -113,8 +131,15 @@
           (is (= 500
                  (count (mapcat :batch batches)))))
         (testing "returns states"
-          (is (= (range 50 501 50)
-                 (map #(get-in % [:filter-state :limit])
-                      batches))))
+          (let [filter-states (map #(get-in % [:filter-state :limit])
+                                   batches)]
+            (testing "in progress"
+              (is (= (range 50 501 50)
+                     (butlast filter-states))))
+            (testing "terminated"
+              (= 500 (last filter-states)))))
         (testing "Cleans up"
-          (is (= 500 (count @dropped))))))))
+          (is (= 500 (count @dropped))))
+        (testing "Returns the last record dropped"
+          (is (= (concat (repeat 10 nil) [999])
+                 (map :last-dropped batches))))))))
