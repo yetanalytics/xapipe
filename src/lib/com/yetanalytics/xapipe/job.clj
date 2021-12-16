@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.job
   "Immutable job configuration"
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
@@ -81,3 +82,17 @@
   "Sanitize any sensitive info on a job for logging, etc"
   [job]
   (update job :config config/sanitize))
+
+(s/fdef reconfigure-job
+  :args (s/cat :job (s/with-gen job-spec
+                      (fn []
+                        (sgen/fmap
+                         #(update % :config config/ensure-defaults)
+                         (s/gen job-spec))))
+               :config ::config)
+  :ret job-spec)
+
+(defn reconfigure-job
+  [job
+   config]
+  (update job :config config/merge-config config))
