@@ -199,10 +199,9 @@
   (a/go-loop []
     (when-let [{:keys [attachments]} (a/<! cleanup-chan)]
       (do
-        (when (not-empty attachments)
-          (log/debugf "Cleanup loop deleting %d attachments"
-                      (count attachments))
-          (a/<! (a/thread (mm/clean-tempfiles! attachments))))
+        (log/debugf "Cleanup loop deleting %d attachments"
+                    (count attachments))
+        (a/<! (a/thread (mm/clean-tempfiles! attachments)))
         (recur)))))
 
 (defn- statement-loop
@@ -358,7 +357,12 @@
             ;; A channel for batches of statements to target
             batch-chan (a/chan batch-buffer)
             ;; A channel to get dropped records
-            cleanup-chan (a/chan cleanup-buffer)
+            cleanup-chan (a/chan cleanup-buffer
+                                 ;; Will only pass records with attachments
+                                 (filter
+                                  (comp
+                                   not-empty
+                                   :attachments)))
 
             ;; Cleanup loop deletes tempfiles from batch + post
             cloop (cleanup-loop cleanup-chan)
