@@ -4,6 +4,7 @@
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.cli.options :as opts]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.json :as jj]
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.store :as store])
   (:gen-class))
@@ -94,7 +95,7 @@ Delete a Job:
                     (job/sanitize job))))
                 (if show-job?
                   {:status 0
-                   :message (pr-str
+                   :message (jj/job->json
                              (job/sanitize job))}
                   (do
                     (log/infof

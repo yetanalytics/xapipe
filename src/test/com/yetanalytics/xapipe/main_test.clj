@@ -7,6 +7,7 @@
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.json :as jj]
             [com.yetanalytics.xapipe.main :refer :all]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
@@ -341,7 +342,7 @@
                        :errors [],
                        :filter {}}}
                      (update
-                      (edn/read-string message)
+                      (jj/json->job message)
                       :state dissoc :updated)))))))
       (finally
         (.delete ^File (io/file ".test_store/foo.edn"))
