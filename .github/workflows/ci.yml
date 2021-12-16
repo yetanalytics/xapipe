@@ -1,4 +1,4 @@
-name: Docker
+name: CI
 
 on:
   push:
@@ -11,7 +11,27 @@ on:
       - 'master'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get an env
+        uses: yetanalytics/actions/setup-env@v0
+
+      - name: Cache Deps
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Test Xapipe
+        run: make test
+
   docker:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Get an env

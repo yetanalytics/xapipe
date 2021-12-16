@@ -103,7 +103,7 @@
                     stop-fn
                     states]} (init-run-job config)
             all-states (a/<!! (a/into [] states))]
-        (is (= [:init :running :error]
+        (is (= [:init :error]
                (map
                 #(get-in % [:state :status])
                 all-states)))
@@ -138,7 +138,7 @@
                     stop-fn
                     states]} (init-run-job config)
             all-states (a/<!! (a/into [] states))]
-        (is (= [:init :running :error]
+        (is (= [:init :error]
                (map
                 #(get-in % [:state :status])
                 all-states)))
@@ -174,13 +174,13 @@
             ;; Immediately call the stop-fn!
             _ (stop-fn)
             all-states (a/<!! (a/into [] states))]
-        (testing "initializes, runs once but pauses"
-          (is (= [:init :running :paused]
+        (testing "initializes, immediate pause"
+          (is (= [:init :paused]
                  (mapv #(get-in % [:state :status]) all-states))))
         (testing "nothing gets through"
           (is (= 0 (sup/lrs-count target))))
         (testing "cursor is not moved"
-          (is (= (repeat 3 since)
+          (is (= (repeat 2 since)
                  (map #(get-in % [:state :cursor]) all-states))))
         (testing "all states are timestamped"
           (is (every?
@@ -203,14 +203,13 @@
                      :batch-size 50}}
             {:keys [states
                     stop-fn]} (init-run-job config)
-            ;; take the first two to get it running
-            head-states (a/<!! (a/into [] (a/take 2 states)))
+            ;; take the init state and it will start
+            head-state (a/<!! states)
             ;; Wait long enough for one GET + Post
             _ (Thread/sleep 1000)]
-        (testing "head states"
-          (is (= [:init :running]
-                 (map #(get-in % [:state :status])
-                      head-states))))
+        (testing "head state"
+          (is (= :init
+                 (get-in head-state [:state :status]))))
         (testing "one batch gets through"
           (is (= 50 (sup/lrs-count target))))
         (stop-fn)
@@ -297,9 +296,13 @@
                               target (sup/lrs)]
              (testing (format "testing filter: %s" tag)
                (doseq [s-batch (partition-all 25
-                                              (interleave
-                                               other-statements
-                                               target-statements))]
+                                              (concat
+                                               (interleave
+                                                (take (count target-statements)
+                                                      other-statements)
+                                                target-statements)
+                                               (drop (count target-statements)
+                                                     other-statements)))]
                  ;; Bump stored time by at least 1 ms for each batch
                  (Thread/sleep 1)
                  ((:load source) s-batch))
@@ -318,9 +321,18 @@
                                     (:request-config target))))
                      ;; Get all the states
                      all-states (a/<!! (a/into [] states))]
-                 (is (-> all-states last :state :status (= :complete)))
-                 (is (= (map #(get % "id") target-statements)
-                        (map #(get % "id") (sup/lrs-statements target)))))))
+                 (testing "job success"
+                   (is (-> all-states last :state :status (= :complete))))
+                 (testing "target contains expected statements"
+                   (is (= (map #(get % "id") target-statements)
+                          (map #(get % "id") (sup/lrs-statements target)))))
+                 (testing "cursor is advanced to last normalized stored"
+                   (let [last-stored (-> (sup/lrs-statements source)
+                                         last
+                                         (get "stored")
+                                         t/normalize-stamp)]
+                     (is (= (-> all-states last :state :cursor)
+                            last-stored)))))))
 
            "templates in profile"
            (into []
@@ -395,4 +407,17 @@
               :template-ids []}
              :pattern
              {:profile-urls ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
-              :pattern-ids []}}}))
+              :pattern-ids []}}}
+
+           "No target statements passed"
+           []
+           (into []
+                 (sup/gen-statements
+                  50
+                  :profiles
+                  ["dev-resources/profiles/calibration_a.jsonld"]
+                  :parameters {:seed 42}))
+           {:filter
+            {:path
+             {:match-paths [[[["id"]]
+                             "not-an-id"]]}}}))

@@ -6,7 +6,7 @@
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
             [com.yetanalytics.xapipe :as xapipe]
-            [com.yetanalytics.xapipe.job.config :as config]
+            [com.yetanalytics.xapipe.job.json :as job-json]
             [com.yetanalytics.xapipe.filter.path :as fpath]))
 
 (defn option-spec->spec-def
@@ -125,10 +125,6 @@
    [nil "--prometheus-push-gateway URL" "Address of prometheus push gateway server"
     :default "0.0.0.0:9091"]])
 
-(defn- keywordize-status
-  [job]
-  (update-in job [:state :status] (partial keyword nil)))
-
 (def common-options
   (into
    [["-h" "--help" "Show the help and options summary"
@@ -156,15 +152,12 @@
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
      :default false]
     [nil "--json JSON" "Take a job specification as a JSON string"
-     :parse-fn #(-> (json/parse-string ^String % (partial keyword nil))
-                    keywordize-status
-                    (update :config config/ensure-defaults))]
+     :parse-fn job-json/json->job]
     [nil "--json-file FILE" "Take a job specification from a JSON file"
      :parse-fn (fn [filepath]
-                 (-> (with-open [r (io/reader (io/file filepath))]
-                       (json/parse-stream r (partial keyword nil)))
-                     keywordize-status
-                     (update :config config/ensure-defaults)))]]
+                 (-> filepath
+                     slurp
+                     job-json/json->job))]]
    (concat storage-options
            metrics-options)))
 
@@ -260,7 +253,7 @@
 (def job-options
   [[nil "--get-buffer-size SIZE" "Size of GET response buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]
+    :validate [nat-int? "Must be a natural integer"]
     :default 10]
    [nil "--batch-timeout TIMEOUT" "Msecs to wait for a fully formed batch"
     :parse-fn #(Long/parseLong %)
@@ -337,10 +330,13 @@
 
    [nil "--statement-buffer-size SIZE" "Desired size of statement buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]
+    :validate [nat-int? "Must be a natural integer"]]
    [nil "--batch-buffer-size SIZE" "Desired size of statement batch buffer"
     :parse-fn #(Long/parseLong %)
-    :validate [pos-int? "Must be a positive integer"]]])
+    :validate [nat-int? "Must be a natural integer"]]
+   [nil "--cleanup-buffer-size SIZE" "Desired size of tempfile cleanup buffer"
+    :parse-fn #(Long/parseLong %)
+    :validate [nat-int? "Must be a natural integer"]]])
 
 (def-option-specs job-options {::filter-ensure-paths ::fpath/ensure-paths
                                ::filter-match-paths ::fpath/match-paths})

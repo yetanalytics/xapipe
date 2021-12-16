@@ -285,7 +285,7 @@
 
 (s/def ::backoff-opts u/backoff-opts-spec)
 
-(s/fdef get-chan
+(s/fdef get-loop
   :args (s/cat :out-chan ::cspec/channel
                :stop-chan ::cspec/channel
                :config ::request-config
@@ -299,9 +299,10 @@
                  ::metrics/reporter]))
   :ret ::cspec/channel)
 
-(defn get-chan
-  "Returns a channel that will return responses from an LRS forever or until it
-  returns an error and closes or recieves a signal on stop-chan.."
+(defn get-loop
+  "Puts responses from an LRS onto out-chan forever or until it
+  returns an error and closes or recieves a signal on stop-chan.
+  Returns a channel that will close when stopped."
   [out-chan
    stop-chan
    config
@@ -408,8 +409,7 @@
                     (a/close! out-chan)))))))
       ;; if a client was passed in, close it!
       (when-let [http-client (:http-client conn-opts)]
-        (.close ^CloseableHttpClient http-client)))
-    out-chan))
+        (.close ^CloseableHttpClient http-client)))))
 
 (s/def ::get-response
   (s/keys :req-un [::multipart/body]))

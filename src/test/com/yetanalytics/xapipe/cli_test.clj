@@ -97,6 +97,7 @@
            :statement-buffer-size 1000,
            :batch-buffer-size 100,
            :batch-timeout 200,
+           :cleanup-buffer-size 50,
            :source
            {:request-config
             {:url-base "http://0.0.0.0:8080",
@@ -160,45 +161,8 @@
            :batch-buffer-size 100}))))
 
 (deftest reconfigure-job-test
-  (is (= {:id "foo",
-          :config
-          {:get-buffer-size 100,
-           :statement-buffer-size 1000,
-           :batch-buffer-size 100,
-           :batch-timeout 200,
-           :source
-           {:request-config
-            {:url-base "http://0.0.0.0:8082",
-             :xapi-prefix "/xapi2",
-             :username "baz",
-             :password "quxx"},
-            :get-params {:format "exact"},
-            :poll-interval 3000,
-            :batch-size 100,
-            :backoff-opts
-            {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
-           :target
-           {:request-config
-            {:url-base "http://0.0.0.0:8083",
-             :xapi-prefix "/xapi2",
-             :username "baz",
-             :password "quxx"},
-            :batch-size 100,
-            :backoff-opts
-            {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
-           :filter {}},
-          :state
-          {:status :init,
-           :cursor "1970-01-01T00:00:00.000000000Z",
-           :source {:errors []},
-           :target {:errors []},
-           :errors [],
-           :filter {}},
-          :get-buffer-size 200,
-          :batch-timeout 300,
-          :statement-buffer-size 10000,
-          :batch-buffer-size 1000}
-         (reconfigure-job
+  (let [reconfigured
+        (reconfigure-job
           {:id "foo",
            :config
            {:get-buffer-size 100,
@@ -258,4 +222,39 @@
            :batch-timeout 300
 
            :statement-buffer-size 10000
-           :batch-buffer-size 1000}))))
+           :batch-buffer-size 1000})]
+    (is (= {:id "foo",
+            :config
+            {:get-buffer-size 200,
+             :batch-timeout 300,
+             :statement-buffer-size 10000,
+             :batch-buffer-size 1000
+             :source
+             {:request-config
+              {:url-base "http://0.0.0.0:8082",
+               :xapi-prefix "/xapi2",
+               :username "baz",
+               :password "quxx"},
+              :get-params {:format "exact"},
+              :poll-interval 3000,
+              :batch-size 100,
+              :backoff-opts
+              {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
+             :target
+             {:request-config
+              {:url-base "http://0.0.0.0:8083",
+               :xapi-prefix "/xapi2",
+               :username "baz",
+               :password "quxx"},
+              :batch-size 100,
+              :backoff-opts
+              {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
+             :filter {}},
+            :state
+            {:status :init,
+             :cursor "1970-01-01T00:00:00.000000000Z",
+             :source {:errors []},
+             :target {:errors []},
+             :errors [],
+             :filter {}}}
+           reconfigured))))

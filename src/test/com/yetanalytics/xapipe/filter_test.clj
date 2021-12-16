@@ -7,9 +7,7 @@
             [clojure.spec.test.alpha :as st]
             [com.yetanalytics.pan.objects.profile :as prof]))
 
-;; We restrict instrumentation here because we don't want to test the libs
-(use-fixtures :once (sup/instrument-fixture
-                     (st/enumerate-namespace 'com.yetanalytics.xapipe.filter)))
+(use-fixtures :once (sup/instrument-fixture))
 
 (deftest get-profile-test
   (testing "slurps the profile from wherever"
@@ -225,9 +223,11 @@ ids are provided, and all fail when not containing any concepts from the profile
 
 (deftest pattern-filter-pred-test
   (let [profile-url "dev-resources/profiles/calibration_strict_pattern.jsonld"
+        profile-url-alt "dev-resources/profiles/calibration_strict_pattern_alt.jsonld"
         ;; This strict pattern expects activities 1, 2 and 3, in order
         [a b c] (sup/gen-statements
                  3
+                 :parameters {:seed 42}
                  :profiles [profile-url]
                  :personae [{:name "Test Subjects",
                              :objectType "Group",
@@ -235,39 +235,183 @@ ids are provided, and all fail when not containing any concepts from the profile
                              [{:name "alice",
                                :mbox "mailto:alice@example.org",
                                :objectType "Agent"}]}])
-        pred (pattern-filter-pred
-              {:profile-urls [profile-url]
-               :pattern-ids []})]
-    (are [statements states]
-        (= states
-           (rest
-            (reductions
-             (fn [[state _] s]
-               (pred state {:statement s}))
-             [{} nil]
-             statements)))
-      [a b c] [;; a starts the pattern
-               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
-                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{1}, :accepted? false}}}
-                true]
-               ;; b continues
-               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
-                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{0}, :accepted? false}}}
-                true]
-               ;; c is accepted and terminates
-               [{} true]]
+        [d e f] (sup/gen-statements
+                 3
+                 :parameters {:seed 43}
+                 :profiles [profile-url-alt]
+                 :personae [{:name "Test Subjects",
+                             :objectType "Group",
+                             :member
+                             [{:name "bob",
+                               :mbox "mailto:alice@example.org",
+                               :objectType "Agent"}]}])]
+    (sup/art [testing-tag pred-config statements states]
+             (testing testing-tag
+               (let [pred (try
+                            (pattern-filter-pred
+                             pred-config)
+                            (catch Exception _
+                              ::compile-exception))
+                     states' (if (= ::compile-exception pred)
+                               ::compile-exception
+                               (try
+                                 (doall
+                                  (rest
+                                   (reductions
+                                    (fn [[state _] s]
+                                      (pred state {:statement s}))
+                                    [{} nil]
+                                    statements)))
+                                 (catch Exception _
+                                   ::match-exception)))]
+                 (when-not (keyword? states')
+                   (testing "no meta"
+                     (is (every? (comp empty? meta) states'))))
+                 (testing "expected states"
+                   (is
+                    (= states
+                       states')))))
 
-      [b a c] [;; a drops
-               [{} false]
-               ;; a picks up
-               [{"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+             "In order, is matched"
+             {:profile-urls [profile-url]
+              :pattern-ids []}
+             [a b c a]
+             [;; a starts
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
                  {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
-                  {:states #{1}, :accepted? false}}}
-                true]
-               ;; c drops
-               [{} false]])))
+                  #{{:state 0, :accepted? false}}}}}
+               true]
+              ;; b continues
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 3, :accepted? false}}}}}
+               true]
+              ;; c accepts + terminates
+              [{:accepts
+                [["d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                  "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"]],
+                :rejects [],
+                :states-map {}}
+               true]
+              ;; a again starts again
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}}}}
+               true]]
+
+             "Out of order, drop match drop"
+             {:profile-urls [profile-url]
+              :pattern-ids []}
+             [b a c]
+             [;; b drops
+              [{:accepts [],
+                :rejects
+                [["d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                  "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"]],
+                :states-map {}}
+               false]
+              ;; a picks up
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}}}}
+               true]
+              ;; c drops
+              [{:accepts [],
+                :rejects
+                [["d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                  "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"]],
+                :states-map {}}
+               false]]
+
+             "Multiple Profiles"
+             {:profile-urls [profile-url
+                             profile-url-alt]
+              :pattern-ids []}
+             [a d b e c f]
+             [;; a starts a pattern
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}}}}
+               true]
+              ;; d starts another pattern
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}},
+                 "f851859f-b0fe-4b36-9939-4276b96d302d"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}}}}
+               true]
+              ;; b continues first pattern
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 3, :accepted? false}}},
+                 "f851859f-b0fe-4b36-9939-4276b96d302d"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
+                  #{{:state 0, :accepted? false}}}}}
+               true]
+              ;; e continues second
+              [{:accepts [],
+                :rejects [],
+                :states-map
+                {"d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"
+                  #{{:state 3, :accepted? false}}},
+                 "f851859f-b0fe-4b36-9939-4276b96d302d"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
+                  #{{:state 3, :accepted? false}}}}}
+               true]
+              ;; c accepts + terminates
+              [{:accepts
+                [["d7acfddb-f4c2-49f4-a081-ad1fb8490448"
+                  "https://xapinet.org/xapi/yet/calibration_strict_pattern/v1/patterns#pattern-1"]],
+                :rejects [],
+                :states-map
+                {"f851859f-b0fe-4b36-9939-4276b96d302d"
+                 {"https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"
+                  #{{:state 3, :accepted? false}}}}}
+               true]
+              ;; d accepts + terminates
+              [{:accepts
+                [["f851859f-b0fe-4b36-9939-4276b96d302d"
+                  "https://xapinet.org/xapi/yet/calibration_strict_pattern_alt/v1/patterns#pattern-1"]],
+                :rejects [],
+                :states-map {}}
+               true]]
+
+             "Invalid multiple profiles with conflicting profile ids"
+             {:profile-urls [profile-url
+                             profile-url]
+              :pattern-ids []}
+             [a]
+             ::compile-exception
+
+             "Invalid multiple profiles with conflicting pattern/template ids"
+             {:profile-urls [profile-url
+                             "dev-resources/profiles/calibration_strict_pattern_conflict.jsonld"]
+              :pattern-ids []}
+             [a]
+             ::compile-exception)))
 
 (deftest stateless-predicates-test
   (testing "transforms config into stateless predicates"
