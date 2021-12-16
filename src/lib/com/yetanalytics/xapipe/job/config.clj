@@ -160,7 +160,9 @@
       (update-in [:target :request-config] sanitize-req-cfg)))
 
 (s/fdef merge-config
-  :args (s/cat :config-a config-spec
+  :args (s/cat :config-a (s/with-gen config-spec
+                           (fn []
+                             (sgen/fmap ensure-defaults (s/gen config-spec))))
                :config-b config-spec)
   :ret config-spec)
 
