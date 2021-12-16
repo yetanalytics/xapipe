@@ -26,7 +26,7 @@ jobs:
           key: ${{ runner.os }}-deps
 
       - name: Test Xapipe
-        run: make test
+        run: make ci
 
   docker:
     needs: test
@@ -41,9 +41,7 @@ jobs:
           path: |
             ~/.m2
             ~/.gitlibs
-          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-
+          key: ${{ runner.os }}-deps
 
       - name: Build Xapipe
         run: make bundle BUNDLE_RUNTIMES=false
