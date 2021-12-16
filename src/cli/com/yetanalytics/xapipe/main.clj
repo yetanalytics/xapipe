@@ -38,6 +38,7 @@ Delete a Job:
           force-resume? :force-resume
           ?json :json
           ?json-file :json-file
+          ?json-out :json-out
           :as options} :options
          :keys [summary]} (opts/args->options args)
         ]
@@ -93,20 +94,27 @@ Delete a Job:
                    job-id
                    (pr-str
                     (job/sanitize job))))
-                (if show-job?
-                  {:status 0
-                   :message (jj/job->json
-                             (job/sanitize job))}
-                  (do
-                    (log/infof
-                     (if new?
-                       "Starting job %s"
-                       "Resuming job %s")
-                     job-id)
-                    (cli/handle-job store
-                                    job
-                                    (cli/options->client-opts options)
-                                    reporter))))
+                (cond
+                  show-job? {:status 0
+                             :message (jj/job->json
+                                       (job/sanitize job))}
+                  (not-empty
+                   ?json-out) (do
+                                (jj/job->json-file! job ?json-out)
+                                {:status 0
+                                 :message (format "Wrote job %s to %s"
+                                                  job-id ?json-out)})
+
+                  :else (do
+                          (log/infof
+                           (if new?
+                             "Starting job %s"
+                             "Resuming job %s")
+                           job-id)
+                          (cli/handle-job store
+                                          job
+                                          (cli/options->client-opts options)
+                                          reporter))))
               {:status 1
                :message (s/explain-str job/job-spec job)})))))))
 

@@ -157,7 +157,8 @@
      :parse-fn (fn [filepath]
                  (-> filepath
                      slurp
-                     job-json/json->job))]]
+                     job-json/json->job))]
+    [nil "--json-out FILE" "Write JOB to a JSON file"]]
    (concat storage-options
            metrics-options)))
 
