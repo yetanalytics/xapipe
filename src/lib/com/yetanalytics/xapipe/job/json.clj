@@ -8,7 +8,7 @@
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.config :as config]
             [xapi-schema.spec :as xs])
-  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream File]))
 
 (s/fdef write-transit-str
   :args (s/cat :data any?)
@@ -116,18 +116,19 @@
 
 (s/fdef job->json-file!
   :args (s/cat :job job/job-spec
-               :path (s/with-gen
-                       string?
-                       (fn []
-                         (sgen/return "/dev/null")))
+               :out (s/with-gen
+                      (s/or :path string?
+                            :file #(instance? File %))
+                      (fn []
+                        (sgen/return "/dev/null")))
                :kwargs (s/keys* :opt-un [::pretty]))
   :ret nil?)
 
 (defn job->json-file!
   [job
-   path
+   out
    & {:as kwargs}]
-  (with-open [w (io/writer path)]
+  (with-open [w (io/writer out)]
     (json/generate-stream
      (pack-paths job [[:state :filter :pattern]])
      w
