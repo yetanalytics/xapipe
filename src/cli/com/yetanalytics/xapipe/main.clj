@@ -131,7 +131,7 @@ Delete a Job:
         (try
           (apply main* args)
           (catch Exception ex
-            {:status  1
+            {:status 1
              :message (ex-message ex)}))]
     (if (zero? status)
       (do
