@@ -30,100 +30,108 @@ Delete a Job:
 
 (defn main*
   [& args]
-  (let [{{help? :help
-          ?job-id :job-id
-          show-job? :show-job
-          list-jobs? :list-jobs
-          ?delete-job-id :delete-job
-          force-resume? :force-resume
-          ?json :json
-          ?json-file :json-file
-          ?json-out :json-out
-          :as options} :options
-         :keys [summary]} (opts/args->options args)
-        ]
-    (if help?
-      {:status 0
-       :message (str
-                 usage
-                 "All options:\n"
-                 summary)}
-      (let [store (cli/create-store options)]
-        (cond
-          ?delete-job-id
-          (if (true? (store/delete-job store ?delete-job-id))
-            {:status 0
-             :message "Job Deleted"}
-            {:status 1
-             :message "Job Not Deleted"})
+  (try
+    (let [{{help?          :help
+            ?job-id        :job-id
+            show-job?      :show-job
+            list-jobs?     :list-jobs
+            ?delete-job-id :delete-job
+            force-resume?  :force-resume
+            ?json          :json
+            ?json-file     :json-file
+            ?json-out      :json-out
+            :as            options} :options
+           :keys         [summary]} (opts/args->options args)
+          ]
+      (if help?
+        {:status  0
+         :message (str
+                   usage
+                   "All options:\n"
+                   summary)}
+        (let [store (cli/create-store options)]
+          (cond
+            ?delete-job-id
+            (if (true? (store/delete-job store ?delete-job-id))
+              {:status  0
+               :message "Job Deleted"}
+              {:status  1
+               :message "Job Not Deleted"})
 
-          list-jobs?
-          (do
-            (cli/list-store-jobs store)
-            {:status 0})
+            list-jobs?
+            (do
+              (cli/list-store-jobs store)
+              {:status 0})
 
-          :else
-          (let [[new? job'] (or
-                             (and ?json [true ?json])
-                             (and ?json-file [true ?json-file])
-                             (if-some [extant (and ?job-id
-                                                   (store/read-job store ?job-id))]
-                               [false extant]
-                               [true (cli/create-job
-                                      options)]))
-                {job-id :id
-                 :as job} (cond-> job'
-                            (not new?)
-                            (->
-                             (cli/reconfigure-job options)
-                             (cond->
-                                 force-resume?
-                               (-> (update :state state/clear-errors)
-                                   (update :state state/set-status :paused)))))
-                reporter (cli/create-reporter job-id options)]
-            (if (s/valid? job/job-spec job)
-              (do
-                (if new?
-                  (log/infof
-                   "Created new job %s: %s"
-                   job-id
-                   (pr-str
-                    (job/sanitize job)))
-                  (log/infof
-                   "Found existing job %s: %s"
-                   job-id
-                   (pr-str
-                    (job/sanitize job))))
-                (cond
-                  show-job? {:status 0
-                             :message (jj/job->json
-                                       (job/sanitize job))}
-                  (not-empty
-                   ?json-out) (do
-                                (jj/job->json-file! job ?json-out)
-                                {:status 0
-                                 :message (format "Wrote job %s to %s"
-                                                  job-id ?json-out)})
+            :else
+            (let [[new? job'] (or
+                               (and ?json [true ?json])
+                               (and ?json-file [true ?json-file])
+                               (if-some [extant (and ?job-id
+                                                     (store/read-job
+                                                      store ?job-id))]
+                                 [false extant]
+                                 [true (cli/create-job
+                                        options)]))
+                  {job-id :id
+                   :as    job}   (cond-> job'
+                                   (not new?)
+                                   (->
+                                    (cli/reconfigure-job options)
+                                    (cond->
+                                        force-resume?
+                                      (-> (update
+                                           :state
+                                           state/clear-errors)
+                                          (update :state
+                                                  state/set-status :paused)))))
+                  reporter    (cli/create-reporter job-id options)]
+              (if (s/valid? job/job-spec job)
+                (do
+                  (if new?
+                    (log/infof
+                     "Created new job %s: %s"
+                     job-id
+                     (pr-str
+                      (job/sanitize job)))
+                    (log/infof
+                     "Found existing job %s: %s"
+                     job-id
+                     (pr-str
+                      (job/sanitize job))))
+                  (cond
+                    show-job?   {:status  0
+                                 :message (jj/job->json
+                                           (job/sanitize job))}
+                    (not-empty
+                     ?json-out) (do
+                                  (jj/job->json-file! job ?json-out)
+                                  {:status  0
+                                   :message (format "Wrote job %s to %s"
+                                                    job-id ?json-out)})
 
-                  :else (do
-                          (log/infof
-                           (if new?
-                             "Starting job %s"
-                             "Resuming job %s")
-                           job-id)
-                          (cli/handle-job store
-                                          job
-                                          (cli/options->client-opts options)
-                                          reporter))))
-              {:status 1
-               :message (s/explain-str job/job-spec job)})))))))
+                    :else (do
+                            (log/infof
+                             (if new?
+                               "Starting job %s"
+                               "Resuming job %s")
+                             job-id)
+                            (cli/handle-job store
+                                            job
+                                            (cli/options->client-opts options)
+                                            reporter))))
+                {:status  1
+                 :message (s/explain-str job/job-spec job)}))))))
+    (catch Exception ex
+      {:status  1
+       :message (ex-message ex)})))
 
 (defn -main [& args]
   (let [{:keys [status message]}
         (try
           (apply main* args)
           (catch Exception ex
-            {:status 1
+            {:status  1
              :message (ex-message ex)}))]
     (if (zero? status)
       (do
