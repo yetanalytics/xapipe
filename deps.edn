@@ -57,7 +57,8 @@
   :bench {:extra-paths ["src/bench"]
           :ns-default com.yetanalytics.xapipe.bench}
   :build {:paths ["src/build"]
-          :deps {io.github.clojure/tools.build {:git/tag "v0.6.6" :git/sha "4d41c26"}}
+          :deps {io.github.clojure/tools.build {:git/tag "v0.6.6"
+                                                :git/sha "4d41c26"}}
           :ns-default com.yetanalytics.xapipe.build}
   :nvd {:replace-deps {nvd-clojure/nvd-clojure {:mvn/version "1.9.0"}}
         :ns-default nvd.task}}}
