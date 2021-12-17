@@ -59,6 +59,8 @@
          (options->config
           {:job-id "foo"
 
+           :source-url "http://0.0.0.0:8080/xapi"
+
            :source-batch-size 50
            :source-poll-interval 1000
            :get-params {}
@@ -68,6 +70,8 @@
            :source-backoff-max-attempt 10
            :source-backoff-j-range 10
            :source-backoff-initial 1
+
+           :target-url "http://0.0.0.0:8081/xapi"
 
            :target-batch-size 50
            :target-username "foo"
@@ -86,9 +90,7 @@
            :filter-pattern-ids []
 
            :statement-buffer-size 1000
-           :batch-buffer-size 100}
-          {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"}
-          {:url-base "http://0.0.0.0:8081", :xapi-prefix "/xapi"}))))
+           :batch-buffer-size 100}))))
 
 (deftest create-job-test
   (is (= {:id "foo",

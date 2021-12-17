@@ -161,13 +161,14 @@
                conn-io-thread-count))})
 
 (s/fdef options->config
-  :args (s/cat :options ::opts/all-options
-               :source-req-cfg ::client/request-config
-               :target-req-cfg ::client/request-config)
+  :args (s/cat :options ::opts/all-options)
   :ret ::job/config)
 
 (defn options->config
   [{:keys [job-id
+
+           source-url
+
            source-batch-size
            source-poll-interval
            get-params
@@ -177,6 +178,8 @@
            source-backoff-max-attempt
            source-backoff-j-range
            source-backoff-initial
+
+           target-url
 
            target-batch-size
            target-username
@@ -202,13 +205,11 @@
            filter-attachment-usage-types
 
            statement-buffer-size
-           batch-buffer-size]}
-   source-req-config
-   target-req-config]
+           batch-buffer-size]}]
   (cond-> {:get-buffer-size get-buffer-size
            :batch-timeout batch-timeout
            :source
-           {:request-config (cond-> source-req-config
+           {:request-config (cond-> (parse-lrs-url source-url)
                               (and source-username
                                    source-password)
                               (assoc :username source-username
@@ -224,7 +225,7 @@
               source-backoff-initial
               (assoc :initial source-backoff-initial))}
            :target
-           {:request-config (cond-> target-req-config
+           {:request-config (cond-> (parse-lrs-url target-url)
                               (and target-username
                                    target-password)
                               (assoc :username target-username
@@ -290,26 +291,21 @@
   (when (empty? target-url)
     (throw (ex-info "--target-lrs-url cannot be empty!"
                     {:type ::no-target-url})))
-  (let [source-req-config (parse-lrs-url source-url)
-        target-req-config (parse-lrs-url target-url)]
-    (cond
-      ;; invalid xapi params
-      (not (s/valid? ::partial-get-params
-                     (:get-params options)))
-      (throw (ex-info (str "invalid xAPI params:\n"
-                           (s/explain-str
-                            ::partial-get-params
-                            (:get-params options)))
-                      {:type :invalid-get-params}))
-      ;; Minimum required to try a job!
-      :else
-      (let [config (options->config
-                    options
-                    source-req-config
-                    target-req-config)
-            job-id (or (:job-id options)
-                       (.toString (java.util.UUID/randomUUID)))]
-        (job/init-job job-id config)))))
+  (cond
+    ;; invalid xapi params
+    (not (s/valid? ::partial-get-params
+                   (:get-params options)))
+    (throw (ex-info (str "invalid xAPI params:\n"
+                         (s/explain-str
+                          ::partial-get-params
+                          (:get-params options)))
+                    {:type :invalid-get-params}))
+    ;; Minimum required to try a job!
+    :else
+    (let [config (options->config options)
+          job-id (or (:job-id options)
+                     (.toString (java.util.UUID/randomUUID)))]
+      (job/init-job job-id config))))
 
 (s/fdef reconfigure-job
   :args (s/cat :job (s/with-gen ::xapipe/job
