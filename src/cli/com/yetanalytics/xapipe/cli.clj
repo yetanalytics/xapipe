@@ -310,18 +310,18 @@
                      (.toString (java.util.UUID/randomUUID)))]
       (job/init-job job-id config))))
 
-(s/fdef reconfigure-job-with-options
-  :args (s/cat :job (s/with-gen ::xapipe/job
-                      (fn []
-                        (sgen/fmap
-                         #(update % :config config/ensure-defaults)
-                         (s/gen ::xapipe/job))))
+(s/fdef reconfigure-with-options
+  :args (s/cat :config (s/with-gen ::job/config
+                         (fn []
+                           (sgen/fmap
+                            config/ensure-defaults
+                            (s/gen ::job/config))))
                :options ::opts/all-options)
-  :ret ::xapipe/job)
+  :ret ::job/config)
 
-(defn reconfigure-job-with-options
+(defn reconfigure-with-options
   "Given an extant job and CLI options, apply any overriding options"
-  [job
+  [config
    {:keys [source-url
            source-username
            source-password
@@ -350,132 +350,132 @@
 
            statement-buffer-size
            batch-buffer-size]}]
-  (cond-> job
+  (cond-> config
     source-url
     (update-in
-     [:config :source :request-config]
+     [:source :request-config]
      merge (parse-lrs-url source-url))
 
     source-username
     (assoc-in
-     [:config :source :request-config :username]
+     [:source :request-config :username]
      source-username)
 
     source-password
     (assoc-in
-     [:config :source :request-config :password]
+     [:source :request-config :password]
      source-password)
 
     ;; if there's a default, only update on change
     (and source-batch-size
          (not= source-batch-size
-               (get-in job [:config :source :batch-size])))
+               (get-in config [:source :batch-size])))
     (assoc-in
-     [:config :source :batch-size]
+     [:source :batch-size]
      source-batch-size)
 
     (not= source-poll-interval
-          (get-in job [:config :source :poll-interval]))
+          (get-in config [:source :poll-interval]))
     (assoc-in
-     [:config :source :poll-interval]
+     [:source :poll-interval]
      source-poll-interval)
 
     ;; With no args, get-params is an empty map, so ignore
     (and (not-empty get-params)
          (not= get-params
-               (get-in job [:config :source :get-params])))
+               (get-in config [:source :get-params])))
     (->
      (assoc-in
-      [:config :source :get-params]
+      [:source :get-params]
       get-params)
      (cond->
          (and source-batch-size
               (not= source-batch-size
-                    (get-in job [:config :source :batch-size])))
+                    (get-in config [:source :batch-size])))
        (assoc-in
-        [:config :source :get-params :limit]
+        [:source :get-params :limit]
         source-batch-size)))
 
     (not= source-backoff-budget
-          (get-in job [:config :source :backoff-opts :budget]))
+          (get-in config [:source :backoff-opts :budget]))
     (assoc-in
-     [:config :source :backoff-opts :budget]
+     [:source :backoff-opts :budget]
      source-backoff-budget)
 
     (not= source-backoff-max-attempt
-          (get-in job [:config :source :backoff-opts :max-attempt]))
+          (get-in config [:source :backoff-opts :max-attempt]))
     (assoc-in
-     [:config :source :backoff-opts :max-attempt]
+     [:source :backoff-opts :max-attempt]
      source-backoff-max-attempt)
 
     source-backoff-j-range
     (assoc-in
-     [:config :source :backoff-opts :j-range]
+     [:source :backoff-opts :j-range]
      source-backoff-j-range)
 
     source-backoff-initial
     (assoc-in
-     [:config :source :backoff-opts :initial]
+     [:source :backoff-opts :initial]
      source-backoff-initial)
 
     target-url
     (update-in
-     [:config :target :request-config]
+     [:target :request-config]
      merge (parse-lrs-url target-url))
 
     target-username
     (assoc-in
-     [:config :target :request-config :username]
+     [:target :request-config :username]
      target-username)
 
     target-password
     (assoc-in
-     [:config :target :request-config :password]
+     [:target :request-config :password]
      target-password)
 
     target-batch-size
     (assoc-in
-     [:config :target :batch-size]
+     [:target :batch-size]
      target-batch-size)
 
     (not= target-backoff-budget
-          (get-in job [:config :target :backoff-opts :budget]))
+          (get-in config [:target :backoff-opts :budget]))
     (assoc-in
-     [:config :target :backoff-opts :budget]
+     [:target :backoff-opts :budget]
      target-backoff-budget)
 
     (not= target-backoff-max-attempt
-          (get-in job [:config :target :backoff-opts :max-attempt]))
+          (get-in config [:target :backoff-opts :max-attempt]))
     (assoc-in
-     [:config :target :backoff-opts :max-attempt]
+     [:target :backoff-opts :max-attempt]
      target-backoff-max-attempt)
 
     target-backoff-j-range
     (assoc-in
-     [:config :target :backoff-opts :j-range]
+     [:target :backoff-opts :j-range]
      target-backoff-j-range)
 
     target-backoff-initial
     (assoc-in
-     [:config :target :backoff-opts :initial]
+     [:target :backoff-opts :initial]
      target-backoff-initial)
 
     (not= get-buffer-size
-          (get job :get-buffer-size))
-    (assoc-in [:config :get-buffer-size] get-buffer-size)
+          (get config :get-buffer-size))
+    (assoc :get-buffer-size get-buffer-size)
 
     (not= batch-timeout
-          (get job :batch-timeout))
-    (assoc-in [:config :batch-timeout] batch-timeout)
+          (get config :batch-timeout))
+    (assoc :batch-timeout batch-timeout)
 
     statement-buffer-size
-    (assoc-in [:config :statement-buffer-size] statement-buffer-size)
+    (assoc :statement-buffer-size statement-buffer-size)
 
     batch-buffer-size
-    (assoc-in [:config :batch-buffer-size] batch-buffer-size)
+    (assoc :batch-buffer-size batch-buffer-size)
 
     cleanup-buffer-size
-    (assoc-in [:config :cleanup-buffer-size] cleanup-buffer-size)))
+    (assoc :cleanup-buffer-size cleanup-buffer-size)))
 
 (s/fdef list-store-jobs
   :args (s/cat :store :com.yetanalytics.xapipe/store)
