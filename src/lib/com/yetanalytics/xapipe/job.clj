@@ -95,4 +95,4 @@
 (defn reconfigure-job
   [job
    config]
-  (update job :config config/merge-config config))
+  (assoc job :config config))
