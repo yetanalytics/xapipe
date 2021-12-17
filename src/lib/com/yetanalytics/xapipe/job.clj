@@ -13,11 +13,45 @@
 
 (s/def ::id (s/and string? not-empty))
 
-(def job-spec
+(defn valid-get-params-vs-state?
+  "Verify that since and until params (if present) wrap the cursor."
+  [{{{{?since :since
+       ?until :until} :get-params} :source} :config
+    {:keys [cursor]} :state}]
+  (t/in-order?
+   (concat
+    (when ?since
+      [?since])
+    [cursor]
+    (when ?until
+      [?until]))))
+
+(def job-spec-base
   (s/keys
    :req-un [::id
             ::config
             ::state]))
+
+(def job-spec
+  (s/with-gen
+    (s/and
+     job-spec-base
+     valid-get-params-vs-state?)
+    (fn []
+      (sgen/fmap
+       (fn [[job stamps]]
+         (let [[since cursor until] (sort stamps)]
+           (cond-> (assoc-in job [:state :cursor] cursor)
+             (get-in job [:config :source :get-params :since])
+             (assoc-in [:config :source :get-params :since] since)
+
+             (get-in job [:config :source :get-params :until])
+             (assoc-in [:config :source :get-params :until] until))))
+       (sgen/tuple
+        (s/gen job-spec-base)
+        (sgen/vector-distinct
+         (s/gen ::t/normalized-stamp)
+         {:num-elements 3}))))))
 
 ;; Initialize a job
 (s/fdef init-job
@@ -29,7 +63,7 @@
   "Initialize a new job"
   [id
    config]
-  (let [{{{?since :since}  :get-params} :source
+  (let [{{{?since :since} :get-params} :source
          filter-config :filter
          :as config} (config/ensure-defaults config)]
     {:id id
@@ -94,7 +128,8 @@
 
 (defn reconfigure-job
   "Given a job and a new config, return the job with the config applied, and
-  state adjusted if possible."
+  state adjusted if possible.
+  If the resulting job would be invalid, we add an error to the job state."
   [{{{?old-since :since
       ?old-until :until} :get-params} :config
     {:keys [cursor]
@@ -104,12 +139,31 @@
       ?new-until :until} :get-params} :source
     filter-cfg :filter
     :as config}]
-  (cond-> (assoc job :config config)
-    ;; Advance the cursor on updated since
-    (and ?new-since (not= ?old-since ?new-since))
-    (assoc-in [:state :cursor] (last (sort [?new-since cursor])))
-
-    (and
-     (:pattern filter-cfg)
-     (not (:pattern filter-state)))
-    (assoc-in [:state :filter :pattern] {})))
+  (let [?since (or ?new-since ?old-since)
+        ;; Advance the cursor on updated since
+        new-cursor (or (and ?new-since
+                             (not= ?old-since ?new-since)
+                             (last (sort [?new-since cursor])))
+                        cursor)
+        ?until (or ?new-until ?old-until)]
+    (if (t/in-order?
+         (concat
+          (when ?since
+            [?since])
+          [new-cursor]
+          (when ?until
+            [?until])))
+      (-> job
+          (assoc :config config)
+          (assoc-in [:state :cursor] new-cursor)
+          (cond->
+            (and
+             (:pattern filter-cfg)
+             (not (:pattern filter-state)))
+            (assoc-in [:state :filter :pattern] {})))
+      (-> job
+          (update :state
+                  state/add-error
+                  {:type :job
+                   :message "since, cursor, until must be ordered!"})
+          (update :state state/set-updated)))))

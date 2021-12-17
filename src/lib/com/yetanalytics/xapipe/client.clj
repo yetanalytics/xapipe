@@ -60,8 +60,7 @@
   (if (and ?since ?until)
     (and
      (not= ?since ?until)
-     (= [?since ?until]
-        (sort [?since ?until])))
+     (t/in-order? [?since ?until]))
     true))
 
 (def get-params-spec-base
@@ -84,13 +83,19 @@
      valid-since-until)
     (fn []
       (sgen/fmap
-       (fn [params]
-         ;; Dont pass until if it is invalid
-         (if (valid-since-until params)
-           params
-           (dissoc params :until)))
-       (s/gen
-        get-params-spec-base)))))
+       (fn [[params stamps]]
+         (let [[since until] (sort stamps)]
+           (cond-> params
+             (:since params)
+             (assoc :since since)
+             (:until params)
+             (assoc :until until))))
+       (sgen/tuple
+        (s/gen
+         get-params-spec-base)
+        (sgen/vector-distinct
+         (s/gen ::t/normalized-stamp)
+         {:num-elements 2}))))))
 
 (def epoch-stamp "1970-01-01T00:00:00.000000000Z")
 
