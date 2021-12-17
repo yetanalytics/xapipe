@@ -167,7 +167,7 @@
 
 (deftest reconfigure-job-test
   (let [reconfigured
-        (reconfigure-job
+        (reconfigure-job-with-options
           {:id "foo",
            :config
            {:get-buffer-size 100,

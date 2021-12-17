@@ -310,7 +310,7 @@
                      (.toString (java.util.UUID/randomUUID)))]
       (job/init-job job-id config))))
 
-(s/fdef reconfigure-job
+(s/fdef reconfigure-job-with-options
   :args (s/cat :job (s/with-gen ::xapipe/job
                       (fn []
                         (sgen/fmap
@@ -319,7 +319,7 @@
                :options ::opts/all-options)
   :ret ::xapipe/job)
 
-(defn reconfigure-job
+(defn reconfigure-job-with-options
   "Given an extant job and CLI options, apply any overriding options"
   [job
    {:keys [source-url

@@ -77,7 +77,8 @@ Delete a Job:
                    :as    job}   (cond-> job'
                                    (not new?)
                                    (->
-                                    (cli/reconfigure-job options)
+                                    (cli/reconfigure-job-with-options
+                                     options)
                                     (cond->
                                         force-resume?
                                       (-> (update
