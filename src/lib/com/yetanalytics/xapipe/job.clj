@@ -93,6 +93,23 @@
   :ret job-spec)
 
 (defn reconfigure-job
-  [job
-   config]
-  (assoc job :config config))
+  "Given a job and a new config, return the job with the config applied, and
+  state adjusted if possible."
+  [{{{?old-since :since
+      ?old-until :until} :get-params} :config
+    {:keys [cursor]
+     filter-state :filter} :state
+    :as job}
+   {{{?new-since :since
+      ?new-until :until} :get-params} :source
+    filter-cfg :filter
+    :as config}]
+  (cond-> (assoc job :config config)
+    ;; Advance the cursor on updated since
+    (and ?new-since (not= ?old-since ?new-since))
+    (assoc-in [:state :cursor] (last (sort [?new-since cursor])))
+
+    (and
+     (:pattern filter-cfg)
+     (not (:pattern filter-state)))
+    (assoc-in [:state :filter :pattern] {})))
