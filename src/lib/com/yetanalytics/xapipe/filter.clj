@@ -249,7 +249,8 @@
 (def filter-config-spec
   (s/keys :opt-un [::template
                    ::pattern
-                   ::concept]))
+                   ::concept
+                   ::path]))
 
 (s/def :com.yetanalytics.xapipe.filter.stateless-predicates/template
   filter-pred-spec)
