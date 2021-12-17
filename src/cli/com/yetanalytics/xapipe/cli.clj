@@ -191,6 +191,7 @@
 
            get-buffer-size
            batch-timeout
+           cleanup-buffer-size
 
            filter-template-profile-urls
            filter-template-ids
@@ -244,6 +245,8 @@
 
     batch-buffer-size
     (assoc :batch-buffer-size batch-buffer-size)
+    cleanup-buffer-size
+    (assoc :cleanup-buffer-size cleanup-buffer-size)
 
     (not-empty filter-template-profile-urls)
     (assoc-in [:filter :template] {:profile-urls filter-template-profile-urls

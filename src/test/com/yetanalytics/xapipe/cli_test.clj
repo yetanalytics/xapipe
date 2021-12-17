@@ -33,6 +33,7 @@
 (deftest options->config-test
   (is (= {:get-buffer-size 100,
           :batch-timeout 200,
+          :cleanup-buffer-size 100
           :source
           {:request-config
            {:url-base "http://0.0.0.0:8080",
@@ -83,6 +84,7 @@
 
            :get-buffer-size 100
            :batch-timeout 200
+           :cleanup-buffer-size 100
 
            :filter-template-profile-urls []
            :filter-template-ids []
@@ -153,6 +155,7 @@
 
            :get-buffer-size 100
            :batch-timeout 200
+           :cleanup-buffer-size 50
 
            :filter-template-profile-urls []
            :filter-template-ids []
@@ -171,6 +174,7 @@
             :statement-buffer-size 1000,
             :batch-buffer-size 100,
             :batch-timeout 200,
+            :cleanup-buffer-size 50,
             :source
             {:request-config
              {:url-base "http://0.0.0.0:8080",
