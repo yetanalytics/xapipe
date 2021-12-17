@@ -346,6 +346,7 @@
 
            get-buffer-size
            batch-timeout
+           cleanup-buffer-size
 
            statement-buffer-size
            batch-buffer-size]}]
@@ -366,8 +367,9 @@
      source-password)
 
     ;; if there's a default, only update on change
-    (not= source-batch-size
-          (get-in job [:config :source :batch-size]))
+    (and source-batch-size
+         (not= source-batch-size
+               (get-in job [:config :source :batch-size])))
     (assoc-in
      [:config :source :batch-size]
      source-batch-size)
@@ -382,9 +384,17 @@
     (and (not-empty get-params)
          (not= get-params
                (get-in job [:config :source :get-params])))
-    (assoc-in
-     [:config :source :get-params]
-     get-params)
+    (->
+     (assoc-in
+      [:config :source :get-params]
+      get-params)
+     (cond->
+         (and source-batch-size
+              (not= source-batch-size
+                    (get-in job [:config :source :batch-size])))
+       (assoc-in
+        [:config :source :get-params :limit]
+        source-batch-size)))
 
     (not= source-backoff-budget
           (get-in job [:config :source :backoff-opts :budget]))
@@ -462,7 +472,10 @@
     (assoc-in [:config :statement-buffer-size] statement-buffer-size)
 
     batch-buffer-size
-    (assoc-in [:config :batch-buffer-size] batch-buffer-size)))
+    (assoc-in [:config :batch-buffer-size] batch-buffer-size)
+
+    cleanup-buffer-size
+    (assoc-in [:config :cleanup-buffer-size] cleanup-buffer-size)))
 
 (s/fdef list-store-jobs
   :args (s/cat :store :com.yetanalytics.xapipe/store)

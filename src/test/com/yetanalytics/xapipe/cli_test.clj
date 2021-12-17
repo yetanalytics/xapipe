@@ -226,6 +226,7 @@
 
            :get-buffer-size 200
            :batch-timeout 300
+           :cleanup-buffer-size 100
 
            :statement-buffer-size 10000
            :batch-buffer-size 1000})]
@@ -234,14 +235,16 @@
             {:get-buffer-size 200,
              :batch-timeout 300,
              :statement-buffer-size 10000,
-             :batch-buffer-size 1000
+             :batch-buffer-size 1000,
+             :cleanup-buffer-size 100,
              :source
              {:request-config
               {:url-base "http://0.0.0.0:8082",
                :xapi-prefix "/xapi2",
                :username "baz",
                :password "quxx"},
-              :get-params {:format "exact"},
+              :get-params {:format "exact"
+                           :limit 100},
               :poll-interval 3000,
               :batch-size 100,
               :backoff-opts
