@@ -5,6 +5,7 @@
             [clj-http.conn-mgr :as conn-mgr]
             [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [com.yetanalytics.xapipe.metrics :as metrics]
@@ -54,7 +55,16 @@
 (s/def ::since ::t/normalized-stamp)
 (s/def ::until ::t/normalized-stamp)
 
-(s/def ::get-params
+(defn valid-since-until [{?since :since
+                          ?until :until}]
+  (if (and ?since ?until)
+    (and
+     (not= ?since ?until)
+     (= [?since ?until]
+        (sort [?since ?until])))
+    true))
+
+(def get-params-spec-base
   (s/keys
    :opt-un [::since
             ::until
@@ -66,6 +76,21 @@
             :xapi.statements.GET.request.params/related_activities
             :xapi.statements.GET.request.params/related_agents
             :xapi.statements.GET.request.params/format]))
+
+(s/def ::get-params
+  (s/with-gen
+    (s/and
+     get-params-spec-base
+     valid-since-until)
+    (fn []
+      (sgen/fmap
+       (fn [params]
+         ;; Dont pass until if it is invalid
+         (if (valid-since-until params)
+           params
+           (dissoc params :until)))
+       (s/gen
+        get-params-spec-base)))))
 
 (def epoch-stamp "1970-01-01T00:00:00.000000000Z")
 
