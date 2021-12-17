@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Options Reference
 
 Below is an reference and explanation of all options for running LRSPipe. This reference can be accessed from the CLI at any time by running `bin/run.sh --help`.
@@ -78,4 +78,4 @@ All options:
       --cleanup-buffer-size SIZE                              Desired size of tempfile cleanup buffer
 ```
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

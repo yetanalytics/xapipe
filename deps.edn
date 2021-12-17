@@ -57,4 +57,9 @@
           :ns-default com.yetanalytics.xapipe.bench}
   :build {:paths ["src/build"]
           :deps {io.github.clojure/tools.build {:git/tag "v0.6.6" :git/sha "4d41c26"}}
-          :ns-default com.yetanalytics.xapipe.build}}}
+          :ns-default com.yetanalytics.xapipe.build}
+  :doc   {:extra-deps  {markdown-clj/markdown-clj {:mvn/version "1.10.5"}
+                        ;; git dep for pulling version
+                        clj-jgit/clj-jgit         {:mvn/version "1.0.1"}
+                        selmer/selmer             {:mvn/version "1.12.44"}}
+          :extra-paths ["src/doc"]}}}

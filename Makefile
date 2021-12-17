@@ -30,6 +30,11 @@ target/bundle/bin:
 	cp bin/*.sh target/bundle/bin
 	chmod +x target/bundle/bin/*.sh
 
+# publish docs
+
+target/bundle/doc:
+	clojure -M:doc -m xapipe.render-doc doc target/bundle/doc
+
 # Make Runtime Environment (i.e. JREs)
 # Will only produce a single jre for macos/linux matching your machine
 MACHINE ?= $(shell bin/machine.sh)
