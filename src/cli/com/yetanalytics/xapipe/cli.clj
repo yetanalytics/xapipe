@@ -4,10 +4,12 @@
             [clojure.pprint :as pprint]
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.cli.options :as opts]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.metrics.impl.prometheus :as pro]
             [com.yetanalytics.xapipe.spec.common :as cspec]
@@ -310,7 +312,11 @@
         (job/init-job job-id config)))))
 
 (s/fdef reconfigure-job
-  :args (s/cat :job ::xapipe/job
+  :args (s/cat :job (s/with-gen ::xapipe/job
+                      (fn []
+                        (sgen/fmap
+                         #(update % :config config/ensure-defaults)
+                         (s/gen ::xapipe/job))))
                :options ::opts/all-options)
   :ret ::xapipe/job)
 
