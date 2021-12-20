@@ -316,11 +316,22 @@
 
 (def stc-opts :clojure.spec.test.check/opts)
 
+(defn- failure-type
+  [x]
+  (::s/failure (ex-data x)))
+
+(defn- unwrap-failure
+  [x]
+  (if (failure-type x)
+    (ex-data x)
+    x))
+
 (defn failures [check-results]
   (mapv
    (fn [{:keys [sym] :as x}]
      [sym (-> x
               (update :spec s/describe)
+              (update :failure unwrap-failure)
               (dissoc :sym)
               ;; Dissoc the top level trace, leave the shrunken one
               (update stc-ret dissoc :result-data))])
