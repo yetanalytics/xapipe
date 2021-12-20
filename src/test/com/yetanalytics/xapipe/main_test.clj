@@ -227,6 +227,38 @@
                    ))))
           (is (= 452 (sup/lrs-count target))))))))
 
+(deftest force-resume-complete-test
+  (let [common-store (mem/new-store)]
+    (with-redefs [cli/create-store (constantly common-store)]
+      (sup/with-running [source (sup/lrs
+                                 :seed-path
+                                 "dev-resources/lrs/after_conf.edn")
+                         target (sup/lrs)]
+
+        (let [[since until] (sup/lrs-stored-range source)]
+          (testing "original job"
+            (is (-> (main*
+                     "-s" "mem"
+                     "--job-id" "force-resume-complete-test-job"
+                     "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port source))
+                     "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port target))
+                     "-p" (format "since=%s" since)
+                     "-p" (format "until=%s" until))
+                    :status
+                    (= 0)))
+            (is (= 452 (sup/lrs-count target))))
+          (testing "Can force resume a completed job..."
+            (is (-> (main*
+                     "-s" "mem"
+                     "-f" ;; force
+                     "--job-id" "force-resume-complete-test-job")
+                    :status
+                    (= 0)))
+            (testing "But it won't do much because of the cursor"
+              (is (= 452 (sup/lrs-count target))))))))))
+
 (deftest json-test
   (sup/with-running [source (sup/lrs
                              :seed-path
