@@ -278,7 +278,11 @@
           (cs/starts-with? sym-ns "com.yetanalytics.lrs")
           ;; Pathetic is used in JSON path filters but has some spec issues
           ;; TODO: Resolve + remove from this list
-          (cs/starts-with? sym-ns "com.yetanalytics.pathetic"))))
+          (cs/starts-with? sym-ns "com.yetanalytics.pathetic")
+          ;; Persephone has fspecs that run forever
+          ;; TODO: Resolve + remove
+          (cs/starts-with? sym-ns "com.yetanalytics.persephone")
+          )))
      (st/instrumentable-syms))))
   ([sym-or-syms]
    (fn [f]
