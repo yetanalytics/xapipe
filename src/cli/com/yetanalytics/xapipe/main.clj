@@ -125,7 +125,7 @@ Delete a Job:
                 ;; Check job for Errors!
                 (job/errors? job)
                 {:status 1
-                 :message "Cannot start job with Errors!"}
+                 :message (cli/errors->message (job/all-errors job))}
 
                 show-job?   {:status  0
                              :message (jj/job->json
