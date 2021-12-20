@@ -101,6 +101,15 @@
   [{:keys [state]}]
   (state/errors? state))
 
+(s/fdef all-errors
+  :args (s/cat :job job-spec)
+  :ret ::state/errors)
+
+(defn all-errors
+  "Get all errors for the job of any type"
+  [job]
+  (apply concat (state/get-errors (:state job))))
+
 (s/fdef sanitize
   :args (s/cat :job job-spec)
   :ret (s/and job-spec

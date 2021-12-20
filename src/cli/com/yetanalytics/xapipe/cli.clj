@@ -2,22 +2,24 @@
   "CLI helper functions"
   (:require [clojure.core.async :as a]
             [clojure.pprint :as pprint]
-            [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
+            [clojure.string :as cs]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe :as xapipe]
-            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.cli.options :as opts]
+            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.job :as job]
             [com.yetanalytics.xapipe.job.config :as config]
+            [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.metrics.impl.prometheus :as pro]
             [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.store :as store]
+            [com.yetanalytics.xapipe.store.impl.file :as file-store]
+            [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
-            [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
-            [com.yetanalytics.xapipe.store.impl.file :as file-store]
             [xapi-schema.spec.resources :as xsr])
   (:import [java.net URL]))
 
@@ -105,6 +107,20 @@
           :opt-un [::message
                    ::xapipe/job]))
 
+(s/fdef errors->message
+  :args (s/cat :errors ::state/errors)
+  :ret string?)
+
+(defn errors->message
+  "Create a (possibly multiline) message from multiple errors"
+  [errors]
+  (cs/join \newline
+           (for [{etype :type
+                  emsg :message} errors]
+             (format "%s error: %s"
+                     (name etype)
+                     emsg))))
+
 (s/fdef handle-job
   :args (s/cat :store :com.yetanalytics.xapipe/store
                :job ::xapipe/job
@@ -117,25 +133,34 @@
   Redef this when testing for cooler output"
   [store job client-opts reporter]
   (try
-    (let [{:keys [states]
+    (let [_ (log/debugf "Running job %s" (:id job))
+          {:keys [states]
            stop :stop-fn} (xapipe/run-job job
                                           :reporter
                                           reporter
                                           :client-opts
                                           client-opts)]
+      (log/debugf "Adding shutdown hook for job %s" (:id job))
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
                                  (fn []
                                    (force-stop-job! stop states))))
-      (let [{{:keys [status]} :state
+      (let [_ (log/debugf "Waiting for job %s" (:id job))
+            {{:keys [status]} :state
              :as job-result} (-> states
                                  (xapipe/log-states :info)
                                  (xapipe/store-states store)
-                                 a/<!!)]
+                                 a/<!!)
+            _ (log/debugf "Finished job %s status: %s"
+                          (:id job)
+                          (name status))]
         {:job job-result
          :status (if (= :error status)
                    1
-                   0)}))
+                   0)
+         :message (if (= :error status)
+                    (errors->message (job/all-errors job-result))
+                    "OK")}))
     (catch Exception ex
       (log/error ex "Runtime Exception")
       {:status 1
