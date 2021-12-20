@@ -5,58 +5,268 @@ Instead of defining all job configuration in [CLI arguments](options.md) it is a
 
 ## JSON Options
 
+To run a job with a JSON config file simply use:
 
+`bin/run.sh --json-file [location of JSON config file]`
 
+Alternatively if you would like to simply provide the JSON config inline as a string, you can use the following:
 
+`bin/run.sh --json [full JSON config string]`
+
+Below is an example of all of the JSON fields that can be used in a config file. We will break these down in sections below.
+
+```json
+{
+  "id": "NewJobID",
+  "config": {
+    "get-buffer-size": 10,
+    "statement-buffer-size": 500,
+    "batch-buffer-size": 10,
+    "batch-timeout": 200,
+    "cleanup-buffer-size": 50,
+    "source": {
+      "request-config": {
+        "url-base": "http://localhost:8080",
+        "xapi-prefix": "/xapi",
+        "username": "username",
+        "password": "password"
+      },
+      "get-params": {
+        "limit": 50
+      },
+      "poll-interval": 1000,
+      "batch-size": 50,
+      "backoff-opts": {
+        "budget": 10000,
+        "max-attempt": 10
+      }
+    },
+    "target": {
+      "request-config": {
+        "url-base": "http://localhost:9080",
+        "xapi-prefix": "/xapi",
+        "username": "username",
+        "password": "password"
+      },
+      "batch-size": 50,
+      "backoff-opts": {
+        "budget": 10000,
+        "max-attempt": 10
+      }
+    },
+    "filter": {
+      "pattern": {
+        "profile-urls": [
+          "https://xapinet.org/xapi/example-profile/v1"
+        ],
+        "pattern-ids": [
+          "https://xapinet.org/xapi/example-profile/v1/patterns#pattern-1"
+        ]
+      }
+    }
+  },
+  "state": {
+    "status": "init",
+    "cursor": "1970-01-01T00:00:00.000000000Z",
+    "source": {
+      "errors": []
+    },
+    "target": {
+      "errors": []
+    },
+    "errors": [],
+    "filter": {}
+  }
+}
 ```
-{:get-buffer-size 100,
-          :statement-buffer-size 1000,
-          :batch-buffer-size 100,
-          :batch-timeout 200,
-          :cleanup-buffer-size 50,
-          :source
-          {:request-config
-           {:url-base "http://0.0.0.0:8080",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :get-params {:limit 50},
-           :poll-interval 1000,
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :target
-          {:request-config
-           {:url-base "http://0.0.0.0:8081",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :filter {}}
+### ID and Top-level Config Options
+```json
+{
+  "id": "NewJobID",
+  "config": {
+    "get-buffer-size": 10,
+    "statement-buffer-size": 500,
+    "batch-buffer-size": 10,
+    "batch-timeout": 200,
+    "cleanup-buffer-size": 50,
+    ...
+  }
+  ...
+}
+```
+The `id` field can be specified in much the same way as with `--job-id` on the CLI. This will specify an ID for a new job, or allow you to resume a previously stored job.
+
+The other options under the `config` map are optional and will default to the values specific on the [options guide](options.md). When restarting an existing job these values can be changed via giving them values here, or they will retain the previous job definition's values.
+
+### Source and Target
+
+```json
+{
+  "config": {
+    "source": {
+      "request-config": {
+        "url-base": "http://localhost:8080",
+        "xapi-prefix": "/xapi",
+        "username": "username",
+        "password": "password"
+      },
+      "get-params": {
+        "limit": 50
+      },
+      "poll-interval": 1000,
+      "batch-size": 50,
+      "backoff-opts": {
+        "budget": 10000,
+        "max-attempt": 10
+      }
+    },
+    "target": {
+      "request-config": {
+        "url-base": "http://localhost:9080",
+        "xapi-prefix": "/xapi",
+        "username": "username",
+        "password": "password"
+      },
+      "batch-size": 50,
+      "backoff-opts": {
+        "budget": 10000,
+        "max-attempt": 10
+      }
+    },
+    ...
+  }
+  ...
+}
+```
+Source and Target are responsible for providing information about the respective source and target LRS configurations. All of the options correspond to the `--source-*` and `--target-*` arguments in the CLI reference. Any option with a default can be omitted from the JSON config and it will take the default value or the previously set value if resuming a stored job.
+
+These sections can be used to update LRS config for paused jobs, for instance in the case where LRS credentials are changed.
+
+### Filter
+
+```json
+{
+  "config": {
+    "filter": {
+      "pattern": {
+        "profile-urls": [
+          "https://xapinet.org/xapi/example-profile/v1"
+        ],
+        "pattern-ids": [
+          "https://xapinet.org/xapi/example-profile/v1/patterns#pattern-1"
+        ]
+      }
+    },
+    ...
+  }
+  ...
+}
+```
+The filter map contains all of the filtering options passed to LRS Pipe. Much like the other sections these fields correspond to the many filter CLI args found on the [options page](options.md). We will cover a few basic scenarios here.
+
+#### Pattern Filtering
+
+In the snippet in the above section you can see how an xAPI Profile and a specific Pattern ID might be provided, analogous to the use of `--pattern-profile-url` and `--pattern-id` args.
+
+#### Template Filtering
+
+```json
+{
+  "config": {
+    "filter": {
+      "template": {
+        "profile-urls": [
+          "https://xapinet.org/xapi/example-profile/v1"
+        ],
+        "template-ids": [
+          "https://xapinet.org/xapi/example-profile/v1/templates#template-1"
+        ]
+      }
+    },
+    ...
+  }
+  ...
+}
+```
+Above you can see how you would apply the same structure but for a template-based filter.
+
+#### Concept Filtering
+
+```json
+{
+  "config": {
+    "filter": {
+      "concept": {
+        "profile-urls": [
+          "https://xapinet.org/xapi/example-profile/v1"
+        ],
+        "concept-types": [
+          "Verb"
+        ],
+        "activity-type-ids": [],
+        "verb-ids": [
+          "https://xapinet.org/xapi/example-profile/v1/concepts#verb-1"
+        ],
+        "attachment-usage-types": []
+      }
+    },
+    ...
+  },
+  ...
+}
 ```
 
+Above you can see how you can choose a Profile, what types of concepts to filter, and specific IDs to filter for.
 
+#### JsonPath Filtering
 
-
-``` shell
-curl -L https://github.com/yetanalytics/xapipe/releases/latest/download/xapipe.zip -o xapipe.zip
-unzip xapipe.zip -d xapipe
-cd xapipe
-bin/run.sh --help
+```json
+{
+  "config": {
+    "filter": {
+      "path": {
+        "ensure-paths": [
+          [["result"],["score"],["scaled"]]
+        ],
+        "match-paths": [
+          [[["verb"],["id"]],"http://example.com/verb"]
+        ]
+      }
+    }
+  }
+}
 ```
+The above example shows both an `ensure-path` (`$.result.score.scaled`) and `match-path` (`$.verb.id=http://example.com/verb`) filter. Note that in the JSON representation these are not stored as JSONPath syntax and are rather an internal format LRSPipe uses. If this is unintuitive, you can generate the appropriate syntax from JSONPath using the instructions below for Generating JSON Config.
 
-## Build from Source
+### State
 
-If you would like to build LRSPipe from the source code in this repository, you will need Java JDK 11+ and Clojure 1.10+. Clone the repository and from the root directory run the following:
-
-``` shell
-make bundle
-cd target/bundle
-bin/run.sh --help
+```json
+{
+  "state": {
+    "status": "init",
+    "cursor": "1970-01-01T00:00:00.000000000Z",
+    "source": {
+      "errors": []
+    },
+    "target": {
+      "errors": []
+    },
+    "errors": [],
+    "filter": {}
+  }
+}
 ```
+Manipulating state in JSON config can become exceptionally complex and dangerous as this is the data representation of the running state of a job. For that reason we will only cover a few fields here.
 
-For basic usage instructions please see the [usage](usage.md) page.
+- `cursor`: Sets the initial timestamp from where to load statements (by `stored` time) from the source LRS.
+- `status`: Sets the status of the job. The options are: `init` `running` `error` `complete` and `paused`.
+
+## Generating JSON Config
+
+If you would like to convert CLI job args into a config file, for debugging purposes or to help build a working saved config, there is an option to do this. When running LRSPipe from CLI simply add
+
+`--json-out [desired file location]`
+
+Rather than run the job, LRSPipe will write the JSON equivalent configuration to the filename provided.
 
 [<- Back to Index](index.md)
