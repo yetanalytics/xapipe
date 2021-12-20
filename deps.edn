@@ -59,7 +59,7 @@
           :deps {io.github.clojure/tools.build {:git/tag "v0.6.6" :git/sha "4d41c26"}}
           :ns-default com.yetanalytics.xapipe.build}
   :doc   {:replace-deps {com.yetanalytics/markdoc {:git/url "https://github.com/yetanalytics/markdoc"
-                                                   :sha "396ae8559f70365ef8dea66f2c1f2863248d1bcf"}}
+                                                   :sha "1a57b934dc92e539e858223ef33eb6a5fcf439a0"}}
           :exec-fn      com.yetanalytics.markdoc/convert
           :exec-args    {:in-root  "doc/"
                          :out-root "target/bundle/doc/"
