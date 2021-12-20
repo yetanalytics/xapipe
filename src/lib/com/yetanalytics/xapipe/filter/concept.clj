@@ -16,23 +16,10 @@
    :prefLabel {:en "Mock Template"}
    :definition {:en "Empty Statement Template used for on-the-fly concept validation."}})
 
-(s/def ::validator-fn
-  (s/fspec :args (s/cat :statement
-                        ::xs/statement)
-           :ret  (s/nilable
-                  ;; Persephone Validation Errors
-                  (s/every any?))))
-
-
 (s/def ::predicate-fn
   (s/fspec :args (s/cat :statement
                         ::xs/statement)
            :ret  boolean?))
-
-(s/def ::validator
-  (s/keys :req-un [::t/id
-                   ::validator-fn
-                   ::predicate-fn]))
 
 (s/def ::verb ::v/id)
 (s/def ::objectActivityType ::at/id)
