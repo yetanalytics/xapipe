@@ -102,7 +102,8 @@
 
 (s/def ::exit
   (s/keys :req-un [::status]
-          :opt-un [::message]))
+          :opt-un [::message
+                   ::xapipe/job]))
 
 (s/fdef handle-job
   :args (s/cat :store :com.yetanalytics.xapipe/store
@@ -131,7 +132,8 @@
                                  (xapipe/log-states :info)
                                  (xapipe/store-states store)
                                  a/<!!)]
-        {:status (if (= :error status)
+        {:job job-result
+         :status (if (= :error status)
                    1
                    0)}))
     (catch Exception ex
