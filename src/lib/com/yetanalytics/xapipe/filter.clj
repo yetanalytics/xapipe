@@ -26,7 +26,7 @@
 (defn get-profile
   "Get a profile from the specified URL or throw"
   [url]
-  (try (per-json/json->edn (slurp url) :keywordize? true)
+  (try (json/parse-string-strict (slurp url) #(keyword nil %))
        (catch Exception ex
          (throw (ex-info "Profile GET error"
                          {:type ::profile-get-error
