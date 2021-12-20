@@ -125,3 +125,13 @@
   "Return the current time as a normalized stamp"
   []
   (normalize-inst (Instant/now)))
+
+(s/fdef in-order?
+  :args (s/cat :stamps (s/every ::normalized-stamp))
+  :ret boolean?)
+
+(defn in-order?
+  "Returns true if the stamps are provided in order"
+  [stamps]
+  (= stamps
+     (sort stamps)))
