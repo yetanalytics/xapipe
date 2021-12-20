@@ -10,6 +10,7 @@ This process is one-way and any statements in the target LRS will not be replica
 - [Usage](usage.md)
 - [Persistence Config](persistence.md)
 - [All Options](options.md)
+- [JSON Config](json.md)
 - [Metrics](metrics.md)
 - [Docker Container](docker.md)
 - [Demo](demo.md)
