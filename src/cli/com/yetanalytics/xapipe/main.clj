@@ -28,15 +28,6 @@ Delete a Job:
 
 ")
 
-(defn- check-job-errors
-  "Check job for errors or throw"
-  [job]
-  (if (job/errors? job)
-    (throw (ex-info "Job has errors!"
-                    {:type ::job-errors
-                     :job job}))
-    job))
-
 (defn main*
   [& args]
   (try
@@ -98,7 +89,6 @@ Delete a Job:
                           force-resume?
                           (-> (update :state state/clear-errors)
                               (update :state state/set-status :paused)))
-                        check-job-errors
                         (job/reconfigure-job
                          (cli/reconfigure-with-options
                           (:config (or ?from-json ?from-storage))

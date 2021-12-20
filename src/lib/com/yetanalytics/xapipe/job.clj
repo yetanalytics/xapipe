@@ -141,32 +141,39 @@
   If the resulting job would be invalid, we add an error to the job state."
   [{{{?old-since :since
       ?old-until :until} :get-params} :config
-    {:keys [cursor]
+    {:keys [status cursor]
      filter-state :filter} :state
     :as job}
    {{{?new-since :since
       ?new-until :until} :get-params} :source
     filter-cfg :filter
     :as config}]
-  (let [?since (or ?new-since ?old-since)
-        ?until (or ?new-until ?old-until)]
-    (if (t/in-order?
-         (concat
-          (when ?since
-            [?since])
-          [cursor]
-          (when ?until
-            [?until])))
-      (-> job
-          (assoc :config config)
-          (cond->
-            (and
-             (:pattern filter-cfg)
-             (not (:pattern filter-state)))
-            (assoc-in [:state :filter :pattern] {})))
-      (-> job
-          (update :state
-                  state/add-error
-                  {:type :job
-                   :message "since, cursor, until must be ordered!"})
-          (update :state state/set-updated)))))
+  (if (= status :error)
+    (-> job
+        (update :state
+                state/add-error
+                {:type :job
+                 :message "Cannot reconfigure job with errors."})
+        (update :state state/set-updated))
+    (let [?since (or ?new-since ?old-since)
+          ?until (or ?new-until ?old-until)]
+      (if (t/in-order?
+           (concat
+            (when ?since
+              [?since])
+            [cursor]
+            (when ?until
+              [?until])))
+        (-> job
+            (assoc :config config)
+            (cond->
+                (and
+                 (:pattern filter-cfg)
+                 (not (:pattern filter-state)))
+              (assoc-in [:state :filter :pattern] {})))
+        (-> job
+            (update :state
+                    state/add-error
+                    {:type :job
+                     :message "since, cursor, until must be ordered!"})
+            (update :state state/set-updated))))))
