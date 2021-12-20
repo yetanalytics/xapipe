@@ -82,9 +82,7 @@
            verb-ids
            attachment-usage-types
            concept-types]}]
-  ;; TODO: Update for new persephone APIs
-  (constantly true)
-  #_(let [concepts   (reduce (fn [concepts profile]
+  (let [concepts   (reduce (fn [concepts profile]
                              (into concepts (:concepts profile)))
                            [] (map get-profile profile-urls))
         vrb-ids    (or (not-empty verb-ids)
@@ -93,23 +91,20 @@
                        (map :id (filter #(= (:type %) "ActivityType") concepts)))
         att-ids    (or (not-empty attachment-usage-types)
                        (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
-        validators (cond-> []
-                     (empty? concept-types)
-                     (concat (concept/verb-validators vrb-ids)
-                             (concept/activity-type-validators act-ids)
-                             (concept/attachment-usage-validators att-ids))
-                     (some #{"Verb"} (set concept-types))
-                     (into (concept/verb-validators vrb-ids))
-                     (some #{"ActivityType"} (set concept-types))
-                     (into (concept/activity-type-validators act-ids))
-                     (some #{"AttachmentUsageType"} (set concept-types))
-                     (into (concept/attachment-usage-validators att-ids)))]
+        templates (cond-> []
+                    (empty? concept-types)
+                    (concat (concept/verb-templates vrb-ids)
+                            (concept/activity-type-templates act-ids)
+                            (concept/attachment-usage-templates att-ids))
+                    (some #{"Verb"} (set concept-types))
+                    (into (concept/verb-templates vrb-ids))
+                    (some #{"ActivityType"} (set concept-types))
+                    (into (concept/activity-type-templates act-ids))
+                    (some #{"AttachmentUsageType"} (set concept-types))
+                    (into (concept/attachment-usage-templates att-ids)))
+        validators (per/compile-templates->validators templates :validate-templates? false)]
     (fn [{:keys [statement attachments]}]
-      (some?
-       (some (fn [v]
-               (per/validate-statement-vs-template
-                        v statement))
-             validators)))))
+      (per/validate-statement validators statement))))
 
 ;; Template filter config
 

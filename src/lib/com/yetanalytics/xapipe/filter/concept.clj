@@ -57,24 +57,24 @@
                          ::contextCategoryActivityType
                          ::contextOtherActivityType
                          ::attachmentUsageType]))
-  :ret ::validator)
+  :ret ::t/template)
 
 (defn t-val
-  "take a map of determining properties and returns a persephone validator with
+  "take a map of determining properties and returns a template with
   the determining properties merged onto a mock template"
   [det-props]
   ;; TODO: This function is now private, update
-  #_(p/template->validator (merge mock-template det-props)))
+  (merge mock-template det-props))
 
 (s/def ::verb-ids
   (s/every ::verb))
 
-(s/fdef verb-validators
+(s/fdef verb-templates
   :args (s/cat :verb-ids ::verb-ids)
-  :ret  (s/every ::validator))
+  :ret  (s/every ::t/template))
 
-(defn verb-validators
-  "takes coll of xapi verb ids and returns a list of persephone validators, one
+(defn verb-templates
+  "takes coll of xapi verb ids and returns a list of persephone templates, one
   for each verb id"
   [verb-ids]
   (map #(t-val {:verb %}) verb-ids))
@@ -82,33 +82,33 @@
 (s/def ::activity-type-ids
   (s/every ::at/id))
 
-(s/fdef activity-type-validators
+(s/fdef activity-type-templates
   :args (s/cat :activity-type-ids ::activity-type-ids)
-  :ret  (s/every ::validator))
+  :ret  (s/every ::t/template))
 
-(defn activity-type-validators
-  "takes a coll of xapi activity type ids and returns a list of persephone
-  validators for each activity location and the activity-type-id"
+(defn activity-type-templates
+  "takes a coll of xapi activity type ids and returns a list of
+  templates for each activity location and the activity-type-id"
   [activity-type-ids]
-  (reduce (fn [validators activity-type-id]
-            (into validators
-                  [(t-val {:objectActivityType activity-type-id})
-                   (t-val {:contextParentActivityType [activity-type-id]})
-                   (t-val {:contextGroupingActivityType [activity-type-id]})
-                   (t-val {:contextCategoryActivityType [activity-type-id]})
-                   (t-val {:contextOtherActivityType [activity-type-id]})]))
-          []
-          activity-type-ids))
+  (into []
+        (mapcat
+         (fn [atid]
+           [(t-val {:objectActivityType atid})
+            (t-val {:contextParentActivityType [atid]})
+            (t-val {:contextGroupingActivityType [atid]})
+            (t-val {:contextCategoryActivityType [atid]})
+            (t-val {:contextOtherActivityType [atid]})])
+         activity-type-ids)))
 
 (s/def ::attachment-usage-type-ids
   (s/every ::aut/id))
 
-(s/fdef attachment-usage-validators
+(s/fdef attachment-usage-templates
   :args (s/cat :attachment-usage-types ::attachment-usage-type-ids)
-  :ret  (s/every ::validator))
+  :ret  (s/every ::t/template))
 
-(defn attachment-usage-validators
-  "takes a coll of xapi attachment usage types and returns a list of persephone
-  validators, one for each type"
+(defn attachment-usage-templates
+  "takes a coll of xapi attachment usage types and returns a list of
+  templates, one for each type"
   [attachment-usage-types]
   (map #(t-val {:attachmentUsageType [%]}) attachment-usage-types))
