@@ -127,21 +127,15 @@
   function to filter records."
   [{:keys [profile-urls
            template-ids]}]
-  (let [validators
-        (into []
-              (for [{:keys [templates]} (map get-profile profile-urls)
-                    {:keys [id] :as template} templates
-                    :when (or (empty? template-ids)
-                              (some (partial = id)
-                                    template-ids))]
-                (per/template->validator template)))]
+  (let [validators (apply per/compile-profiles->validators
+                          (map get-profile profile-urls)
+                          (cond-> []
+                            (not-empty template-ids)
+                            (conj :selected-templates template-ids)))]
     (fn [{:keys [statement
                  attachments]}]
-      (some?
-       (some (fn [v]
-               (per/validate-statement-vs-template
-                v statement))
-             validators)))))
+      (per/validate-statement validators
+                              statement))))
 
 (s/def ::pattern-id
   (s/with-gen ::pat/id
