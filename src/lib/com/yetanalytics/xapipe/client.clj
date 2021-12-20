@@ -58,9 +58,7 @@
 (defn valid-since-until [{?since :since
                           ?until :until}]
   (if (and ?since ?until)
-    (and
-     (not= ?since ?until)
-     (t/in-order? [?since ?until]))
+    (t/in-order? [?since ?until])
     true))
 
 (def get-params-spec-base
