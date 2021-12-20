@@ -140,22 +140,16 @@
     filter-cfg :filter
     :as config}]
   (let [?since (or ?new-since ?old-since)
-        ;; Advance the cursor on updated since
-        new-cursor (or (and ?new-since
-                             (not= ?old-since ?new-since)
-                             (last (sort [?new-since cursor])))
-                        cursor)
         ?until (or ?new-until ?old-until)]
     (if (t/in-order?
          (concat
           (when ?since
             [?since])
-          [new-cursor]
+          [cursor]
           (when ?until
             [?until])))
       (-> job
           (assoc :config config)
-          (assoc-in [:state :cursor] new-cursor)
           (cond->
             (and
              (:pattern filter-cfg)
