@@ -63,7 +63,8 @@
   "take a map of determining properties and returns a persephone validator with
   the determining properties merged onto a mock template"
   [det-props]
-  (p/template->validator (merge mock-template det-props)))
+  ;; TODO: This function is now private, update
+  #_(p/template->validator (merge mock-template det-props)))
 
 (s/def ::verb-ids
   (s/every ::verb))

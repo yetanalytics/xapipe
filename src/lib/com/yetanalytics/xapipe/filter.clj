@@ -80,7 +80,9 @@
            verb-ids
            attachment-usage-types
            concept-types]}]
-  (let [concepts   (reduce (fn [concepts profile]
+  ;; TODO: Update for new persephone APIs
+  (constantly true)
+  #_(let [concepts   (reduce (fn [concepts profile]
                              (into concepts (:concepts profile)))
                            [] (map get-profile profile-urls))
         vrb-ids    (or (not-empty verb-ids)
