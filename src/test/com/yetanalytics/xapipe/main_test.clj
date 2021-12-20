@@ -394,7 +394,8 @@
                                  "dev-resources/lrs/after_conf.edn")
                          target-a (sup/lrs)
                          target-b (sup/lrs)
-                         target-c (sup/lrs)]
+                         target-c (sup/lrs)
+                         target-d (sup/lrs)]
         (testing "CLI runs original job to a"
           (let [;; take a chunk of statements
                 ;; there are voideds so the numbers won't match up exactly
@@ -440,12 +441,13 @@
 
                 (testing "Reconfigure from JSON to c"
                   (let [since-c until-b
-                        chunk-c (drop 201 (sup/lrs-statements source))
+                        chunk-c (take 100 (drop 201 (sup/lrs-statements source)))
                         until-c (-> chunk-c last (get "stored"))]
                     (is (-> (main*
                              "-s" "mem"
-                             "-f" ;; force resume
-                             "--job-id" "reconfigure-test-job"
+                             "-f"
+                             ;; no need for job-id, is derived from the JSON
+                             ;; "--job-id" "reconfigure-test-job"
                              "--json" (jj/job->json
                                        (-> job
                                            (update-in
@@ -459,4 +461,23 @@
                                                     (:port target-c))))))
                             :status
                             (= 0)))
-                    (is (= 252 (sup/lrs-count target-c)))))))))))))
+                    (is (= 100 (sup/lrs-count target-c)))
+                    (testing "Reconfigure with both to d"
+                      (let [since-d until-c
+                            chunk-d (drop 301 (sup/lrs-statements source))
+                            until-d (-> chunk-d last (get "stored"))]
+                        (is (-> (main*
+                                 "-s" "mem"
+                                 "-f"
+                                 ;; state in the old job is ignored!
+                                 "--json" (jj/job->json
+                                           (assoc-in
+                                            job
+                                            [:config :target :request-config :url-base]
+                                            (format "http://0.0.0.0:%d"
+                                                    (:port target-d))))
+                                 "-p" (format "since=%s" since-d)
+                                 "-p" (format "until=%s" until-d))
+                                :status
+                                (= 0)))
+                        (is (= 152 (sup/lrs-count target-d)))))))))))))))
