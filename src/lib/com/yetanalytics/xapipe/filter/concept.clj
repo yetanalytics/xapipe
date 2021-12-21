@@ -50,7 +50,6 @@
   "take a map of determining properties and returns a template with
   the determining properties merged onto a mock template"
   [det-props]
-  ;; TODO: This function is now private, update
   (merge mock-template det-props))
 
 (s/def ::verb-ids
