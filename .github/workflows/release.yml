@@ -79,3 +79,9 @@ jobs:
         with:
           draft: true
           files: 'xapipe.zip'
+
+      - name: Deploy Documentation (Tag Pushes)
+        uses: JamesIves/github-pages-deploy-action@4.1.5
+        with:
+          branch: gh-pages
+          folder: target/bundle/doc

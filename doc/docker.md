@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Docker Container
 
 For ease of deployment, LRSPipe is also distributed as a Docker container available on [DockerHub](https://hub.docker.com/r/yetanalytics/xapipe).
@@ -22,4 +22,4 @@ Stop the job with `^C`. You can then resume it:
 docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
 ```
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

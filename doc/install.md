@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Installation
 
 ## From Release Distribution
@@ -24,4 +24,4 @@ bin/run.sh --help
 
 For basic usage instructions please see the [usage](usage.md) page.
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
