@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Yet LRS Pipe Documentation</title>
+        <style type="text/css">
+body{
+    margin: 0 auto;
+    padding: 30px;
+    font: 20px Tahoma, Helvetica, Arial, Sans-Serif;
+    line-height: 1.5;
+}
+h1, h2, h3, h4 {
+	display: block; text-decoration: none;
+	font: Helvetica, Arial, Sans-Serif;
+ }
+h1 {
+  font-size: 35px;
+ }
+h2 {
+  font-size: 30px;
+ }
+h3 {
+  font-size: 25px;
+ }
+h4 {
+  font-size: 20px;
+ }
+textarea {
+	width: 600px; margin: 0 auto; background: #222; padding: 20px;
+	font-size: 22px; color: #555; text-shadow: 0px 2px 3px #171717;
+	-webkit-box-shadow: 0px 2px 3px #555;
+	-moz-box-shadow: 0px 2px 3px #555;
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+}
+code {
+  background: #eeeeee;
+}
+pre {
+  margin: 0 auto;
+  background: #eeeeee;
+  padding: 20px;
+	font-size: 15px;
+	margin-bottom: 20px;
+}
+a {
+	text-decoration: none;
+	font: 18px Helvetica, Arial, Sans-Serif;
+ }
+hr {
+  height: 3px;
+  border: 0;
+  background-color: #333;
+}
+img {
+  max-width: 95%;
+  display: block;
+  margin: auto;
+}
+div#container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80%;
+}
+/* a la https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Styling_tables#Spacing_and_layout */
+table {
+  width: 95%;
+  margin-right: auto;
+  margin-left: auto;
+  border-collapse: collapse;
+  border: 1px solid #dee2e5;
+}
+th, td {
+  border: 1px solid #dee2e5;
+  padding: 20px;
+  line-height: 1.25;
+}
+tbody tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+p {
+  text-align: justify;
+}
+
+div.logo-container {
+  width: 100%;
+}
+
+div.logo {
+  width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+div.footer {
+  font-size: medium;
+  color:white;
+  background-color: rgb(17, 55, 92) !important;
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+.footer a, .footer a:visited {
+  color: white !important;
+}
+
+.footer a:hover {
+  color: white !important;
+  text-decoration: underline;
+}
+
+span.build {
+  display: block;
+  font-size: .7em;
+}
+
+</style>
+    </head>
+    <body>
+      <div id="container">
+        <div class="logo-container">
+          <div class="logo">
+            <img alt="Yet LRSPipe Logo" src="img/logo.png"/>
+          </div>
+        </div>
+        <p><a href='index.html'><- Back to Index</a><h1 id="lrspipe&#95;basic&#95;usage">LRSPipe Basic Usage</h1></p><p>In this section we'll illustrate a few examples of basic usage patterns of LRSPipe.</p><h2 id="basic&#95;forwarding">Basic Forwarding</h2><h3 id="start&#95;a&#95;new&#95;job">Start a New Job</h3><p>In this example we are starting a basic forwarding job with no filters from a source LRS at <code>0.0.0.0:8080</code> to a target LRS at <code>0.0.0.0:8081</code>. We provide it with a <code>job-id</code> which we can reference later in the case that we need to stop, resume, or modify the job. Once initialized this job will forward all existing statements, and then remain active checking for new statements in the source LRS.</p><pre><code class="shell">bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id myjob \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret
+</code></pre><h3 id="resume&#95;a&#95;paused&#95;job">Resume a Paused Job</h3><p>If a job has been started in the past but is not actively running, it can be resumed using only the <code>job-id</code>. The system remembers the LRS details and how much it has already forwarded.</p><pre><code class="shell">bin/run.sh --job-id myjob
+</code></pre><h3 id="force-resume&#95;a&#95;job&#95;with&#95;errors">Force-Resume a Job with Errors</h3><p>In some cases, when a job has been paused due to an error, it may need to be force-resumed with the <code>-f</code> flag below.</p><pre><code class="shell">bin/run.sh --job-id myjob -f
+</code></pre><h2 id="forwarding&#95;with&#95;filtering">Forwarding with Filtering</h2><h3 id="statement&#95;template&#95;filtering">Statement Template Filtering</h3><p>To filter statements based on xAPI Profile Statement Templates, use the <code>--template-profile-url</code> flag like so:</p><pre><code class="shell">bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id template-job-1 \
+           --template-profile-url &quot;../location-of-profile.jsonld&quot; \
+           --template-id &quot;https://xapinet.org/xapi/yet/template-id-1&quot; \
+           --template-id &quot;https://xapinet.org/xapi/yet/template-id-2&quot; \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret
+
+</code></pre><p>The profile url value can be either a web-accessible url, such as a Profile Server, or a local file. The <code>--template-id</code> flags are optional and further limit the forwarding to only the desired Templates. If the <code>--template-id</code> flag is omitted the job will filter on all available Statement Templates in the Profile.</p><h3 id="pattern&#95;filtering">Pattern Filtering</h3><p>To filter statements based on xAPI Profile Patterns, use the <code>--pattern-profile-url</code> flag like so:</p><pre><code class="shell">bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id pattern-job-1 \
+           --pattern-profile-url &quot;../location-of-profile.jsonld&quot; \
+           --pattern-id &quot;https://xapinet.org/xapi/yet/pattern-id-1&quot; \
+           --pattern-id &quot;https://xapinet.org/xapi/yet/pattern-id-2&quot; \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret
+
+</code></pre><p>As with Template Filtering, the <code>--pattern-id</code> flags are optional and further limit the forwarding to only the desired Patterns. If the <code>--pattern-id</code> flag is omitted the job will filter on all available Patterns in the Profile.</p><h3 id="concept&#95;filtering">Concept Filtering</h3><p>You can also filter on xAPI Profile Concepts alone, without matching specific Templates in the Profile. You can filter on <code>Verb</code>, <code>ActivityType</code> and/or <code>AttachmentUsageType</code>. You can either provide a Profile and specify the types of Concepts to filter on, or you can provide specific IDs. If you provide specific IDs they will override whatever concepts are in the Profile.</p><p>Below is an example of filtering on all the Verbs in a Profile:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id concept-job-1 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --concept-profile-url &quot;../location-of-profile.jsonld&quot; \
+           --concept-type &quot;Verb&quot;
+</code></pre><p>If you omit concept-type(s) it will filter on all concept types in the Profile. Additionally if you provide a concept-type it will not match any other concepts even if you provide specific IDs.</p><p>This is an example of filtering on two specific verb ids:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id concept-job-1 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --verb-id &quot;https://xapinet.org/xapi/yet/verb-id-1&quot;
+           --verb-id &quot;https://xapinet.org/xapi/yet/verb-id-2&quot;
+</code></pre><h3 id="jsonpath&#95;presence&#95;filtering">JsonPath Presence Filtering</h3><p>In cases where you want to ensure that every statement posted to the target LRS has data at a given path, use the <code>--ensure-path</code> option:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-job-1 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --ensure-path $.result.score.scaled
+
+</code></pre><p>Only statements with a value set at the given <a href='https://goessner.net/articles/JsonPath/'>JsonPath String</a> <code>$.result.score.scaled</code> will be passed to the target LRS. This simple filter is useful to ensure the density of an xAPI dataset.</p><p>If the option is passed multiple times only statements that contain data at ALL paths will be written to the target LRS.</p><p>To match a value at a given path see JsonPath Matching below. For more complex filters with features like negation use an xAPI Profile with Template and Pattern Filtering (see above).</p><h3 id="jsonpath&#95;matching">JsonPath Matching</h3><p>You can apply simple path-matching filters to LRSPipe using the <code>--match-path</code> option:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-1 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --match-path $.verb.id=http://example.com/verb
+
+</code></pre><p>Only statements with the value <code>&quot;http://example.com/verb&quot;</code> at the path <code>$.verb.id</code> will be written to the target LRS.</p><p>If the option is given multiple times, a statement must satisfy at least one given value for each path given:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-2 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --match-path $.verb.id=http://example.com/verb1 \
+           --match-path $.verb.id=http://example.com/verb2
+
+</code></pre><p>Statements with an <code>$.verb.id</code> of <code>http://example.com/verb1</code> OR <code>http://example.com/verb2</code> will be passed.</p><h4 id="json&#95;values">Json Values</h4><p>LRSPipe will attempt to parse path matches as JSON first, then as string. This means you can match a JSON object:</p><pre><code class="shell">bin/run-sh --source-url http://0.0.0.0:8080/xapi \
+           --target-url http://0.0.0.0:8081/xapi \
+           --job-id path-match-job-3 \
+           --source-username my&#95;key --source-password my&#95;secret \
+           --target-username my&#95;key --target-password my&#95;secret \
+           --match-path $.actor='{&quot;mbox&quot;:&quot;mailto:bob@example.com&quot;,&quot;objectType&quot;:&quot;Agent&quot;}'
+
+</code></pre><p>Statements with an <code>$.actor</code> matching the fields provided exactly will be passed.</p><h2 id="job&#95;management">Job Management</h2><h3 id="list&#95;persisted&#95;jobs">List Persisted Jobs</h3><p>To see the state of all jobs the command below can be used.</p><pre><code class="shell">bin/run.sh --list-jobs -s redis
+
+Nov 03, 2021 4:41:48 PM com.yetanalytics.xapipe.cli invoke
+INFO: Page 0
+|                               job-id | status |               cursor           |
+|--------------------------------------+--------+--------------------------------|
+| d24de6cc-ade6-48e9-a23c-c7ee48ed53f9 |  error | 1970-01-01T00:00:00.000000000Z |
+</code></pre><h3 id="delete&#95;job">Delete Job</h3><p>To delete a job entirely and have the system forget the job details, the <code>--delete-job</code> flag can be used.</p><pre><code class="shell">bin/run.sh --delete-job myjob
+</code></pre><p>For a more comprehensive reference of all LRSPipe options, see the <a href='options.html'>Options</a> page.</p><p><a href='index.html'><- Back to Index</a></p>
+        <div class="footer">
+         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
+         Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
+         <span class="build">Build: 21e91a0b400395e7c2cc79f7f515f2cf783155bc</span>
+        </div>
+      </div>
+    </body>
+</html>

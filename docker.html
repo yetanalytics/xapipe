@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Yet LRS Pipe Documentation</title>
+        <style type="text/css">
+body{
+    margin: 0 auto;
+    padding: 30px;
+    font: 20px Tahoma, Helvetica, Arial, Sans-Serif;
+    line-height: 1.5;
+}
+h1, h2, h3, h4 {
+	display: block; text-decoration: none;
+	font: Helvetica, Arial, Sans-Serif;
+ }
+h1 {
+  font-size: 35px;
+ }
+h2 {
+  font-size: 30px;
+ }
+h3 {
+  font-size: 25px;
+ }
+h4 {
+  font-size: 20px;
+ }
+textarea {
+	width: 600px; margin: 0 auto; background: #222; padding: 20px;
+	font-size: 22px; color: #555; text-shadow: 0px 2px 3px #171717;
+	-webkit-box-shadow: 0px 2px 3px #555;
+	-moz-box-shadow: 0px 2px 3px #555;
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+}
+code {
+  background: #eeeeee;
+}
+pre {
+  margin: 0 auto;
+  background: #eeeeee;
+  padding: 20px;
+	font-size: 15px;
+	margin-bottom: 20px;
+}
+a {
+	text-decoration: none;
+	font: 18px Helvetica, Arial, Sans-Serif;
+ }
+hr {
+  height: 3px;
+  border: 0;
+  background-color: #333;
+}
+img {
+  max-width: 95%;
+  display: block;
+  margin: auto;
+}
+div#container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80%;
+}
+/* a la https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Styling_tables#Spacing_and_layout */
+table {
+  width: 95%;
+  margin-right: auto;
+  margin-left: auto;
+  border-collapse: collapse;
+  border: 1px solid #dee2e5;
+}
+th, td {
+  border: 1px solid #dee2e5;
+  padding: 20px;
+  line-height: 1.25;
+}
+tbody tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+p {
+  text-align: justify;
+}
+
+div.logo-container {
+  width: 100%;
+}
+
+div.logo {
+  width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+div.footer {
+  font-size: medium;
+  color:white;
+  background-color: rgb(17, 55, 92) !important;
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+.footer a, .footer a:visited {
+  color: white !important;
+}
+
+.footer a:hover {
+  color: white !important;
+  text-decoration: underline;
+}
+
+span.build {
+  display: block;
+  font-size: .7em;
+}
+
+</style>
+    </head>
+    <body>
+      <div id="container">
+        <div class="logo-container">
+          <div class="logo">
+            <img alt="Yet LRSPipe Logo" src="img/logo.png"/>
+          </div>
+        </div>
+        <p><a href='index.html'><- Back to Index</a><h1 id="lrspipe&#95;docker&#95;container">LRSPipe Docker Container</h1></p><p>For ease of deployment, LRSPipe is also distributed as a Docker container available on <a href='https://hub.docker.com/r/yetanalytics/xapipe'>DockerHub</a>.</p><p>The same <a href='options.html'>options</a> as used in the CLI are available as arguments to the container's run command.</p><h2 id="invocation">Invocation</h2><p>Start a job with a persistent volume to store job state:</p><pre><code class="shell">docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe \
+    --source-url http://host.docker.internal:8080/xapi \
+    --target-url http://host.docker.internal:8081/xapi \
+    --job-id myjob
+</code></pre><p>Stop the job with <code>&#94;C</code>. You can then resume it:</p><pre><code class="shell">docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
+</code></pre><p><a href='index.html'><- Back to Index</a></p>
+        <div class="footer">
+         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
+         Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
+         <span class="build">Build: 21e91a0b400395e7c2cc79f7f515f2cf783155bc</span>
+        </div>
+      </div>
+    </body>
+</html>

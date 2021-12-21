@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Yet LRS Pipe Documentation</title>
+        <style type="text/css">
+body{
+    margin: 0 auto;
+    padding: 30px;
+    font: 20px Tahoma, Helvetica, Arial, Sans-Serif;
+    line-height: 1.5;
+}
+h1, h2, h3, h4 {
+	display: block; text-decoration: none;
+	font: Helvetica, Arial, Sans-Serif;
+ }
+h1 {
+  font-size: 35px;
+ }
+h2 {
+  font-size: 30px;
+ }
+h3 {
+  font-size: 25px;
+ }
+h4 {
+  font-size: 20px;
+ }
+textarea {
+	width: 600px; margin: 0 auto; background: #222; padding: 20px;
+	font-size: 22px; color: #555; text-shadow: 0px 2px 3px #171717;
+	-webkit-box-shadow: 0px 2px 3px #555;
+	-moz-box-shadow: 0px 2px 3px #555;
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+}
+code {
+  background: #eeeeee;
+}
+pre {
+  margin: 0 auto;
+  background: #eeeeee;
+  padding: 20px;
+	font-size: 15px;
+	margin-bottom: 20px;
+}
+a {
+	text-decoration: none;
+	font: 18px Helvetica, Arial, Sans-Serif;
+ }
+hr {
+  height: 3px;
+  border: 0;
+  background-color: #333;
+}
+img {
+  max-width: 95%;
+  display: block;
+  margin: auto;
+}
+div#container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80%;
+}
+/* a la https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Styling_tables#Spacing_and_layout */
+table {
+  width: 95%;
+  margin-right: auto;
+  margin-left: auto;
+  border-collapse: collapse;
+  border: 1px solid #dee2e5;
+}
+th, td {
+  border: 1px solid #dee2e5;
+  padding: 20px;
+  line-height: 1.25;
+}
+tbody tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+p {
+  text-align: justify;
+}
+
+div.logo-container {
+  width: 100%;
+}
+
+div.logo {
+  width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+div.footer {
+  font-size: medium;
+  color:white;
+  background-color: rgb(17, 55, 92) !important;
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+.footer a, .footer a:visited {
+  color: white !important;
+}
+
+.footer a:hover {
+  color: white !important;
+  text-decoration: underline;
+}
+
+span.build {
+  display: block;
+  font-size: .7em;
+}
+
+</style>
+    </head>
+    <body>
+      <div id="container">
+        <div class="logo-container">
+          <div class="logo">
+            <img alt="Yet LRSPipe Logo" src="img/logo.png"/>
+          </div>
+        </div>
+        <p><a href='index.html'><- Back to Index</a><h1 id="lrspipe&#95;json-based&#95;job&#95;config">LRSPipe JSON-based Job Config</h1></p><p>Instead of defining all job configuration in <a href='options.html'>CLI arguments</a> it is also possible to put all of your job config into a JSON file and launch jobs from it. In this section we will go over the types of configuration possible with a JSON file and the structure of the file.</p><h2 id="json&#95;options">JSON Options</h2><p>To run a job with a JSON config file simply use:</p><p><code>bin/run.sh --json-file &#91;location of JSON config file&#93;</code></p><p>Alternatively if you would like to simply provide the JSON config inline as a string, you can use the following:</p><p><code>bin/run.sh --json &#91;full JSON config string&#93;</code></p><p>Below is an example of all of the JSON fields that can be used in a config file. We will break these down in sections below.</p><pre><code class="json">{
+  &quot;id&quot;: &quot;NewJobID&quot;,
+  &quot;config&quot;: {
+    &quot;get-buffer-size&quot;: 10,
+    &quot;statement-buffer-size&quot;: 500,
+    &quot;batch-buffer-size&quot;: 10,
+    &quot;batch-timeout&quot;: 200,
+    &quot;cleanup-buffer-size&quot;: 50,
+    &quot;source&quot;: {
+      &quot;request-config&quot;: {
+        &quot;url-base&quot;: &quot;http://localhost:8080&quot;,
+        &quot;xapi-prefix&quot;: &quot;/xapi&quot;,
+        &quot;username&quot;: &quot;username&quot;,
+        &quot;password&quot;: &quot;password&quot;
+      },
+      &quot;get-params&quot;: {
+        &quot;limit&quot;: 50
+      },
+      &quot;poll-interval&quot;: 1000,
+      &quot;batch-size&quot;: 50,
+      &quot;backoff-opts&quot;: {
+        &quot;budget&quot;: 10000,
+        &quot;max-attempt&quot;: 10
+      }
+    },
+    &quot;target&quot;: {
+      &quot;request-config&quot;: {
+        &quot;url-base&quot;: &quot;http://localhost:9080&quot;,
+        &quot;xapi-prefix&quot;: &quot;/xapi&quot;,
+        &quot;username&quot;: &quot;username&quot;,
+        &quot;password&quot;: &quot;password&quot;
+      },
+      &quot;batch-size&quot;: 50,
+      &quot;backoff-opts&quot;: {
+        &quot;budget&quot;: 10000,
+        &quot;max-attempt&quot;: 10
+      }
+    },
+    &quot;filter&quot;: {
+      &quot;pattern&quot;: {
+        &quot;profile-urls&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1&quot;
+        &#93;,
+        &quot;pattern-ids&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1/patterns#pattern-1&quot;
+        &#93;
+      }
+    }
+  },
+  &quot;state&quot;: {
+    &quot;status&quot;: &quot;init&quot;,
+    &quot;cursor&quot;: &quot;1970-01-01T00:00:00.000000000Z&quot;,
+    &quot;source&quot;: {
+      &quot;errors&quot;: &#91;&#93;
+    },
+    &quot;target&quot;: {
+      &quot;errors&quot;: &#91;&#93;
+    },
+    &quot;errors&quot;: &#91;&#93;,
+    &quot;filter&quot;: {}
+  }
+}
+</code></pre><h3 id="id&#95;and&#95;top-level&#95;config&#95;options">ID and Top-level Config Options</h3><pre><code class="json">{
+  &quot;id&quot;: &quot;NewJobID&quot;,
+  &quot;config&quot;: {
+    &quot;get-buffer-size&quot;: 10,
+    &quot;statement-buffer-size&quot;: 500,
+    &quot;batch-buffer-size&quot;: 10,
+    &quot;batch-timeout&quot;: 200,
+    &quot;cleanup-buffer-size&quot;: 50,
+    ...
+  }
+  ...
+}
+</code></pre><p>The <code>id</code> field can be specified in much the same way as with <code>--job-id</code> on the CLI. This will specify an ID for a new job, or allow you to resume a previously stored job.</p><p>The other options under the <code>config</code> map are optional and will default to the values specific on the <a href='options.html'>options guide</a>. When restarting an existing job these values can be changed via giving them values here, or they will retain the previous job definition's values.</p><h3 id="source&#95;and&#95;target">Source and Target</h3><pre><code class="json">{
+  &quot;config&quot;: {
+    &quot;source&quot;: {
+      &quot;request-config&quot;: {
+        &quot;url-base&quot;: &quot;http://localhost:8080&quot;,
+        &quot;xapi-prefix&quot;: &quot;/xapi&quot;,
+        &quot;username&quot;: &quot;username&quot;,
+        &quot;password&quot;: &quot;password&quot;
+      },
+      &quot;get-params&quot;: {
+        &quot;limit&quot;: 50
+      },
+      &quot;poll-interval&quot;: 1000,
+      &quot;batch-size&quot;: 50,
+      &quot;backoff-opts&quot;: {
+        &quot;budget&quot;: 10000,
+        &quot;max-attempt&quot;: 10
+      }
+    },
+    &quot;target&quot;: {
+      &quot;request-config&quot;: {
+        &quot;url-base&quot;: &quot;http://localhost:9080&quot;,
+        &quot;xapi-prefix&quot;: &quot;/xapi&quot;,
+        &quot;username&quot;: &quot;username&quot;,
+        &quot;password&quot;: &quot;password&quot;
+      },
+      &quot;batch-size&quot;: 50,
+      &quot;backoff-opts&quot;: {
+        &quot;budget&quot;: 10000,
+        &quot;max-attempt&quot;: 10
+      }
+    },
+    ...
+  }
+  ...
+}
+</code></pre><p>Source and Target are responsible for providing information about the respective source and target LRS configurations. All of the options correspond to the <code>--source-&#42;</code> and <code>--target-&#42;</code> arguments in the CLI reference. The only difference is you have to set <code>xapi-prefix</code> as a separate field. Any option with a default can be omitted from the JSON config and it will take the default value or the previously set value if resuming a stored job.</p><p>These sections can be used to update LRS config for paused jobs, for instance in the case where LRS credentials are changed.</p><h3 id="filter">Filter</h3><pre><code class="json">{
+  &quot;config&quot;: {
+    &quot;filter&quot;: {
+      &quot;pattern&quot;: {
+        &quot;profile-urls&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1&quot;
+        &#93;,
+        &quot;pattern-ids&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1/patterns#pattern-1&quot;
+        &#93;
+      }
+    },
+    ...
+  }
+  ...
+}
+</code></pre><p>The filter map contains all of the filtering options passed to LRS Pipe. Much like the other sections these fields correspond to the many filter CLI args found on the <a href='options.html'>options page</a>. We will cover a few basic scenarios here.</p><h4 id="pattern&#95;filtering">Pattern Filtering</h4><p>In the snippet in the above section you can see how an xAPI Profile and a specific Pattern ID might be provided, analogous to the use of <code>--pattern-profile-url</code> and <code>--pattern-id</code> args.</p><h4 id="template&#95;filtering">Template Filtering</h4><pre><code class="json">{
+  &quot;config&quot;: {
+    &quot;filter&quot;: {
+      &quot;template&quot;: {
+        &quot;profile-urls&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1&quot;
+        &#93;,
+        &quot;template-ids&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1/templates#template-1&quot;
+        &#93;
+      }
+    },
+    ...
+  }
+  ...
+}
+</code></pre><p>Above you can see how you would apply the same structure but for a template-based filter.</p><h4 id="concept&#95;filtering">Concept Filtering</h4><pre><code class="json">{
+  &quot;config&quot;: {
+    &quot;filter&quot;: {
+      &quot;concept&quot;: {
+        &quot;profile-urls&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1&quot;
+        &#93;,
+        &quot;concept-types&quot;: &#91;
+          &quot;Verb&quot;
+        &#93;,
+        &quot;activity-type-ids&quot;: &#91;&#93;,
+        &quot;verb-ids&quot;: &#91;
+          &quot;https://xapinet.org/xapi/example-profile/v1/concepts#verb-1&quot;
+        &#93;,
+        &quot;attachment-usage-types&quot;: &#91;&#93;
+      }
+    },
+    ...
+  },
+  ...
+}
+</code></pre><p>Above you can see how you can choose a Profile, what types of concepts to filter, and specific IDs to filter for.</p><h4 id="jsonpath&#95;filtering">JsonPath Filtering</h4><pre><code class="json">{
+  &quot;config&quot;: {
+    &quot;filter&quot;: {
+      &quot;path&quot;: {
+        &quot;ensure-paths&quot;: &#91;
+          &#91;&#91;&quot;result&quot;&#93;,&#91;&quot;score&quot;&#93;,&#91;&quot;scaled&quot;&#93;&#93;
+        &#93;,
+        &quot;match-paths&quot;: &#91;
+          &#91;&#91;&#91;&quot;verb&quot;&#93;,&#91;&quot;id&quot;&#93;&#93;,&quot;http://example.com/verb&quot;&#93;
+        &#93;
+      }
+    }
+  }
+}
+</code></pre><p>The above example shows both an <code>ensure-path</code> (<code>$.result.score.scaled</code>) and <code>match-path</code> (<code>$.verb.id=http://example.com/verb</code>) filter. Note that in the JSON representation these are not stored as JSONPath syntax and are rather an internal format LRSPipe uses. If this is unintuitive, you can generate the appropriate syntax from JSONPath using the instructions below for Generating JSON Config.</p><h3 id="state">State</h3><pre><code class="json">{
+  &quot;state&quot;: {
+    &quot;status&quot;: &quot;init&quot;,
+    &quot;cursor&quot;: &quot;1970-01-01T00:00:00.000000000Z&quot;,
+    &quot;source&quot;: {
+      &quot;errors&quot;: &#91;&#93;
+    },
+    &quot;target&quot;: {
+      &quot;errors&quot;: &#91;&#93;
+    },
+    &quot;errors&quot;: &#91;&#93;,
+    &quot;filter&quot;: {}
+  }
+}
+</code></pre><p>Manipulating state in JSON config can become exceptionally complex and dangerous as this is the raw data representation of the running state of a job and out of scope of usage documentation. It is recommended that you simply preserve this section as-is. For resuming jobs this section will be entirely ignored in favor of the stored state. For that reason we will only cover one possibly relevant field here.</p><ul><li><code>cursor</code>: This field tracks the progress of where to load statements (by <code>stored</code> time) from the source LRS. By modifying it you can limit the synchronized statements by stored time. <em>NOTE: This cannot be changed for an existing stored job. Probably the safer way of doing this is to add the <code>since</code> key to <code>get-params</code> to make the source query start later than epoch.</em></li></ul><h2 id="generating&#95;json&#95;config">Generating JSON Config</h2><p>If you would like to convert CLI job args into a config file, for debugging purposes or to help build a working saved config, there is an option to do this. When running LRSPipe from CLI simply add</p><p><code>--json-out &#91;desired file location&#93;</code></p><p>Rather than run the job, LRSPipe will write the JSON equivalent configuration to the filename provided.</p><p><a href='index.html'><- Back to Index</a></p>
+        <div class="footer">
+         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
+         Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
+         <span class="build">Build: 21e91a0b400395e7c2cc79f7f515f2cf783155bc</span>
+        </div>
+      </div>
+    </body>
+</html>
