@@ -256,9 +256,9 @@ The above example shows both an `ensure-path` (`$.result.score.scaled`) and `mat
   }
 }
 ```
-Manipulating state in JSON config can become exceptionally complex and dangerous as this is the raw data representation of the running state of a job and out of scope of usage documentation. It is recommended that you simply preserve this section as-is. For that reason we will only cover one possibly relevant field here.
+Manipulating state in JSON config can become exceptionally complex and dangerous as this is the raw data representation of the running state of a job and out of scope of usage documentation. It is recommended that you simply preserve this section as-is. For resuming jobs this section will be entirely ignored in favor of the stored state. For that reason we will only cover one possibly relevant field here.
 
-- `cursor`: This field tracks the progress of where to load statements (by `stored` time) from the source LRS. By modifying it you can limit the synchronized statements by stored time. *NOTE: this cannot be changed for a resuming job that has already been started and stored. Probably the safer way of doing this is to add the `since` key to `get-params` to make the source query start later than epoch.*
+- `cursor`: This field tracks the progress of where to load statements (by `stored` time) from the source LRS. By modifying it you can limit the synchronized statements by stored time. *NOTE: This cannot be changed for an existing stored job. Probably the safer way of doing this is to add the `since` key to `get-params` to make the source query start later than epoch.*
 
 ## Generating JSON Config
 
