@@ -35,6 +35,11 @@ target/bundle/bin:
 	cp bin/*.sh target/bundle/bin
 	chmod +x target/bundle/bin/*.sh
 
+# publish docs
+
+target/bundle/doc:
+	clojure -X:doc
+
 # Make Runtime Environment (i.e. JREs)
 # Will only produce a single jre for macos/linux matching your machine
 MACHINE ?= $(shell bin/machine.sh)
@@ -46,9 +51,9 @@ target/bundle/runtimes:
 BUNDLE_RUNTIMES ?= true
 
 ifeq ($(BUNDLE_RUNTIMES),true)
-target/bundle: target/bundle/xapipe.jar target/bundle/bin target/bundle/runtimes
+target/bundle: target/bundle/xapipe.jar target/bundle/bin target/bundle/doc target/bundle/runtimes
 else
-target/bundle: target/bundle/xapipe.jar target/bundle/bin
+target/bundle: target/bundle/xapipe.jar target/bundle/bin target/bundle/doc
 endif
 
 bundle: target/bundle

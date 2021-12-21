@@ -163,6 +163,8 @@
     [:error :running] ;; if errors clear
     [:error :paused] ;; same
     [:error :error] ;; more/less errors
+
+    [:complete :paused]
     })
 
 (s/fdef set-status

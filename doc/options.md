@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Options Reference
 
 Below is an reference and explanation of all options for running LRSPipe. This reference can be accessed from the CLI at any time by running `bin/run.sh --help`.
@@ -35,6 +35,7 @@ All options:
   -f, --force-resume                                          If resuming a job, clear any errors and force it to resume.
       --json JSON                                             Take a job specification as a JSON string
       --json-file FILE                                        Take a job specification from a JSON file
+      --json-out FILE                                         Write JOB to a JSON file
   -s, --storage STORAGE                 :file                 Select storage backend, file (default), redis or noop, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
       --redis-prefix PREFIX             xapipe                Redis key prefix
@@ -77,4 +78,4 @@ All options:
       --cleanup-buffer-size SIZE                              Desired size of tempfile cleanup buffer
 ```
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

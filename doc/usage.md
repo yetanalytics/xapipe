@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Basic Usage
 
 In this section we'll illustrate a few examples of basic usage patterns of LRSPipe.
@@ -194,4 +194,4 @@ bin/run.sh --delete-job myjob
 
 For a more comprehensive reference of all LRSPipe options, see the [Options](options.md) page.
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
