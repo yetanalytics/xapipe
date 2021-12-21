@@ -138,7 +138,7 @@ The other options under the `config` map are optional and will default to the va
   ...
 }
 ```
-Source and Target are responsible for providing information about the respective source and target LRS configurations. All of the options correspond to the `--source-*` and `--target-*` arguments in the CLI reference. Any option with a default can be omitted from the JSON config and it will take the default value or the previously set value if resuming a stored job.
+Source and Target are responsible for providing information about the respective source and target LRS configurations. All of the options correspond to the `--source-*` and `--target-*` arguments in the CLI reference. The only difference is you have to set `xapi-prefix` as a separate field. Any option with a default can be omitted from the JSON config and it will take the default value or the previously set value if resuming a stored job.
 
 These sections can be used to update LRS config for paused jobs, for instance in the case where LRS credentials are changed.
 
@@ -256,10 +256,9 @@ The above example shows both an `ensure-path` (`$.result.score.scaled`) and `mat
   }
 }
 ```
-Manipulating state in JSON config can become exceptionally complex and dangerous as this is the data representation of the running state of a job. For that reason we will only cover a few fields here.
+Manipulating state in JSON config can become exceptionally complex and dangerous as this is the raw data representation of the running state of a job and out of scope of usage documentation. It is recommended that you simply preserve this section as-is. For that reason we will only cover one possibly relevant field here.
 
-- `cursor`: Sets the initial timestamp from where to load statements (by `stored` time) from the source LRS.
-- `status`: Sets the status of the job. The options are: `init` `running` `error` `complete` and `paused`.
+- `cursor`: This field tracks the progress of where to load statements (by `stored` time) from the source LRS. By modifying it you can limit the synchronized statements by stored time. *NOTE: this cannot be changed for a resuming job that has already been started and stored. Probably the safer way of doing this is to add the `since` key to `get-params` to make the source query start later than epoch.*
 
 ## Generating JSON Config
 
