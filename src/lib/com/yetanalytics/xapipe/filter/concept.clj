@@ -34,7 +34,7 @@
 (s/def ::attachmentUsageType
   (s/every ::aut/id))
 
-(s/fdef t-val
+(s/fdef make-template
   :args (s/cat :det-props
                (s/keys
                 :opt-un [::verb
@@ -46,7 +46,7 @@
                          ::attachmentUsageType]))
   :ret ::t/template)
 
-(defn t-val
+(defn make-template
   "take a map of determining properties and returns a template with
   the determining properties merged onto a mock template"
   [det-props]
@@ -63,7 +63,7 @@
   "takes coll of xapi verb ids and returns a list of persephone templates, one
   for each verb id"
   [verb-ids]
-  (map #(t-val {:verb %}) verb-ids))
+  (map #(make-template {:verb %}) verb-ids))
 
 (s/def ::activity-type-ids
   (s/every ::at/id))
@@ -79,11 +79,11 @@
   (into []
         (mapcat
          (fn [atid]
-           [(t-val {:objectActivityType atid})
-            (t-val {:contextParentActivityType [atid]})
-            (t-val {:contextGroupingActivityType [atid]})
-            (t-val {:contextCategoryActivityType [atid]})
-            (t-val {:contextOtherActivityType [atid]})])
+           [(make-template {:objectActivityType atid})
+            (make-template {:contextParentActivityType [atid]})
+            (make-template {:contextGroupingActivityType [atid]})
+            (make-template {:contextCategoryActivityType [atid]})
+            (make-template {:contextOtherActivityType [atid]})])
          activity-type-ids)))
 
 (s/def ::attachment-usage-type-ids
@@ -97,4 +97,4 @@
   "takes a coll of xapi attachment usage types and returns a list of
   templates, one for each type"
   [attachment-usage-types]
-  (map #(t-val {:attachmentUsageType [%]}) attachment-usage-types))
+  (map #(make-template {:attachmentUsageType [%]}) attachment-usage-types))
