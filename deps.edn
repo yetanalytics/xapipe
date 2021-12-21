@@ -13,7 +13,7 @@
                       org.clojure/data.json]}
         org.clojure/tools.logging {:mvn/version "1.1.0"}
         io.github.yetanalytics/project-persephone
-        {:git/sha "387a11d44eec63b0ee7b2e25f6a2c002eed0fe21"
+        {:git/sha "75e62d5153156fa6d1fe67db76ca6eced527e0b5"
          #_"3a97133"
          #_#_:git/tag "v0.7.3"
          :exclusions [org.clojure/clojurescript]}
