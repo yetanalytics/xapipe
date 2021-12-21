@@ -26,7 +26,9 @@
 (defn get-profile
   "Get a profile from the specified URL or throw"
   [url]
-  (try (per-json/json->edn (slurp url) :keywordize? true)
+  (try (json/parse-string-strict (slurp url) #(if (= % "@context")
+                                                :_context
+                                                (keyword nil %)))
        (catch Exception ex
          (throw (ex-info "Profile GET error"
                          {:type ::profile-get-error
@@ -89,23 +91,20 @@
                        (map :id (filter #(= (:type %) "ActivityType") concepts)))
         att-ids    (or (not-empty attachment-usage-types)
                        (map :id (filter #(= (:type %) "AttachmentUsageType") concepts)))
-        validators (cond-> []
-                     (empty? concept-types)
-                     (concat (concept/verb-validators vrb-ids)
-                             (concept/activity-type-validators act-ids)
-                             (concept/attachment-usage-validators att-ids))
-                     (some #{"Verb"} (set concept-types))
-                     (into (concept/verb-validators vrb-ids))
-                     (some #{"ActivityType"} (set concept-types))
-                     (into (concept/activity-type-validators act-ids))
-                     (some #{"AttachmentUsageType"} (set concept-types))
-                     (into (concept/attachment-usage-validators att-ids)))]
+        templates (cond-> []
+                    (empty? concept-types)
+                    (concat (concept/verb-templates vrb-ids)
+                            (concept/activity-type-templates act-ids)
+                            (concept/attachment-usage-templates att-ids))
+                    (some #{"Verb"} (set concept-types))
+                    (into (concept/verb-templates vrb-ids))
+                    (some #{"ActivityType"} (set concept-types))
+                    (into (concept/activity-type-templates act-ids))
+                    (some #{"AttachmentUsageType"} (set concept-types))
+                    (into (concept/attachment-usage-templates att-ids)))
+        validators (per/compile-templates->validators templates :validate-templates? false)]
     (fn [{:keys [statement attachments]}]
-      (some?
-       (some (fn [v]
-               (per/validate-statement-vs-template
-                        v statement))
-             validators)))))
+      (per/validate-statement validators statement))))
 
 ;; Template filter config
 
@@ -125,21 +124,15 @@
   function to filter records."
   [{:keys [profile-urls
            template-ids]}]
-  (let [validators
-        (into []
-              (for [{:keys [templates]} (map get-profile profile-urls)
-                    {:keys [id] :as template} templates
-                    :when (or (empty? template-ids)
-                              (some (partial = id)
-                                    template-ids))]
-                (per/template->validator template)))]
+  (let [validators (apply per/compile-profiles->validators
+                          (map get-profile profile-urls)
+                          (cond-> []
+                            (not-empty template-ids)
+                            (conj :selected-templates template-ids)))]
     (fn [{:keys [statement
                  attachments]}]
-      (some?
-       (some (fn [v]
-               (per/validate-statement-vs-template
-                v statement))
-             validators)))))
+      (per/validate-statement validators
+                              statement))))
 
 (s/def ::pattern-id
   (s/with-gen ::pat/id
