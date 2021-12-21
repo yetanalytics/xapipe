@@ -9,7 +9,6 @@ on:
 jobs:
   get_modules:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v2
       - id: echo-modules
@@ -18,7 +17,6 @@ jobs:
       modules: ${{ steps.echo-modules.outputs.modules }}
   build_jre:
     needs: get_modules
-    timeout-minutes: 10
     uses: yetanalytics/runtimer/.github/workflows/runtimer.yml@cf8c77d465f08962cd7901005b8cf197a6149ac1
     with:
       java-version: '11'
@@ -26,7 +24,6 @@ jobs:
       java-modules: ${{ needs.get_modules.outputs.modules }}
   build:
     needs: build_jre
-    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - name: Get an env
