@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 
 # Metrics
 
@@ -29,4 +29,4 @@ The following Prometheus metrics are implemented:
 
 In addition the prometheus metrics collector provides various metrics under the `jvm_` prefix.
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

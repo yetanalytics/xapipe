@@ -1,4 +1,4 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 # LRSPipe Persistence Configuration
 
 LRSPipe uses storage to save job status and progress. This enables resuming paused jobs and finding out the status of a job. In this section we will look at a few configurable options for how LRSPipe stores it's state.
@@ -44,4 +44,4 @@ Additionally if you wish to provide a custom string such that all LRSPipe keys c
 
 If you do not wish to store job status and progress at all, and would like LRSPipe to completely refresh on every restart, you can do so by specifying `noop` for the `--storage` flag. Keep in mind this will result in you not being able to resume a job at all and you will lose your progress any time the process is interrupted.
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

@@ -41,6 +41,7 @@ For releases and release notes, see the [Releases](https://github.com/yetanalyti
 - [Usage](doc/usage.md)
 - [Persistence Config](doc/persistence.md)
 - [All Options](doc/options.md)
+- [JSON Config](doc/json.md)
 - [Metrics](doc/metrics.md)
 - [Docker Container](doc/docker.md)
 - [Demo](doc/demo.md)
