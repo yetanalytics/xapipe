@@ -22,7 +22,7 @@
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
                      ch.qos.logback/logback-classic
-                     {:mvn/version "1.2.3"
+                     {:mvn/version "1.2.9"
                       :exclusions [org.slf4j/slf4j-api]}
                      org.slf4j/slf4j-api {:mvn/version "1.7.26"}
                      org.slf4j/jul-to-slf4j {:mvn/version "1.7.26"}
@@ -42,7 +42,7 @@
                                 :sha "f58af8f7a096f91ecffeb320ed0e2a4386e026da"}
           io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
           ;; Some integration tests use logback
-          ch.qos.logback/logback-classic {:mvn/version "1.2.3"
+          ch.qos.logback/logback-classic {:mvn/version "1.2.9"
                                           :exclusions [org.slf4j/slf4j-api]}
           org.slf4j/slf4j-api {:mvn/version "1.7.26"}
           org.slf4j/jul-to-slf4j {:mvn/version "1.7.26"}

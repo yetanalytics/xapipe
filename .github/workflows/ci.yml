@@ -24,27 +24,23 @@ jobs:
         with:
           path: |
             ~/.m2
-            !~/.m2/repository/org/owasp
             ~/.gitlibs
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
-      - name: Cache NVD
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.m2/repository/org/owasp
-          key: ${{ runner.os }}-nvd-data-${{ hashFiles('~/.m2/repository/org/owasp/dependency-check-utils/6.5.0/data/jsrepository.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nvd-data-
-
-
       - name: Test Xapipe
-        run: make ci
+        run: make test
+
+  nvd_scan:
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@9b4b51a7a7c21ca81f5a96d42c9f46d891a853a6
+    with:
+      classpath-command: 'clojure -Spath -A:cli'
 
   docker:
-    needs: test
+    needs:
+      - test
+      - nvd_scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
