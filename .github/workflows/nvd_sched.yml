@@ -2,7 +2,7 @@ name: Periodic Vulnerability Scan
 
 on:
   schedule:
-    - cron: '43 21 * * *'
+    - cron: '45 21 * * *'
 
 jobs:
   nvd_scan:
