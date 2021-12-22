@@ -14,3 +14,4 @@ This process is one-way and any statements in the target LRS will not be replica
 - [Metrics](metrics.md)
 - [Docker Container](docker.md)
 - [Demo](demo.md)
+- [Sample AWS Deployment](aws.md)

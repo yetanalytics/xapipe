@@ -45,6 +45,7 @@ For releases and release notes, see the [Releases](https://github.com/yetanalyti
 - [Metrics](doc/metrics.md)
 - [Docker Container](doc/docker.md)
 - [Demo](doc/demo.md)
+- [Sample AWS Deployment](doc/aws.md)
 
 ## Contribution
 

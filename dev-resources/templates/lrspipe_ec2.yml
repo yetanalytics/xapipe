@@ -36,7 +36,7 @@ Parameters:
   LrsPipeVersion:
     Description: Version of LRSPipe to download and install (public release versions on GitHub)
     Type: String
-    Default: v0.0.13
+    Default: v0.0.15
 
   LogRetentionInDays:
     Description: How long to retain Cloudwatch Logs
