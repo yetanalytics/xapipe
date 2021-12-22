@@ -2,20 +2,24 @@
   "CLI helper functions"
   (:require [clojure.core.async :as a]
             [clojure.pprint :as pprint]
-            [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as sgen]
+            [clojure.string :as cs]
+            [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe :as xapipe]
-            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.cli.options :as opts]
+            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.config :as config]
+            [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.metrics.impl.prometheus :as pro]
             [com.yetanalytics.xapipe.spec.common :as cspec]
             [com.yetanalytics.xapipe.store :as store]
+            [com.yetanalytics.xapipe.store.impl.file :as file-store]
+            [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
             [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
-            [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
-            [com.yetanalytics.xapipe.store.impl.file :as file-store]
             [xapi-schema.spec.resources :as xsr])
   (:import [java.net URL]))
 
@@ -100,7 +104,22 @@
 
 (s/def ::exit
   (s/keys :req-un [::status]
-          :opt-un [::message]))
+          :opt-un [::message
+                   ::xapipe/job]))
+
+(s/fdef errors->message
+  :args (s/cat :errors ::state/errors)
+  :ret string?)
+
+(defn errors->message
+  "Create a (possibly multiline) message from multiple errors"
+  [errors]
+  (cs/join \newline
+           (for [{etype :type
+                  emsg :message} errors]
+             (format "%s error: %s"
+                     (name etype)
+                     emsg))))
 
 (s/fdef handle-job
   :args (s/cat :store :com.yetanalytics.xapipe/store
@@ -114,24 +133,34 @@
   Redef this when testing for cooler output"
   [store job client-opts reporter]
   (try
-    (let [{:keys [states]
+    (let [_ (log/debugf "Running job %s" (:id job))
+          {:keys [states]
            stop :stop-fn} (xapipe/run-job job
                                           :reporter
                                           reporter
                                           :client-opts
                                           client-opts)]
+      (log/debugf "Adding shutdown hook for job %s" (:id job))
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
                                  (fn []
                                    (force-stop-job! stop states))))
-      (let [{{:keys [status]} :state
+      (let [_ (log/debugf "Waiting for job %s" (:id job))
+            {{:keys [status]} :state
              :as job-result} (-> states
                                  (xapipe/log-states :info)
                                  (xapipe/store-states store)
-                                 a/<!!)]
-        {:status (if (= :error status)
+                                 a/<!!)
+            _ (log/debugf "Finished job %s status: %s"
+                          (:id job)
+                          (name status))]
+        {:job job-result
+         :status (if (= :error status)
                    1
-                   0)}))
+                   0)
+         :message (if (= :error status)
+                    (errors->message (job/all-errors job-result))
+                    "OK")}))
     (catch Exception ex
       (log/error ex "Runtime Exception")
       {:status 1
@@ -159,13 +188,14 @@
                conn-io-thread-count))})
 
 (s/fdef options->config
-  :args (s/cat :options ::opts/all-options
-               :source-req-cfg ::client/request-config
-               :target-req-cfg ::client/request-config)
+  :args (s/cat :options ::opts/all-options)
   :ret ::job/config)
 
 (defn options->config
   [{:keys [job-id
+
+           source-url
+
            source-batch-size
            source-poll-interval
            get-params
@@ -175,6 +205,8 @@
            source-backoff-max-attempt
            source-backoff-j-range
            source-backoff-initial
+
+           target-url
 
            target-batch-size
            target-username
@@ -186,6 +218,7 @@
 
            get-buffer-size
            batch-timeout
+           cleanup-buffer-size
 
            filter-template-profile-urls
            filter-template-ids
@@ -200,13 +233,11 @@
            filter-attachment-usage-types
 
            statement-buffer-size
-           batch-buffer-size]}
-   source-req-config
-   target-req-config]
+           batch-buffer-size]}]
   (cond-> {:get-buffer-size get-buffer-size
            :batch-timeout batch-timeout
            :source
-           {:request-config (cond-> source-req-config
+           {:request-config (cond-> (parse-lrs-url source-url)
                               (and source-username
                                    source-password)
                               (assoc :username source-username
@@ -222,7 +253,7 @@
               source-backoff-initial
               (assoc :initial source-backoff-initial))}
            :target
-           {:request-config (cond-> target-req-config
+           {:request-config (cond-> (parse-lrs-url target-url)
                               (and target-username
                                    target-password)
                               (assoc :username target-username
@@ -241,6 +272,8 @@
 
     batch-buffer-size
     (assoc :batch-buffer-size batch-buffer-size)
+    cleanup-buffer-size
+    (assoc :cleanup-buffer-size cleanup-buffer-size)
 
     (not-empty filter-template-profile-urls)
     (assoc-in [:filter :template] {:profile-urls filter-template-profile-urls
@@ -288,35 +321,34 @@
   (when (empty? target-url)
     (throw (ex-info "--target-lrs-url cannot be empty!"
                     {:type ::no-target-url})))
-  (let [source-req-config (parse-lrs-url source-url)
-        target-req-config (parse-lrs-url target-url)]
-    (cond
-      ;; invalid xapi params
-      (not (s/valid? ::partial-get-params
-                     (:get-params options)))
-      (throw (ex-info (str "invalid xAPI params:\n"
-                           (s/explain-str
-                            ::partial-get-params
-                            (:get-params options)))
-                      {:type :invalid-get-params}))
-      ;; Minimum required to try a job!
-      :else
-      (let [config (options->config
-                    options
-                    source-req-config
-                    target-req-config)
-            job-id (or (:job-id options)
-                       (.toString (java.util.UUID/randomUUID)))]
-        (job/init-job job-id config)))))
+  (cond
+    ;; invalid xapi params
+    (not (s/valid? ::partial-get-params
+                   (:get-params options)))
+    (throw (ex-info (str "invalid xAPI params:\n"
+                         (s/explain-str
+                          ::partial-get-params
+                          (:get-params options)))
+                    {:type :invalid-get-params}))
+    ;; Minimum required to try a job!
+    :else
+    (let [config (options->config options)
+          job-id (or (:job-id options)
+                     (.toString (java.util.UUID/randomUUID)))]
+      (job/init-job job-id config))))
 
-(s/fdef reconfigure-job
-  :args (s/cat :job ::xapipe/job
+(s/fdef reconfigure-with-options
+  :args (s/cat :config (s/with-gen ::job/config
+                         (fn []
+                           (sgen/fmap
+                            config/ensure-defaults
+                            (s/gen ::job/config))))
                :options ::opts/all-options)
-  :ret ::xapipe/job)
+  :ret ::job/config)
 
-(defn reconfigure-job
+(defn reconfigure-with-options
   "Given an extant job and CLI options, apply any overriding options"
-  [job
+  [config
    {:keys [source-url
            source-username
            source-password
@@ -341,123 +373,136 @@
 
            get-buffer-size
            batch-timeout
+           cleanup-buffer-size
 
            statement-buffer-size
            batch-buffer-size]}]
-  (cond-> job
+  (cond-> config
     source-url
     (update-in
-     [:config :source :request-config]
+     [:source :request-config]
      merge (parse-lrs-url source-url))
 
     source-username
     (assoc-in
-     [:config :source :request-config :username]
+     [:source :request-config :username]
      source-username)
 
     source-password
     (assoc-in
-     [:config :source :request-config :password]
+     [:source :request-config :password]
      source-password)
 
     ;; if there's a default, only update on change
-    (not= source-batch-size
-          (get-in job [:config :source :batch-size]))
+    (and source-batch-size
+         (not= source-batch-size
+               (get-in config [:source :batch-size])))
     (assoc-in
-     [:config :source :batch-size]
+     [:source :batch-size]
      source-batch-size)
 
     (not= source-poll-interval
-          (get-in job [:config :source :poll-interval]))
+          (get-in config [:source :poll-interval]))
     (assoc-in
-     [:config :source :poll-interval]
+     [:source :poll-interval]
      source-poll-interval)
 
     ;; With no args, get-params is an empty map, so ignore
     (and (not-empty get-params)
          (not= get-params
-               (get-in job [:config :source :get-params])))
-    (assoc-in
-     [:config :source :get-params]
-     get-params)
+               (get-in config [:source :get-params])))
+    (->
+     (assoc-in
+      [:source :get-params]
+      get-params)
+     (cond->
+         (and source-batch-size
+              (not= source-batch-size
+                    (get-in config [:source :batch-size])))
+       (assoc-in
+        [:source :get-params :limit]
+        source-batch-size)))
 
     (not= source-backoff-budget
-          (get-in job [:config :source :backoff-opts :budget]))
+          (get-in config [:source :backoff-opts :budget]))
     (assoc-in
-     [:config :source :backoff-opts :budget]
+     [:source :backoff-opts :budget]
      source-backoff-budget)
 
     (not= source-backoff-max-attempt
-          (get-in job [:config :source :backoff-opts :max-attempt]))
+          (get-in config [:source :backoff-opts :max-attempt]))
     (assoc-in
-     [:config :source :backoff-opts :max-attempt]
+     [:source :backoff-opts :max-attempt]
      source-backoff-max-attempt)
 
     source-backoff-j-range
     (assoc-in
-     [:config :source :backoff-opts :j-range]
+     [:source :backoff-opts :j-range]
      source-backoff-j-range)
 
     source-backoff-initial
     (assoc-in
-     [:config :source :backoff-opts :initial]
+     [:source :backoff-opts :initial]
      source-backoff-initial)
 
     target-url
     (update-in
-     [:config :target :request-config]
+     [:target :request-config]
      merge (parse-lrs-url target-url))
 
     target-username
     (assoc-in
-     [:config :target :request-config :username]
+     [:target :request-config :username]
      target-username)
 
     target-password
     (assoc-in
-     [:config :target :request-config :password]
+     [:target :request-config :password]
      target-password)
 
     target-batch-size
     (assoc-in
-     [:config :target :batch-size]
+     [:target :batch-size]
      target-batch-size)
 
     (not= target-backoff-budget
-          (get-in job [:config :target :backoff-opts :budget]))
+          (get-in config [:target :backoff-opts :budget]))
     (assoc-in
-     [:config :target :backoff-opts :budget]
+     [:target :backoff-opts :budget]
      target-backoff-budget)
 
     (not= target-backoff-max-attempt
-          (get-in job [:config :target :backoff-opts :max-attempt]))
+          (get-in config [:target :backoff-opts :max-attempt]))
     (assoc-in
-     [:config :target :backoff-opts :max-attempt]
+     [:target :backoff-opts :max-attempt]
      target-backoff-max-attempt)
 
     target-backoff-j-range
     (assoc-in
-     [:config :target :backoff-opts :j-range]
+     [:target :backoff-opts :j-range]
      target-backoff-j-range)
 
     target-backoff-initial
     (assoc-in
-     [:config :target :backoff-opts :initial]
+     [:target :backoff-opts :initial]
      target-backoff-initial)
 
     (not= get-buffer-size
-          (get job :get-buffer-size))
-    (assoc-in [:config :get-buffer-size] get-buffer-size)
+          (get config :get-buffer-size))
+    (assoc :get-buffer-size get-buffer-size)
 
     (not= batch-timeout
-          (get job :batch-timeout))
-    (assoc-in [:config :batch-timeout] batch-timeout)
+          (get config :batch-timeout))
+    (assoc :batch-timeout batch-timeout)
 
     statement-buffer-size
-    (assoc-in [:config :statement-buffer-size] statement-buffer-size)
+    (assoc :statement-buffer-size statement-buffer-size)
 
     batch-buffer-size
-    (assoc-in [:config :batch-buffer-size] batch-buffer-size)))
+    (assoc :batch-buffer-size batch-buffer-size)
+
+    cleanup-buffer-size
+    (assoc :cleanup-buffer-size cleanup-buffer-size)))
 
 (s/fdef list-store-jobs
   :args (s/cat :store :com.yetanalytics.xapipe/store)

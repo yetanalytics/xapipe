@@ -157,7 +157,8 @@
      :parse-fn (fn [filepath]
                  (-> filepath
                      slurp
-                     job-json/json->job))]]
+                     job-json/json->job))]
+    [nil "--json-out FILE" "Write JOB to a JSON file"]]
    (concat storage-options
            metrics-options)))
 
@@ -309,7 +310,7 @@
    [nil "--concept-type CONCEPT-TYPE" "Specific type of concept to filter on. If not set, it will match all concepts in the Profile."
     :id :filter-concept-types
     :multi true
-    :validate [#(some #{%} #{"Verb" "ActivityType" "AttachmentUsageType"}) "Must be either 'verb' or 'activityType'"]
+    :validate [#(some #{%} #{"Verb" "ActivityType" "AttachmentUsageType"}) "Must be either 'Verb' or 'ActivityType' or 'AttachmentUsageType'"]
     :default []
     :update-fn conj]
    [nil "--activity-type-id IRI" "Activity Type IRIs to filter on. If left blank it will match all Activity Types in the Profile"

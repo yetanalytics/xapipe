@@ -13,26 +13,40 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Get an env
         uses: yetanalytics/actions/setup-env@v0
+
 
       - name: Cache Deps
         uses: actions/cache@v2
         with:
           path: |
             ~/.m2
+            !~/.m2/repository/org/owasp
             ~/.gitlibs
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-deps-
 
+      - name: Cache NVD
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2/repository/org/owasp
+          key: ${{ runner.os }}-nvd-data-${{ hashFiles('~/.m2/repository/org/owasp/dependency-check-utils/6.5.0/data/jsrepository.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nvd-data-
+
+
       - name: Test Xapipe
-        run: make test
+        run: make ci
 
   docker:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Get an env
         uses: yetanalytics/actions/setup-env@v0

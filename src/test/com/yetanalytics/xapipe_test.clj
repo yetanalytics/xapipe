@@ -38,7 +38,7 @@
                     :xapi-prefix "/xapi"}}},
                  :state
                  {:status :init,
-                  :cursor "1970-01-01T00:00:00.000000000Z",
+                  :cursor since,
                   :source {:errors []},
                   :target {:errors []},
                   :errors [],

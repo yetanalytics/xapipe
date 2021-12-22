@@ -1,12 +1,12 @@
 (ns com.yetanalytics.xapipe.main-test
-  (:require [cheshire.core :as json]
-            [clojure.core.async :as a]
+  (:require [clojure.core.async :as a]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [com.yetanalytics.xapipe :as xapipe]
             [com.yetanalytics.xapipe.cli :as cli]
             [com.yetanalytics.xapipe.job :as job]
+            [com.yetanalytics.xapipe.job.json :as jj]
             [com.yetanalytics.xapipe.main :refer :all]
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
@@ -227,6 +227,38 @@
                    ))))
           (is (= 452 (sup/lrs-count target))))))))
 
+(deftest force-resume-complete-test
+  (let [common-store (mem/new-store)]
+    (with-redefs [cli/create-store (constantly common-store)]
+      (sup/with-running [source (sup/lrs
+                                 :seed-path
+                                 "dev-resources/lrs/after_conf.edn")
+                         target (sup/lrs)]
+
+        (let [[since until] (sup/lrs-stored-range source)]
+          (testing "original job"
+            (is (-> (main*
+                     "-s" "mem"
+                     "--job-id" "force-resume-complete-test-job"
+                     "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port source))
+                     "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port target))
+                     "-p" (format "since=%s" since)
+                     "-p" (format "until=%s" until))
+                    :status
+                    (= 0)))
+            (is (= 452 (sup/lrs-count target))))
+          (testing "Can force resume a completed job..."
+            (is (-> (main*
+                     "-s" "mem"
+                     "-f" ;; force
+                     "--job-id" "force-resume-complete-test-job")
+                    :status
+                    (= 0)))
+            (testing "But it won't do much because of the cursor"
+              (is (= 452 (sup/lrs-count target))))))))))
+
 (deftest json-test
   (sup/with-running [source (sup/lrs
                              :seed-path
@@ -245,7 +277,7 @@
                   {:request-config (:request-config target)}})]
         (is (-> (main*
                  "-s" "noop"
-                 "--json" (json/generate-string job))
+                 "--json" (jj/job->json job))
                 :status
                 (= 0)))
         (is (= 452 (sup/lrs-count target)))))))
@@ -258,24 +290,28 @@
     (testing "cli runs job with minimal args"
       (let [job-id "foo"
             [since until] (sup/lrs-stored-range source)
-            job (job/init-job
-                 job-id
-                 {:source
-                  {:request-config (:request-config source)
-                   :get-params     {:since since
-                                    :until until}}
-                  :target
-                  {:request-config (:request-config target)}})
-            ;; Put it in a file
             ^File tempfile (File/createTempFile "xapipe" "test")]
-        (spit tempfile (json/generate-string job))
         (try
-          (is (-> (main*
-                   "-s" "noop"
-                   "--json-file" (.getPath tempfile))
-                  :status
-                  (= 0)))
-          (is (= 452 (sup/lrs-count target)))
+          ;; Put init job in the file
+          (testing "Write a JSON job from args"
+            (is (-> (main*
+                     "-s" "noop"
+                     "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port source))
+                     "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port target))
+                     "-p" (format "since=%s" since)
+                     "-p" (format "until=%s" until)
+                     "--json-out" (.getPath tempfile))
+                    :status
+                    (= 0))))
+          (testing "Run a job off of it"
+            (is (-> (main*
+                     "-s" "noop"
+                     "--json-file" (.getPath tempfile))
+                    :status
+                    (= 0)))
+            (is (= 452 (sup/lrs-count target))))
           (finally
             (.delete tempfile)))))))
 
@@ -344,8 +380,104 @@
                        :errors [],
                        :filter {}}}
                      (update
-                      (edn/read-string message)
+                      (jj/json->job message)
                       :state dissoc :updated)))))))
       (finally
         (.delete ^File (io/file ".test_store/foo.edn"))
         (.delete ^File (io/file ".test_store"))))))
+
+(deftest reconfigure-test
+  (let [common-store (mem/new-store)]
+    (with-redefs [cli/create-store (constantly common-store)]
+      (sup/with-running [source (sup/lrs
+                                 :seed-path
+                                 "dev-resources/lrs/after_conf.edn")
+                         target-a (sup/lrs)
+                         target-b (sup/lrs)
+                         target-c (sup/lrs)
+                         target-d (sup/lrs)]
+        (testing "CLI runs original job to a"
+          (let [;; take a chunk of statements
+                ;; there are voideds so the numbers won't match up exactly
+                ;; 101 gets us 100
+                chunk-a (take 101 (sup/lrs-statements source))
+
+                since-a (-> chunk-a first (get "stored"))
+
+                until-a (-> chunk-a last (get "stored"))
+                {:keys [status]}
+                (main*
+                 "-s" "mem"
+                 "--job-id" "reconfigure-test-job"
+                 "--source-url" (format "http://0.0.0.0:%d/xapi"
+                                        (:port source))
+                 "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                        (:port target-a))
+                 "-p" (format "since=%s" since-a)
+                 "-p" (format "until=%s" until-a))]
+            (is (= 0 status))
+            (is (= 100 (sup/lrs-count target-a)))
+
+            (testing "Reconfigure from CLI args to b"
+              (let [since-b until-a
+                    chunk-b (->> (sup/lrs-statements source)
+                                 (drop 101)
+                                 (take 100))
+                    until-b (-> chunk-b
+                                last
+                                (get "stored"))
+                    {:keys [status
+                            job] :as ret}
+                    (main*
+                     "-s" "mem"
+                     "-f" ;; force resume
+                     "--job-id" "reconfigure-test-job"
+                     "--target-url" (format "http://0.0.0.0:%d/xapi"
+                                            (:port target-b))
+                     "-p" (format "since=%s" since-b)
+                     "-p" (format "until=%s" until-b))]
+                (is (= 0 status))
+                (is (= 100 (sup/lrs-count target-b)))
+
+                (testing "Reconfigure from JSON to c"
+                  (let [since-c until-b
+                        chunk-c (take 100 (drop 201 (sup/lrs-statements source)))
+                        until-c (-> chunk-c last (get "stored"))]
+                    (is (-> (main*
+                             "-s" "mem"
+                             "-f"
+                             ;; no need for job-id, is derived from the JSON
+                             ;; "--job-id" "reconfigure-test-job"
+                             "--json" (jj/job->json
+                                       (-> job
+                                           (update-in
+                                            [:config :source :get-params]
+                                            merge
+                                            {:since since-c
+                                             :until until-c})
+                                           (assoc-in
+                                            [:config :target :request-config :url-base]
+                                            (format "http://0.0.0.0:%d"
+                                                    (:port target-c))))))
+                            :status
+                            (= 0)))
+                    (is (= 100 (sup/lrs-count target-c)))
+                    (testing "Reconfigure with both to d"
+                      (let [since-d until-c
+                            chunk-d (drop 301 (sup/lrs-statements source))
+                            until-d (-> chunk-d last (get "stored"))]
+                        (is (-> (main*
+                                 "-s" "mem"
+                                 "-f"
+                                 ;; state in the old job is ignored!
+                                 "--json" (jj/job->json
+                                           (assoc-in
+                                            job
+                                            [:config :target :request-config :url-base]
+                                            (format "http://0.0.0.0:%d"
+                                                    (:port target-d))))
+                                 "-p" (format "since=%s" since-d)
+                                 "-p" (format "until=%s" until-d))
+                                :status
+                                (= 0)))
+                        (is (= 152 (sup/lrs-count target-d)))))))))))))))
