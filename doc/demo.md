@@ -2,7 +2,7 @@
 
 # Example Forwarding Demo
 
-This repo includes a Docker Compose file at [`demo/docker-compose.yml`](demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses LRSPipe to forward data between them. This demo only requires having Docker 3.9+ installed.
+This repo includes a Docker Compose file at [`demo/docker-compose.yml`](https://github.com/yetanalytics/xapipe/blob/main/demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses LRSPipe to forward data between them. This demo only requires having Docker 3.9+ installed.
 
 To run the demo:
 
