@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Yet LRS Pipe Documentation</title>
+        <style type="text/css">
+body{
+    margin: 0 auto;
+    padding: 30px;
+    font: 20px Tahoma, Helvetica, Arial, Sans-Serif;
+    line-height: 1.5;
+}
+h1, h2, h3, h4 {
+	display: block; text-decoration: none;
+	font: Helvetica, Arial, Sans-Serif;
+ }
+h1 {
+  font-size: 35px;
+ }
+h2 {
+  font-size: 30px;
+ }
+h3 {
+  font-size: 25px;
+ }
+h4 {
+  font-size: 20px;
+ }
+textarea {
+	width: 600px; margin: 0 auto; background: #222; padding: 20px;
+	font-size: 22px; color: #555; text-shadow: 0px 2px 3px #171717;
+	-webkit-box-shadow: 0px 2px 3px #555;
+	-moz-box-shadow: 0px 2px 3px #555;
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+}
+code {
+  background: #eeeeee;
+}
+pre {
+  margin: 0 auto;
+  background: #eeeeee;
+  padding: 20px;
+	font-size: 15px;
+	margin-bottom: 20px;
+}
+a {
+	text-decoration: none;
+	font: 18px Helvetica, Arial, Sans-Serif;
+ }
+hr {
+  height: 3px;
+  border: 0;
+  background-color: #333;
+}
+img {
+  max-width: 95%;
+  display: block;
+  margin: auto;
+}
+div#container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80%;
+}
+/* a la https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Styling_tables#Spacing_and_layout */
+table {
+  width: 95%;
+  margin-right: auto;
+  margin-left: auto;
+  border-collapse: collapse;
+  border: 1px solid #dee2e5;
+}
+th, td {
+  border: 1px solid #dee2e5;
+  padding: 20px;
+  line-height: 1.25;
+}
+tbody tr:nth-child(even) {
+  background-color: #f6f8fa;
+}
+p {
+  text-align: justify;
+}
+
+div.logo-container {
+  width: 100%;
+}
+
+div.logo {
+  width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+div.footer {
+  font-size: medium;
+  color:white;
+  background-color: rgb(17, 55, 92) !important;
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding-top: 30px;
+  padding-bottom: 30px;
+}
+.footer a, .footer a:visited {
+  color: white !important;
+}
+
+.footer a:hover {
+  color: white !important;
+  text-decoration: underline;
+}
+
+span.build {
+  display: block;
+  font-size: .7em;
+}
+
+</style>
+    </head>
+    <body>
+      <div id="container">
+        <div class="logo-container">
+          <div class="logo">
+            <img alt="Yet LRSPipe Logo" src="img/logo.png"/>
+          </div>
+        </div>
+        <p><a href='index.html'><- Back to Index</a></p><h1 id="example&#95;aws&#95;implementation">Example AWS Implementation</h1><p>This repo includes a sample AWS CloudFormation Template available at <a href='https://github.com/yetanalytics/xapipe/blob/main/dev-resources/templates/lrspipe_ec2.yml'><code>dev-resources/templates/lrspipe&#95;ec2.yml</code></a>. This template creates an EC2 Instance and launches an LRSPipe job on the server in Amazon Web Services. The template does not create the source or target LRS implementations and requires you to ensure that the Instance has proper access to both. In this section we will discuss how to deploy the LRSPipe template.</p><p><b>NOTE:</b> <em>This configuration is not one-size-fits-all and you may require a different configuration for your particular needs. It is provided for demonstration purposes only and can be used as a reference to adapt to your particular enterprise's needs. If you apply these templates in your own AWS account, it can and will incur charges from Amazon Web Services. Yet Analytics is in no way responsible for any charges due to applying and implementing these templates, and is in no way responsible for any outcomes of applying these templates or implementing LRSPipe. If your team is interested in consulting or support in setting up or maintaining LRS Forwarding through LRSPipe or LRS infrastructure in general please <a href='https://www.sqllrs.com/contact'>contact Yet here</a></em>.</p><h2 id="deployment">Deployment</h2><p>Deploying the CloudFormation Template only requires a few straightforward steps.</p><ul><li>Go to AWS CloudFormation Service</li><li>Choose Create Stack (New Resources)</li><li>Choose 'Template is Ready' / 'Upload a template file'</li><li>Upload the Template <code>dev-resources/templates/lrspipe&#95;ec2.yml</code></li><li>Click 'Next'</li></ul><h3 id="configuration">Configuration</h3><p><img src="img/template-options.png" alt="LRSPipe Template Deployment Options" /></p><p>On the next page you will be presented with a number of deployment options. We will detail each one below:</p><ul><li><code>Stack Name</code>: Enter a name to identify this template.</li><li><code>InstanceAmiId</code>: This is the operating system image of the EC2 Instance. We do not recommend changing this from default as this is the setup that has been tested with this template.</li><li><code>InstanceKeyName</code>: If you would like to be able to SSH to the server for diagnostic purposes, enter the SSH key-pair name for the key you would like to use for authorization. If not leave it blank.</li><li><code>InstanceSSHCidr</code>: Provide a whitelisted CIDR Range for access to SSH to the instance.</li><li><code>InstanceType</code>: This is the size of the server to create. We recommend (and have tested) a c5.large for LRSPipe jobs, but you may want to go smaller or larger depending on use-case.</li><li><code>LogRetentionInDays</code>: This tells CloudWatch how long to hold onto application logs. This can affect costs stemming from large amounts of log storage.</li><li><code>LrsPipeConfig</code>: This is where you will paste in your LRSPipe JSON job configuration. This is where all of the actual job configuration takes place. See the <a href='json.html'>JSON-based Job Config</a> page for details and instructions on this step.</li><li><code>LrsPipeSubnet</code>: This field, in conjunction with the <code>VPCId</code> determine where in your network the LRSPipe instance is created. This is important as it may impact access to the source and target LRS'. If your LRS' are hosted in the same AWS account make sure this Subnet has access to them. Alternatively if your LRS' are hosted externally, make sure this Subnet has internet access configured.</li><li><code>LrsPipeVersion</code>: This is the version of LRSPipe software you want to deploy. This can be used to upgrade the version on a running instance as well. For a list of LRSPipe versions visit <a href='https://github.com/yetanalytics/xapipe/releases'>releases</a>.</li><li><code>VPCId</code>: This field controls which Virtual Private Cloud the Instance resides in. Make sure that the chosen VPC contains the Subnet from that previous step.</li></ul><p>Now click 'Next' and proceed to deploy the template.</p><h2 id="monitoring">Monitoring</h2><p><img src="img/resources.png" alt="LRSPipe Template Deployment Options" /></p><p>This template comes with a CloudWatch configuration that allows you to view the logs directly in AWS. Once the template is deployed, in order to find the logs, go to the resources tab as pictured below and click the <code>LogGroup</code> link. This will take you to the index of logs available for viewing. <em>Note: Keep in mind that CloudWatch has a slight publishing delay from the time that an event occurs in the system.</em> These logs can be used to ensure that the LRSPipe configuration was deployed successfully, or to debug issues that may arise.</p><p><a href='index.html'><- Back to Index</a></p>
+        <div class="footer">
+         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
+         Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
+         <span class="build">Build: d5066502d049744079b08be32c81c730d6fd4eff</span>
+        </div>
+      </div>
+    </body>
+</html>
