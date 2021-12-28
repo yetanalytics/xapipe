@@ -32,7 +32,6 @@ jobs:
       - name: Get an env
         uses: yetanalytics/actions/setup-env@v0.0.1
 
-
       - name: Cache Deps
         uses: actions/cache@v2
         with:
