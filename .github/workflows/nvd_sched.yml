@@ -6,6 +6,6 @@ on:
 
 jobs:
   nvd_scan:
-    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@fafd15d2735f4e58c8fa2f0d578f1b039a1f8867
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.1
     with:
       classpath-command: 'clojure -Spath -A:cli'

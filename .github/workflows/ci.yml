@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0
+      - name: Checkout project
+        uses: actions/checkout@v2
 
+      - name: Get an env
+        uses: yetanalytics/actions/setup-env@v0.0.1
 
       - name: Cache Deps
         uses: actions/cache@v2
@@ -33,7 +35,7 @@ jobs:
         run: make test
 
   nvd_scan:
-    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@fafd15d2735f4e58c8fa2f0d578f1b039a1f8867
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.1
     with:
       classpath-command: 'clojure -Spath -A:cli'
 
@@ -44,8 +46,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v2
+
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0
+        uses: yetanalytics/actions/setup-env@v0.0.1
 
       - name: Cache Deps
         uses: actions/cache@v2
