@@ -33,7 +33,7 @@ jobs:
         run: make test
 
   nvd_scan:
-    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@nvd-scan
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@fafd15d2735f4e58c8fa2f0d578f1b039a1f8867
     with:
       classpath-command: 'clojure -Spath -A:cli'
 
