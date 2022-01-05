@@ -8,9 +8,11 @@
             [com.yetanalytics.xapipe.util.time :as t]
             [xapi-schema.spec :as xs]))
 
+(def current-version 0)
+
 (s/def ::config config/config-spec)
 (s/def ::state state/state-spec)
-
+(s/def ::version #{current-version})
 (s/def ::id (s/and string? not-empty))
 
 (defn valid-get-params-vs-state?
@@ -30,7 +32,8 @@
   (s/keys
    :req-un [::id
             ::config
-            ::state]))
+            ::state]
+   :opt-un [::version]))
 
 (def job-spec
   (s/with-gen
@@ -53,6 +56,46 @@
          (s/gen ::t/normalized-stamp)
          {:num-elements 3}))))))
 
+(defmulti inc-version
+  "Upgrade a job to the next version up"
+  (fn [{:keys [version]}]
+    [version (inc version)]))
+
+(defmethod inc-version :default
+  [{:keys [version]}]
+  (let [next-version (inc version)]
+    (throw
+     (ex-info (format "No known route from version %d to %d"
+                      version
+                      next-version)
+              {:type ::no-known-upgrade
+               :version version
+               :next-version next-version}))))
+
+(s/fdef upgrade-job
+  :args (s/cat :maybe-job
+               (s/with-gen
+                 map? ;; loose spec here, since we don't spec old versions
+                 (fn [] (s/gen job-spec))))
+  :ret job-spec)
+
+(defn upgrade-job
+  "Attempt to upgrade a job to the current version or throw.
+  Assumes no version to be the latest version."
+  [{:keys [version]
+    :as job
+    :or {version current-version}}]
+  (cond
+    (= current-version version) (assoc job :version version)
+    (< current-version version) (throw
+                                 (ex-info (format "Unknown version %d"
+                                                  version)
+                                          {:type ::unknown-version
+                                           :version version
+                                           :current-version current-version}))
+    :else
+    (recur (inc-version job))))
+
 ;; Initialize a job
 (s/fdef init-job
   :args (s/cat :id ::id
@@ -67,6 +110,7 @@
          filter-config :filter
          :as config} (config/ensure-defaults config)]
     {:id id
+     :version current-version
      :config
      config
      :state

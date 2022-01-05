@@ -83,6 +83,7 @@
       (store/write-job store (last tail-states))
       (is (= {job-id
               {:id job-id,
+               :version 0,
                :config
                {:get-buffer-size 10,
                 :statement-buffer-size 500,
@@ -174,6 +175,7 @@
       (store/write-job store (last tail-states))
       (is (= {job-id
               {:id job-id,
+               :version 0,
                :config
                {:get-buffer-size 10,
                 :statement-buffer-size 500,
@@ -347,6 +349,7 @@
                                             "--file-store-dir" ".test_store")]
               (is (= 0 status))
               (is (= {:id "foo",
+                      :version 0,
                       :config
                       {:get-buffer-size 10,
                        :statement-buffer-size 500,

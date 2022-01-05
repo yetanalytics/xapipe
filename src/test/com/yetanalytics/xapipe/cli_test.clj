@@ -96,6 +96,7 @@
 
 (deftest create-job-test
   (is (= {:id "foo",
+          :version 0,
           :config
           {:get-buffer-size 100,
            :statement-buffer-size 1000,
