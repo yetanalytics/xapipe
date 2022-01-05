@@ -303,9 +303,11 @@
                                                 target-statements)
                                                (drop (count target-statements)
                                                      other-statements)))]
-                 ;; Bump stored time by at least 1 ms for each batch
-                 (Thread/sleep 1)
+                 ;; Bump stored time for each batch
+                 (Thread/sleep 10)
                  ((:load source) s-batch))
+               ;; Sleep before count
+               (Thread/sleep 10)
                (let [[since until] (sup/lrs-stored-range source)
                      {:keys [job-id
                              job
@@ -323,9 +325,11 @@
                      all-states (a/<!! (a/into [] states))]
                  (testing "job success"
                    (is (-> all-states last :state :status (= :complete))))
+                 ;; Wait a beat before counting target
+                 (Thread/sleep 10)
                  (testing "target contains expected statements"
-                   (is (= (map #(get % "id") target-statements)
-                          (map #(get % "id") (sup/lrs-statements target)))))
+                   (is (= (set (map #(get % "id") target-statements))
+                          (set (map #(get % "id") (sup/lrs-statements target))))))
                  (testing "cursor is advanced to last normalized stored"
                    (let [last-stored (-> (sup/lrs-statements source)
                                          last
