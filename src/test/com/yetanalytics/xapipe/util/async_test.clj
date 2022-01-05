@@ -10,12 +10,7 @@
   (testing "with no predicates"
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
-          dropped (atom [])
-          cleanup-chan (a/chan)
-          _ (a/go-loop []
-              (when-let [v (a/<! cleanup-chan)]
-                (swap! dropped conj v)
-                (recur)))
+          cleanup-chan (a/chan 1000)
           _ (batch-filter
              a-chan
              b-chan
@@ -25,7 +20,9 @@
 
       (a/onto-chan! a-chan (range 1000))
 
-      (let [batches (a/<!! (a/into [] b-chan))]
+      (let [batches (a/<!! (a/into [] b-chan))
+            _ (a/close! cleanup-chan)
+            dropped (a/<!! (a/into [] cleanup-chan))]
         (testing "returns all records in order w/o filters"
           (is (= (range 1000)
                  (mapcat :batch batches))))
@@ -42,19 +39,13 @@
             batches)))
         (testing "no dropped"
           (is (= []
-                 @dropped))
+                 dropped))
           (is (= 0
-                 (count @dropped)))))))
-
+                 (count dropped)))))))
   (testing "With stateless predicates"
     (let [a-chan (a/chan 1000)
           b-chan (a/chan 20)
-          dropped (atom [])
-          cleanup-chan (a/chan)
-          _ (a/go-loop []
-              (when-let [v (a/<! cleanup-chan)]
-                (swap! dropped conj v)
-                (recur)))
+          cleanup-chan (a/chan 1000)
           _ (batch-filter
              a-chan
              b-chan
@@ -66,12 +57,14 @@
 
       (a/onto-chan! a-chan (range 1000))
 
-      (let [batches (a/<!! (a/into [] b-chan))]
+      (let [batches (a/<!! (a/into [] b-chan))
+            _ (a/close! cleanup-chan)
+            dropped (a/<!! (a/into [] cleanup-chan))]
         (testing "returns matching records in order"
           (is (= (filter odd? (range 1000))
                  (mapcat :batch batches))))
         (testing "Cleans up"
-          (is (= 500 (count @dropped))))
+          (is (= 500 (count dropped))))
         (testing "empty states"
           (is
            (every?
@@ -107,12 +100,7 @@
                          [(inc n) true]))
           a-chan (a/chan 1000)
           b-chan (a/chan 20)
-          dropped (atom [])
-          cleanup-chan (a/chan)
-          _ (a/go-loop []
-              (when-let [v (a/<! cleanup-chan)]
-                (swap! dropped conj v)
-                (recur)))
+          cleanup-chan (a/chan 1000)
           _ (batch-filter
              a-chan
              b-chan
@@ -126,7 +114,9 @@
 
       (a/onto-chan! a-chan (range 1000))
 
-      (let [batches (a/<!! (a/into [] b-chan))]
+      (let [batches (a/<!! (a/into [] b-chan))
+            _ (a/close! cleanup-chan)
+            dropped (a/<!! (a/into [] cleanup-chan))]
         (testing "returns matching records in order"
           (is (= 500
                  (count (mapcat :batch batches)))))
@@ -139,7 +129,7 @@
             (testing "terminated"
               (= 500 (last filter-states)))))
         (testing "Cleans up"
-          (is (= 500 (count @dropped))))
+          (is (= 500 (count dropped))))
         (testing "Returns the last record dropped"
           (is (= (concat (repeat 10 nil) [999])
                  (map :last-dropped batches))))))))
