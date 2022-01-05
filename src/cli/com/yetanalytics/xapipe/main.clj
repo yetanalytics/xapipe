@@ -120,7 +120,7 @@ Delete a Job:
                 ;; Check job for validity!
                 (not (s/valid? job/job-spec job))
                 {:status  1
-                 :message (s/explain-str job/job-spec job)}
+                 :message (s/explain-str job/job-spec (job/sanitize job))}
 
                 ;; Check job for Errors!
                 (job/errors? job)
