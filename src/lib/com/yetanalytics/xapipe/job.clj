@@ -57,7 +57,9 @@
          {:num-elements 3}))))))
 
 (defmulti inc-version
-  "Upgrade a job to the next version up"
+  "Upgrade a job to the next version up.
+  Breaking changes to the job spec require implementations of this to be
+  upgradeable."
   (fn [{:keys [version]}]
     [version (inc version)]))
 
