@@ -1,0 +1,12 @@
+name: Periodic Vulnerability Scan
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  nvd_scan:
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.1
+    with:
+      nvd-clojure-version: '2.0.0'
+      classpath-command: 'clojure -Spath -A:cli'

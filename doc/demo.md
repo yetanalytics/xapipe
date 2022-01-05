@@ -1,8 +1,8 @@
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)
 
 # Example Forwarding Demo
 
-This repo includes a Docker Compose file at [`demo/docker-compose.yml`](demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses LRSPipe to forward data between them. This demo only requires having Docker 3.9+ installed.
+This repo includes a Docker Compose file at [`demo/docker-compose.yml`](https://github.com/yetanalytics/xapipe/blob/main/demo/docker-compose.yml) that creates source and target LRS instances using [SQL LRS](https://github.com/yetanalytics/lrsql) and uses LRSPipe to forward data between them. This demo only requires having Docker 3.9+ installed.
 
 To run the demo:
 
@@ -17,4 +17,4 @@ The demo includes a [Prometheus](https://prometheus.io/) metrics server and push
 
 In addition to prometheus the demo creates a [Grafana](https://github.com/grafana/grafana) server at [http://0.0.0.0:3000](http://0.0.0.0:3000). Log in with username `admin` and password `admin` and set a password, then you can view a comprehensive dashboard with all metrics. See [metrics](metrics.md) for more details.
 
-[<- Back to README](../README.md)
+[<- Back to Index](index.md)

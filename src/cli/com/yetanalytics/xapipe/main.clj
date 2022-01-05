@@ -32,7 +32,7 @@ Delete a Job:
   [& args]
   (try
     (let [{{help?          :help
-            ?job-id        :job-id
+            ?job-id-arg    :job-id
             show-job?      :show-job
             list-jobs?     :list-jobs
             ?delete-job-id :delete-job
@@ -64,64 +64,88 @@ Delete a Job:
               {:status 0})
 
             :else
-            (let [[new? job'] (or
-                               (and ?json [true ?json])
-                               (and ?json-file [true ?json-file])
-                               (if-some [extant (and ?job-id
-                                                     (store/read-job
-                                                      store ?job-id))]
-                                 [false extant]
-                                 [true (cli/create-job
-                                        options)]))
-                  {job-id :id
-                   :as    job}   (cond-> job'
-                                   (not new?)
-                                   (->
-                                    (cli/reconfigure-job options)
-                                    (cond->
-                                        force-resume?
-                                      (-> (update
-                                           :state
-                                           state/clear-errors)
-                                          (update :state
-                                                  state/set-status :paused)))))
-                  reporter    (cli/create-reporter job-id options)]
-              (if (s/valid? job/job-spec job)
-                (do
-                  (if new?
-                    (log/infof
-                     "Created new job %s: %s"
-                     job-id
-                     (pr-str
-                      (job/sanitize job)))
-                    (log/infof
-                     "Found existing job %s: %s"
-                     job-id
-                     (pr-str
-                      (job/sanitize job))))
-                  (cond
-                    show-job?   {:status  0
-                                 :message (jj/job->json
-                                           (job/sanitize job))}
-                    (not-empty
-                     ?json-out) (do
-                                  (jj/job->json-file! job ?json-out)
-                                  {:status  0
-                                   :message (format "Wrote job %s to %s"
-                                                    job-id ?json-out)})
+            (let [?from-json (or ?json ?json-file)
+                  _ (when ?from-json
+                      ;; If job-id arg is set, we make sure they match
+                      (when (and ?job-id-arg
+                                 (not= ?job-id-arg
+                                       (:id ?from-json)))
+                        (throw (ex-info (format "--job-id %s does not match JSON job id %s"
+                                                ?job-id-arg (:id ?from-json))))))
+                  ?job-id (or ?job-id-arg (:id ?from-json))
+                  ?from-storage (and ?job-id
+                                     (store/read-job
+                                      store ?job-id))
 
-                    :else (do
-                            (log/infof
-                             (if new?
-                               "Starting job %s"
-                               "Resuming job %s")
-                             job-id)
-                            (cli/handle-job store
-                                            job
-                                            (cli/options->client-opts options)
-                                            reporter))))
+
+                  {job-id :id
+                   :as    job}
+                  (cond
+                    ;; Found in storage
+                    ?from-storage
+                    (-> ?from-storage
+                        (cond->
+                          ;; If the user has requested force resume we clear
+                          force-resume?
+                          (-> (update :state state/clear-errors)
+                              (update :state state/set-status :paused)))
+                        (job/reconfigure-job
+                         (cli/reconfigure-with-options
+                          (:config (or ?from-json ?from-storage))
+                          options)))
+                    ;; Json is provided
+                    ?from-json
+                    (update ?from-json
+                            :config cli/reconfigure-with-options options)
+
+                    ;; New from options!
+                    :else
+                    (cli/create-job options))
+                  reporter    (cli/create-reporter job-id options)
+                  new? (not (some? ?from-storage))]
+
+              (if new?
+                (log/infof
+                 "Created new job %s: %s"
+                 job-id
+                 (jj/job->json
+                  (job/sanitize job)))
+                (log/infof
+                 "Found existing job %s: %s"
+                 job-id
+                 (jj/job->json
+                  (job/sanitize job))))
+
+              (cond
+                ;; Check job for validity!
+                (not (s/valid? job/job-spec job))
                 {:status  1
-                 :message (s/explain-str job/job-spec job)}))))))
+                 :message (s/explain-str job/job-spec (job/sanitize job))}
+
+                ;; Check job for Errors!
+                (job/errors? job)
+                {:status 1
+                 :message (cli/errors->message (job/all-errors job))}
+
+                show-job?   {:status  0
+                             :message (jj/job->json
+                                       (job/sanitize job))}
+                (not-empty
+                 ?json-out) (do
+                              (jj/job->json-file! job ?json-out)
+                              {:status  0
+                               :message (format "Wrote job %s to %s"
+                                                job-id ?json-out)})
+                :else (do
+                        (log/infof
+                         (if new?
+                           "Starting job %s"
+                           "Resuming job %s")
+                         job-id)
+                        (cli/handle-job store
+                                        job
+                                        (cli/options->client-opts options)
+                                        reporter))))))))
     (catch Exception ex
       {:status  1
        :message (ex-message ex)})))

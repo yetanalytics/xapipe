@@ -26,8 +26,11 @@ jobs:
     needs: build_jre
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v2
+
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0
+        uses: yetanalytics/actions/setup-env@v0.0.1
 
       - name: Cache Deps
         uses: actions/cache@v2
@@ -76,3 +79,9 @@ jobs:
         with:
           draft: true
           files: 'xapipe.zip'
+
+      - name: Deploy Documentation (Tag Pushes)
+        uses: JamesIves/github-pages-deploy-action@4.1.5
+        with:
+          branch: gh-pages
+          folder: target/bundle/doc

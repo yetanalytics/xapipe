@@ -159,10 +159,10 @@
       "type" : "StatementTemplate",
       "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
       "prefLabel" : {
-        "en" : "Object Activity Type Template 2"
+        "en-US" : "Object Activity Type Template 2"
       },
       "definition" : {
-        "en" : "The statement template using Activity Type 2 for object."
+        "en-US" : "The statement template using Activity Type 2 for object."
       },
       "verb" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1",
       "objectActivityType" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-2"
@@ -172,10 +172,10 @@
       "type" : "StatementTemplate",
       "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
       "prefLabel" : {
-        "en" : "parent Activity Type Template"
+        "en-US" : "parent Activity Type Template"
       },
       "definition" : {
-        "en" : "The statement template using Activity Type 1 for parent context."
+        "en-US" : "The statement template using Activity Type 1 for parent context."
       },
       "verb" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1",
       "objectActivityType" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1",
@@ -185,6 +185,10 @@
             "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-3"
           ],
           "location" : "$.context.contextActivities.parent[0].definition.type",
+          "presence" : "included"
+        },
+        {
+          "location" : "$.context.contextActivities.parent[0].id",
           "presence" : "included"
         }
       ]
@@ -208,6 +212,10 @@
           ],
           "location" : "$.context.contextActivities.category[0].definition.type",
           "presence" : "included"
+        },
+        {
+          "location" : "$.context.contextActivities.category[0].id",
+          "presence" : "included"
         }
       ]
     },
@@ -216,10 +224,10 @@
       "type" : "StatementTemplate",
       "inScheme" : "https://xapinet.org/xapi/yet/calibration-concept/v1",
       "prefLabel" : {
-        "en" : "grouping Activity Type Template"
+        "en-US" : "grouping Activity Type Template"
       },
       "definition" : {
-        "en" : "The statement template using Activity Type 1 for grouping context."
+        "en-US" : "The statement template using Activity Type 1 for grouping context."
       },
       "verb" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#verb-1",
       "objectActivityType" : "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-1",
@@ -229,6 +237,10 @@
             "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-3"
           ],
           "location" : "$.context.contextActivities.grouping[0].definition.type",
+          "presence" : "included"
+        },
+        {
+          "location" : "$.context.contextActivities.grouping[0].id",
           "presence" : "included"
         }
       ]
@@ -251,6 +263,10 @@
             "https://xapinet.org/xapi/yet/calibration-concept/v1/concepts#activity-type-3"
           ],
           "location" : "$.context.contextActivities.other[0].definition.type",
+          "presence" : "included"
+        },
+        {
+          "location" : "$.context.contextActivities.other[0].id",
           "presence" : "included"
         }
       ]
@@ -276,10 +292,31 @@
           "presence" : "included"
         },
         {
-          "any" : [
-            {"en" : "A Resource"}
+          "any": [
+            "4BFdC64F3deDB1f751ee9878eEcaefbD0dF59aEBC1da4f2Eb771De4bAB1daeaf"
           ],
-          "location" : "$.attachments[0].display",
+          "location" : "$.attachments[0].sha2",
+          "presence" : "included"
+        },
+        {
+          "any": [
+            452
+          ],
+          "location" : "$.attachments[0].length",
+          "presence" : "included"
+        },
+        {
+          "any": [
+            "application/whatever"
+          ],
+          "location" : "$.attachments[0].contentType",
+          "presence" : "included"
+        },
+        {
+          "any" : [
+            "A Resource"
+          ],
+          "location" : "$.attachments[0].display.en-US",
           "presence" : "included"
         },
         {

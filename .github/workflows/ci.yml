@@ -13,9 +13,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v2
+
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0
+        uses: yetanalytics/actions/setup-env@v0.0.1
 
       - name: Cache Deps
         uses: actions/cache@v2
@@ -30,12 +34,24 @@ jobs:
       - name: Test Xapipe
         run: make test
 
+  nvd_scan:
+    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.1
+    with:
+      nvd-clojure-version: '2.0.0'
+      classpath-command: 'clojure -Spath -A:cli'
+
   docker:
-    needs: test
+    needs:
+      - test
+      - nvd_scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Checkout project
+        uses: actions/checkout@v2
+
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0
+        uses: yetanalytics/actions/setup-env@v0.0.1
 
       - name: Cache Deps
         uses: actions/cache@v2
