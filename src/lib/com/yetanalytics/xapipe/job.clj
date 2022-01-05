@@ -73,10 +73,7 @@
                :next-version next-version}))))
 
 (s/fdef upgrade-job
-  :args (s/cat :maybe-job
-               (s/with-gen
-                 map? ;; loose spec here, since we don't spec old versions
-                 (fn [] (s/gen job-spec))))
+  :args (s/cat :job job-spec)
   :ret job-spec)
 
 (defn upgrade-job
