@@ -14,10 +14,10 @@
                      100
                      :profiles
                      ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
-                     #_#_:parameters {:seed 42})
+                     :parameters {:seed 42})
                   b (gen-statements
                      100
                      :profiles
                      ["dev-resources/profiles/calibration_strict_pattern.jsonld"]
-                     #_#_:parameters {:seed 42})]
+                     :parameters {:seed 42})]
               (= a b)))))))))
