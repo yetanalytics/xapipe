@@ -203,16 +203,16 @@
                      :batch-size 50}}
             {:keys [states
                     stop-fn]} (init-run-job config)
-            ;; take the init state and it will start
-            head-state (a/<!! states)
-            ;; Wait long enough for one GET + Post
-            _ (Thread/sleep 1000)]
-        (testing "head state"
-          (is (= :init
-                 (get-in head-state [:state :status]))))
+            ;; take the init and first running state and it will start
+            head-states (a/<!! (a/into [] (a/take 2 states)))
+            ;; stop the job immediately after getting the first :running
+            _ (stop-fn)]
+        (testing "head states"
+          (is (= [:init :running]
+                 (map #(get-in % [:state :status]) head-states))))
         (testing "one batch gets through"
           (is (= 50 (sup/lrs-count target))))
-        (stop-fn)
+
         ;; Drain remaining states
         (a/<!! (a/into [] states))
         (testing "Nothing else gets through"
