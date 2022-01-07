@@ -251,9 +251,10 @@
                     {:name "bob",
                      :mbox "mailto:bob@example.org",
                      :objectType "Agent"}]}])
-             :parameters (or parameters
-                             {:from "2021-10-28T20:07:36.035431Z"
-                              :seed 42})
+             :parameters (merge
+                          {:start "2021-10-28T20:07:36.035431Z"
+                           :seed 42}
+                          parameters)
              :alignments (or alignments [])})
            :profiles
            (into []
@@ -316,11 +317,22 @@
 
 (def stc-opts :clojure.spec.test.check/opts)
 
+(defn- failure-type
+  [x]
+  (::s/failure (ex-data x)))
+
+(defn- unwrap-failure
+  [x]
+  (if (failure-type x)
+    (ex-data x)
+    x))
+
 (defn failures [check-results]
   (mapv
    (fn [{:keys [sym] :as x}]
      [sym (-> x
               (update :spec s/describe)
+              (update :failure unwrap-failure)
               (dissoc :sym)
               ;; Dissoc the top level trace, leave the shrunken one
               (update stc-ret dissoc :result-data))])
@@ -358,7 +370,8 @@
     (test/inc-report-counter :fail)
     (doseq [[sym
              {:keys [spec failure]
-              {:keys [result fail num-tests]} stc-ret}] failures]
+              {:keys [result fail num-tests shrunk]
+               :as ret} stc-ret}] failures]
       (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
               sym
               num-tests
@@ -379,7 +392,14 @@
       (when fail
         (print "\nfailing value:\n\n")
         (pprint/pprint
-         fail)))))
+         fail))
+      (when-let [smallest-fail
+                 (some-> shrunk
+                         :result
+                         unwrap-failure
+                         :clojure.spec.test.alpha/args)]
+        (print "\nsmallest failing argv:\n\n")
+        (pprint/pprint smallest-fail)))))
 
 (defmethod test/report
   :spec-check-skip
