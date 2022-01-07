@@ -370,7 +370,8 @@
     (test/inc-report-counter :fail)
     (doseq [[sym
              {:keys [spec failure]
-              {:keys [result fail num-tests]} stc-ret}] failures]
+              {:keys [result fail num-tests shrunk]
+               :as ret} stc-ret}] failures]
       (printf "\nfailing sym %s after %d tests\n\nreason: %s\n\n"
               sym
               num-tests
@@ -391,7 +392,14 @@
       (when fail
         (print "\nfailing value:\n\n")
         (pprint/pprint
-         fail)))))
+         fail))
+      (when-let [smallest-fail
+                 (some-> shrunk
+                         :result
+                         unwrap-failure
+                         :clojure.spec.test.alpha/args)]
+        (print "\nsmallest failing argv:\n\n")
+        (pprint/pprint smallest-fail)))))
 
 (defmethod test/report
   :spec-check-skip
