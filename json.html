@@ -126,6 +126,7 @@ span.build {
         </div>
         <p><a href='index.html'><- Back to Index</a><h1 id="lrspipe&#95;json-based&#95;job&#95;config">LRSPipe JSON-based Job Config</h1></p><p>Instead of defining all job configuration in <a href='options.html'>CLI arguments</a> it is also possible to put all of your job config into a JSON file and launch jobs from it. In this section we will go over the types of configuration possible with a JSON file and the structure of the file.</p><h2 id="json&#95;options">JSON Options</h2><p>To run a job with a JSON config file simply use:</p><p><code>bin/run.sh --json-file &#91;location of JSON config file&#93;</code></p><p>Alternatively if you would like to simply provide the JSON config inline as a string, you can use the following:</p><p><code>bin/run.sh --json &#91;full JSON config string&#93;</code></p><p>Below is an example of all of the JSON fields that can be used in a config file. We will break these down in sections below.</p><pre><code class="json">{
   &quot;id&quot;: &quot;NewJobID&quot;,
+  &quot;version&quot;: 0,
   &quot;config&quot;: {
     &quot;get-buffer-size&quot;: 10,
     &quot;statement-buffer-size&quot;: 500,
@@ -188,6 +189,7 @@ span.build {
 }
 </code></pre><h3 id="id&#95;and&#95;top-level&#95;config&#95;options">ID and Top-level Config Options</h3><pre><code class="json">{
   &quot;id&quot;: &quot;NewJobID&quot;,
+  &quot;version&quot;: 0,
   &quot;config&quot;: {
     &quot;get-buffer-size&quot;: 10,
     &quot;statement-buffer-size&quot;: 500,
@@ -198,7 +200,7 @@ span.build {
   }
   ...
 }
-</code></pre><p>The <code>id</code> field can be specified in much the same way as with <code>--job-id</code> on the CLI. This will specify an ID for a new job, or allow you to resume a previously stored job.</p><p>The other options under the <code>config</code> map are optional and will default to the values specific on the <a href='options.html'>options guide</a>. When restarting an existing job these values can be changed via giving them values here, or they will retain the previous job definition's values.</p><h3 id="source&#95;and&#95;target">Source and Target</h3><pre><code class="json">{
+</code></pre><p>The <code>id</code> field can be specified in much the same way as with <code>--job-id</code> on the CLI. This will specify an ID for a new job, or allow you to resume a previously stored job.</p><p>The optional <code>version</code> field denotes the version of the job specification itself. If not present it will be assumed to be the latest version. JSON jobs specifying older versions will be upgraded if possible or an error will be returned.</p><p>The other options under the <code>config</code> map are optional and will default to the values specific on the <a href='options.html'>options guide</a>. When restarting an existing job these values can be changed via giving them values here, or they will retain the previous job definition's values.</p><h3 id="source&#95;and&#95;target">Source and Target</h3><pre><code class="json">{
   &quot;config&quot;: {
     &quot;source&quot;: {
       &quot;request-config&quot;: {
@@ -320,7 +322,7 @@ span.build {
          &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
          <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
          Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
-         <span class="build">Build: 470f78f57a88440b25295af0e911d133a978955c</span>
+         <span class="build">Build: 26f83f1141c18fb0777350386aed1ee972279d5b</span>
         </div>
       </div>
     </body>
