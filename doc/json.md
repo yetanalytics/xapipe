@@ -18,6 +18,7 @@ Below is an example of all of the JSON fields that can be used in a config file.
 ```json
 {
   "id": "NewJobID",
+  "version": 0,
   "config": {
     "get-buffer-size": 10,
     "statement-buffer-size": 500,
@@ -83,6 +84,7 @@ Below is an example of all of the JSON fields that can be used in a config file.
 ```json
 {
   "id": "NewJobID",
+  "version": 0,
   "config": {
     "get-buffer-size": 10,
     "statement-buffer-size": 500,
@@ -95,6 +97,8 @@ Below is an example of all of the JSON fields that can be used in a config file.
 }
 ```
 The `id` field can be specified in much the same way as with `--job-id` on the CLI. This will specify an ID for a new job, or allow you to resume a previously stored job.
+
+The optional `version` field denotes the version of the job specification itself. If not present it will be assumed to be the latest version. JSON jobs specifying older versions will be upgraded if possible or an error will be returned.
 
 The other options under the `config` map are optional and will default to the values specific on the [options guide](options.md). When restarting an existing job these values can be changed via giving them values here, or they will retain the previous job definition's values.
 

@@ -84,6 +84,7 @@ Delete a Job:
                     ;; Found in storage
                     ?from-storage
                     (-> ?from-storage
+                        job/upgrade-job
                         (cond->
                           ;; If the user has requested force resume we clear
                           force-resume?
@@ -95,8 +96,9 @@ Delete a Job:
                           options)))
                     ;; Json is provided
                     ?from-json
-                    (update ?from-json
-                            :config cli/reconfigure-with-options options)
+                    (-> ?from-json
+                        job/upgrade-job
+                        (update :config cli/reconfigure-with-options options))
 
                     ;; New from options!
                     :else

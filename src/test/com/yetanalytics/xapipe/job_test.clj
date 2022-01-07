@@ -25,6 +25,7 @@
                    minimal-config))))
   (testing "applies defaults"
     (is (= {:id "foo",
+            :version 0,
             :config
             {:get-buffer-size 10,
              :statement-buffer-size 500,
