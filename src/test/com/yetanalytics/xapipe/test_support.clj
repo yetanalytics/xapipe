@@ -251,9 +251,10 @@
                     {:name "bob",
                      :mbox "mailto:bob@example.org",
                      :objectType "Agent"}]}])
-             :parameters (or parameters
-                             {:from "2021-10-28T20:07:36.035431Z"
-                              :seed 42})
+             :parameters (merge
+                          {:start "2021-10-28T20:07:36.035431Z"
+                           :seed 42}
+                          parameters)
              :alignments (or alignments [])})
            :profiles
            (into []
