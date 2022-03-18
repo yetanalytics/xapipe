@@ -38,12 +38,16 @@
 (s/def ::username string?)
 (s/def ::password string?)
 
+;; token support
+(s/def ::token string?)
+
 (s/def ::request-config
   (s/keys
    :req-un [::url-base]
    :opt-un [::xapi-prefix
             ::username
-            ::password]))
+            ::password
+            ::token]))
 
 ;; Allow the user to pass in a subset of xAPI params to limit/filter data
 ;;
@@ -131,7 +135,8 @@
   [{:keys [url-base
            xapi-prefix
            username
-           password]
+           password
+           token]
     :or   {xapi-prefix "/xapi"}}
    get-params
    & [?more]]
@@ -149,7 +154,9 @@
                                url-base
                                xapi-prefix))
                 (update :query-params merge get-params)))
-
+    ;; support token if provided
+    (not-empty token)
+    (assoc :oauth-token token)
     ;; support basic auth if provided
     (and (not-empty username)
          (not-empty password))
@@ -169,7 +176,8 @@
   [{:keys [url-base
            xapi-prefix
            username
-           password]
+           password
+           token]
     :or   {xapi-prefix "/xapi"}}
    statements
    attachments]
@@ -184,9 +192,12 @@
         (assoc-in [:headers "content-type"]
                   (format "multipart/mixed; boundary=%s" boundary))
         (cond->
-            ;; support basic auth if provided
-            (and (not-empty username)
-                 (not-empty password))
+          ;; support token if provided
+          (not-empty token)
+          (assoc :oauth-token token)
+          ;; support basic auth if provided
+          (and (not-empty username)
+               (not-empty password))
           (assoc :basic-auth [username password])))))
 
 (def rate-limit-status?
