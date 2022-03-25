@@ -9,6 +9,7 @@ This process is one-way and any statements in the target LRS will not be replica
 - [Installation](install.md)
 - [Usage](usage.md)
 - [Persistence Config](persistence.md)
+- [OAuth Support](oauth.md)
 - [All Options](options.md)
 - [JSON Config](json.md)
 - [Metrics](metrics.md)
