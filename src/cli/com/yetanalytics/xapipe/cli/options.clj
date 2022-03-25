@@ -191,6 +191,18 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]])
 
+(defn oauth-opts
+  [tag]
+  [[nil
+    (format "--%s-auth-uri URI" tag)
+    (format "%s LRS OAuth autentication URI" (cs/capitalize tag))]
+   [nil
+    (format "--%s-client-id ID" tag)
+    (format "%s LRS OAuth client ID" (cs/capitalize tag))]
+   [nil
+    (format "--%s-client-secret SECRET" tag)
+    (format "%s LRS OAuth client secret" (cs/capitalize tag))]])
+
 ;; a set for filtering
 (def valid-get-params
   #{:agent
@@ -234,7 +246,9 @@
            m)))]
     [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
     [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
-   (backoff-opts "source")))
+   (concat
+    (oauth-opts "source")
+    (backoff-opts "source"))))
 
 (def-option-specs source-options)
 
@@ -247,7 +261,9 @@
           :default 50]
          [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
          [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
-        (backoff-opts "target")))
+        (concat
+         (oauth-opts "target")
+         (backoff-opts "target"))))
 
 (def-option-specs target-options)
 

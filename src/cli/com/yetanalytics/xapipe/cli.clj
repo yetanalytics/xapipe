@@ -201,6 +201,9 @@
            get-params
            source-username
            source-password
+           source-auth-uri
+           source-client-id
+           source-client-secret
            source-backoff-budget
            source-backoff-max-attempt
            source-backoff-j-range
@@ -211,6 +214,9 @@
            target-batch-size
            target-username
            target-password
+           target-auth-uri
+           target-client-id
+           target-client-secret
            target-backoff-budget
            target-backoff-max-attempt
            target-backoff-j-range
@@ -238,10 +244,19 @@
            :batch-timeout batch-timeout
            :source
            {:request-config (cond-> (parse-lrs-url source-url)
+                              ;; Basic Auth
                               (and source-username
                                    source-password)
                               (assoc :username source-username
-                                     :password source-password))
+                                     :password source-password)
+                              ;; OAuth
+                              (and source-auth-uri
+                                   source-client-id
+                                   source-client-secret)
+                              (assoc :oauth-params
+                                     {:auth-uri      source-auth-uri
+                                      :client-id     source-client-id
+                                      :client-secret source-client-secret}))
             :get-params     get-params
             :poll-interval  source-poll-interval
             :batch-size     source-batch-size
@@ -254,10 +269,19 @@
               (assoc :initial source-backoff-initial))}
            :target
            {:request-config (cond-> (parse-lrs-url target-url)
+                              ;; Basic Auth
                               (and target-username
                                    target-password)
                               (assoc :username target-username
-                                     :password target-password))
+                                     :password target-password)
+                              ;; OAuth
+                              (and target-auth-uri
+                                   target-client-id
+                                   target-client-secret)
+                              (assoc :oauth-params
+                                     {:auth-uri      target-auth-uri
+                                      :client-id     target-client-id
+                                      :client-secret target-client-secret}))
             :batch-size     target-batch-size
             :backoff-opts
             (cond-> {:budget target-backoff-budget
@@ -352,6 +376,9 @@
    {:keys [source-url
            source-username
            source-password
+           source-auth-uri
+           source-client-id
+           source-client-secret
 
            source-batch-size
            source-poll-interval
@@ -364,6 +391,10 @@
            target-url
            target-username
            target-password
+           target-auth-uri
+           target-client-id
+           target-client-secret
+
            target-backoff-budget
            target-backoff-max-attempt
            target-backoff-j-range
@@ -392,6 +423,15 @@
     (assoc-in
      [:source :request-config :password]
      source-password)
+
+    (and source-auth-uri
+         source-client-id
+         source-client-secret)
+    (assoc-in
+     [:source :request-config :oauth-params]
+     {:auth-uri      source-auth-uri
+      :client-id     source-client-id
+      :client-secret source-client-secret})
 
     ;; if there's a default, only update on change
     (and source-batch-size
@@ -459,6 +499,15 @@
     (assoc-in
      [:target :request-config :password]
      target-password)
+
+    (and target-auth-uri
+         target-client-id
+         target-client-secret)
+    (assoc-in
+     [:target :request-config :oauth-params]
+     {:auth-uri      target-auth-uri
+      :client-id     target-client-id
+      :client-secret target-client-secret})
 
     target-batch-size
     (assoc-in

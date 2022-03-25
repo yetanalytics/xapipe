@@ -108,7 +108,10 @@
             {:url-base "http://0.0.0.0:8080",
              :xapi-prefix "/xapi",
              :username "foo",
-             :password "bar"},
+             :password "bar",
+             :oauth-params {:auth-uri "http://example.com/token"
+                            :client-id "foo"
+                            :client-secret "bar"}},
             :get-params {:limit 50},
             :poll-interval 1000,
             :batch-size 50,
@@ -119,7 +122,10 @@
             {:url-base "http://0.0.0.0:8081",
              :xapi-prefix "/xapi",
              :username "foo",
-             :password "bar"},
+             :password "bar",
+             :oauth-params {:auth-uri "http://example.com/token"
+                            :client-id "foo"
+                            :client-secret "bar"}},
             :batch-size 50,
             :backoff-opts
             {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
@@ -140,6 +146,9 @@
            :get-params {}
            :source-username "foo"
            :source-password "bar"
+           :source-auth-uri "http://example.com/token"
+           :source-client-id "foo"
+           :source-client-secret "bar"
            :source-backoff-budget 1000
            :source-backoff-max-attempt 10
            :source-backoff-j-range 10
@@ -149,6 +158,9 @@
            :target-batch-size 50
            :target-username "foo"
            :target-password "bar"
+           :target-auth-uri "http://example.com/token"
+           :target-client-id "foo"
+           :target-client-secret "bar"
            :target-backoff-budget 1000
            :target-backoff-max-attempt 10
            :target-backoff-j-range 10
@@ -202,6 +214,9 @@
            :get-params {:format "exact"}
            :source-username "baz"
            :source-password "quxx"
+           :source-auth-uri "http://example.com/token"
+           :source-client-id "foo"
+           :source-client-secret "bar"
            :source-backoff-budget 999
            :source-backoff-max-attempt 9
            :source-backoff-j-range 9
@@ -211,6 +226,9 @@
            :target-batch-size 100
            :target-username "baz"
            :target-password "quxx"
+           :target-auth-uri "http://example.com/token"
+           :target-client-id "foo"
+           :target-client-secret "bar"
            :target-backoff-budget 999
            :target-backoff-max-attempt 9
            :target-backoff-j-range 9
@@ -232,7 +250,11 @@
              {:url-base "http://0.0.0.0:8082",
               :xapi-prefix "/xapi2",
               :username "baz",
-              :password "quxx"},
+              :password "quxx",
+              :oauth-params
+              {:auth-uri "http://example.com/token",
+               :client-id "foo",
+               :client-secret "bar"}},
              :get-params {:format "exact"
                           :limit 100},
              :poll-interval 3000,
@@ -244,7 +266,11 @@
              {:url-base "http://0.0.0.0:8083",
               :xapi-prefix "/xapi2",
               :username "baz",
-              :password "quxx"},
+              :password "quxx",
+              :oauth-params
+              {:auth-uri "http://example.com/token",
+               :client-id "foo",
+               :client-secret "bar"}},
              :batch-size 100,
              :backoff-opts
              {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
