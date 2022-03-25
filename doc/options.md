@@ -48,6 +48,10 @@ All options:
   -p, --xapi-get-param KEY=VALUE        {}                    xAPI GET Parameters
       --source-username USERNAME                              Source LRS BASIC Auth username
       --source-password PASSWORD                              Source LRS BASIC Auth password
+      --source-auth-uri URI                                   Source LRS OAuth autentication URI
+      --source-client-id ID                                   Source LRS OAuth client ID
+      --source-client-secret SECRET                           Source LRS OAuth client secret
+      --source-token TOKEN                                    Source LRS OAuth Bearer token
       --source-backoff-budget BUDGET    10000                 Source LRS Retry Backoff Budget in ms
       --source-backoff-max-attempt MAX  10                    Source LRS Retry Backoff Max Attempts, set to -1 for no retry
       --source-backoff-j-range RANGE                          Source LRS Retry Backoff Jitter Range in ms
@@ -56,6 +60,10 @@ All options:
       --target-batch-size SIZE          50                    Target LRS POST desired batch size
       --target-username USERNAME                              Target LRS BASIC Auth username
       --target-password PASSWORD                              Target LRS BASIC Auth password
+      --target-auth-uri URI                                   Target LRS OAuth autentication URI
+      --target-client-id ID                                   Target LRS OAuth client ID
+      --target-client-secret SECRET                           Target LRS OAuth client secret
+      --target-token TOKEN                                    Target LRS OAuth Bearer token
       --target-backoff-budget BUDGET    10000                 Target LRS Retry Backoff Budget in ms
       --target-backoff-max-attempt MAX  10                    Target LRS Retry Backoff Max Attempts, set to -1 for no retry
       --target-backoff-j-range RANGE                          Target LRS Retry Backoff Jitter Range in ms
