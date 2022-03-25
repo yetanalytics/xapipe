@@ -204,6 +204,8 @@
            source-auth-uri
            source-client-id
            source-client-secret
+           source-token
+
            source-backoff-budget
            source-backoff-max-attempt
            source-backoff-j-range
@@ -217,6 +219,8 @@
            target-auth-uri
            target-client-id
            target-client-secret
+           target-token
+
            target-backoff-budget
            target-backoff-max-attempt
            target-backoff-j-range
@@ -256,7 +260,10 @@
                               (assoc :oauth-params
                                      {:auth-uri      source-auth-uri
                                       :client-id     source-client-id
-                                      :client-secret source-client-secret}))
+                                      :client-secret source-client-secret})
+                              ;; Oauth Direct Token
+                              source-token
+                              (assoc :token source-token))
             :get-params     get-params
             :poll-interval  source-poll-interval
             :batch-size     source-batch-size
@@ -281,7 +288,10 @@
                               (assoc :oauth-params
                                      {:auth-uri      target-auth-uri
                                       :client-id     target-client-id
-                                      :client-secret target-client-secret}))
+                                      :client-secret target-client-secret})
+                              ;; Oauth Direct Token
+                              target-token
+                              (assoc :token target-token))
             :batch-size     target-batch-size
             :backoff-opts
             (cond-> {:budget target-backoff-budget
@@ -361,6 +371,32 @@
                      (.toString (java.util.UUID/randomUUID)))]
       (job/init-job job-id config))))
 
+(s/fdef only-auth
+  :args (s/cat
+         :config (s/with-gen ::job/config
+                   (fn []
+                     (sgen/fmap
+                      config/ensure-defaults
+                      (s/gen ::job/config))))
+         :lrs-type #{:source :target}
+         :auth-type #{:basic :token :oauth})
+  :ret ::xapipe/job)
+
+(defn only-auth
+  "Given a job config, LRS type :source or :target and auth type of :basic,
+  :token, or :oauth, remove other auth from the LRS."
+  [config
+   lrs-type
+   auth-type]
+  (apply update-in
+         config
+         [lrs-type :request-config]
+         dissoc
+         (case auth-type
+           :basic [:token :oauth-params]
+           :token [:username :password :oauth-params]
+           :oauth [:username :password :token])))
+
 (s/fdef reconfigure-with-options
   :args (s/cat :config (s/with-gen ::job/config
                          (fn []
@@ -379,6 +415,7 @@
            source-auth-uri
            source-client-id
            source-client-secret
+           source-token
 
            source-batch-size
            source-poll-interval
@@ -394,6 +431,7 @@
            target-auth-uri
            target-client-id
            target-client-secret
+           target-token
 
            target-backoff-budget
            target-backoff-max-attempt
@@ -414,24 +452,43 @@
      [:source :request-config]
      merge (parse-lrs-url source-url))
 
-    source-username
-    (assoc-in
-     [:source :request-config :username]
-     source-username)
+    (or source-username
+        source-password)
+    (-> (cond->
+          source-username
+          (assoc-in
+           [:source :request-config :username]
+           source-username)
 
-    source-password
-    (assoc-in
-     [:source :request-config :password]
-     source-password)
+          source-password
+          (assoc-in
+           [:source :request-config :password]
+           source-password))
+        (only-auth :source :basic))
 
-    (and source-auth-uri
-         source-client-id
-         source-client-secret)
-    (assoc-in
-     [:source :request-config :oauth-params]
-     {:auth-uri      source-auth-uri
-      :client-id     source-client-id
-      :client-secret source-client-secret})
+    (or source-auth-uri
+        source-client-id
+        source-client-secret)
+    (-> (cond->
+          source-auth-uri
+          (assoc-in
+           [:source :request-config :oauth-params :auth-uri]
+           source-auth-uri)
+
+          source-client-id
+          (assoc-in
+           [:source :request-config :oauth-params :client-id]
+           source-client-id)
+
+          source-client-secret
+          (assoc-in
+           [:source :request-config :oauth-params :client-secret]
+           source-client-secret))
+        (only-auth :source :oauth))
+
+    source-token
+    (-> (assoc-in [:source :request-config :token] source-token)
+        (only-auth :source :token))
 
     ;; if there's a default, only update on change
     (and source-batch-size
@@ -490,24 +547,43 @@
      [:target :request-config]
      merge (parse-lrs-url target-url))
 
-    target-username
-    (assoc-in
-     [:target :request-config :username]
-     target-username)
+    (or target-username
+        target-password)
+    (-> (cond->
+          target-username
+          (assoc-in
+           [:target :request-config :username]
+           target-username)
 
-    target-password
-    (assoc-in
-     [:target :request-config :password]
-     target-password)
+          target-password
+          (assoc-in
+           [:target :request-config :password]
+           target-password))
+        (only-auth :target :basic))
 
-    (and target-auth-uri
-         target-client-id
-         target-client-secret)
-    (assoc-in
-     [:target :request-config :oauth-params]
-     {:auth-uri      target-auth-uri
-      :client-id     target-client-id
-      :client-secret target-client-secret})
+    (or target-auth-uri
+        target-client-id
+        target-client-secret)
+    (-> (cond->
+          target-auth-uri
+          (assoc-in
+           [:target :request-config :oauth-params :auth-uri]
+           target-auth-uri)
+
+          target-client-id
+          (assoc-in
+           [:target :request-config :oauth-params :client-id]
+           target-client-id)
+
+          target-client-secret
+          (assoc-in
+           [:target :request-config :oauth-params :client-secret]
+           target-client-secret))
+        (only-auth :target :oauth))
+
+    target-token
+    (-> (assoc-in [:target :request-config :token] target-token)
+        (only-auth :target :token))
 
     target-batch-size
     (assoc-in

@@ -178,101 +178,143 @@
            :statement-buffer-size 1000
            :batch-buffer-size 100}))))
 
+(deftest only-auth-test
+  (let [config {:get-buffer-size 100,
+                :batch-timeout 200,
+                :cleanup-buffer-size 100
+                :source
+                {:request-config
+                 {:url-base "http://0.0.0.0:8080",
+                  :xapi-prefix "/xapi"},
+                 :get-params {},
+                 :poll-interval 1000,
+                 :batch-size 50,
+                 :backoff-opts
+                 {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+                :target
+                {:request-config
+                 {:url-base "http://0.0.0.0:8081",
+                  :xapi-prefix "/xapi"},
+                 :batch-size 50,
+                 :backoff-opts
+                 {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+                :filter {},
+                :statement-buffer-size 1000,
+                :batch-buffer-size 100}
+        ambig-config (-> config
+                         (update-in [:source :request-config]
+                                    merge
+                                    {:username "foo"
+                                     :password "bar"
+                                     :token "foobar"
+                                     :oauth-params
+                                     {:auth-uri "http://example.com/token"
+                                      :client-id "foo"
+                                      :client-secret "bar"}}))]
+    (are [auth-type req-config-after]
+        (-> (only-auth ambig-config :source auth-type)
+            (get-in [:source :request-config])
+            (select-keys [:username
+                          :password
+                          :token
+                          :oauth-params]))
+      :basic {:username "foo"
+              :password "bar"}
+      :token {:token "foobar"}
+      :oauth {:oauth-params
+              {:auth-uri "http://example.com/token"
+               :client-id "foo"
+               :client-secret "bar"}})))
+
 (deftest reconfigure-with-options-test
-  (let [reconfigured
-        (reconfigure-with-options
-         {:get-buffer-size 100,
-          :statement-buffer-size 1000,
-          :batch-buffer-size 100,
-          :batch-timeout 200,
-          :cleanup-buffer-size 50,
-          :source
-          {:request-config
-           {:url-base "http://0.0.0.0:8080",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :get-params {:limit 50},
-           :poll-interval 1000,
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :target
-          {:request-config
-           {:url-base "http://0.0.0.0:8081",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :filter {}}
-          {:job-id "foo"
-           :source-url "http://0.0.0.0:8082/xapi2"
-           :source-batch-size 100
-           :source-poll-interval 3000
-           :get-params {:format "exact"}
-           :source-username "baz"
-           :source-password "quxx"
-           :source-auth-uri "http://example.com/token"
-           :source-client-id "foo"
-           :source-client-secret "bar"
-           :source-backoff-budget 999
-           :source-backoff-max-attempt 9
-           :source-backoff-j-range 9
-           :source-backoff-initial 2
+  (let [config {:get-buffer-size 100,
+                :statement-buffer-size 1000,
+                :batch-buffer-size 100,
+                :batch-timeout 200,
+                :cleanup-buffer-size 50,
+                :source
+                {:request-config
+                 {:url-base "http://0.0.0.0:8080",
+                  :xapi-prefix "/xapi",
+                  :username "foo",
+                  :password "bar"},
+                 :get-params {:limit 50},
+                 :poll-interval 1000,
+                 :batch-size 50,
+                 :backoff-opts
+                 {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+                :target
+                {:request-config
+                 {:url-base "http://0.0.0.0:8081",
+                  :xapi-prefix "/xapi",
+                  :username "foo",
+                  :password "bar"},
+                 :batch-size 50,
+                 :backoff-opts
+                 {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+                :filter {}}]
+    (testing "General reconfig"
+      (is (= {:get-buffer-size 200,
+              :batch-timeout 300,
+              :statement-buffer-size 10000,
+              :batch-buffer-size 1000,
+              :cleanup-buffer-size 100,
+              :source
+              {:request-config
+               {:url-base "http://0.0.0.0:8082",
+                :xapi-prefix "/xapi2",
+                :username "baz",
+                :password "quxx"},
+               :get-params {:format "exact"
+                            :limit 100},
+               :poll-interval 3000,
+               :batch-size 100,
+               :backoff-opts
+               {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
+              :target
+              {:request-config
+               {:url-base "http://0.0.0.0:8083",
+                :xapi-prefix "/xapi2",
+                :username "baz",
+                :password "quxx"},
+               :batch-size 100,
+               :backoff-opts
+               {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
+              :filter {}}
+             (reconfigure-with-options
+              config
+              {:job-id "foo"
+               :source-url "http://0.0.0.0:8082/xapi2"
+               :source-batch-size 100
+               :source-poll-interval 3000
+               :get-params {:format "exact"}
+               :source-username "baz"
+               :source-password "quxx"
+               :source-backoff-budget 999
+               :source-backoff-max-attempt 9
+               :source-backoff-j-range 9
+               :source-backoff-initial 2
 
-           :target-url "http://0.0.0.0:8083/xapi2"
-           :target-batch-size 100
-           :target-username "baz"
-           :target-password "quxx"
-           :target-auth-uri "http://example.com/token"
-           :target-client-id "foo"
-           :target-client-secret "bar"
-           :target-backoff-budget 999
-           :target-backoff-max-attempt 9
-           :target-backoff-j-range 9
-           :target-backoff-initial 2
+               :target-url "http://0.0.0.0:8083/xapi2"
+               :target-batch-size 100
+               :target-username "baz"
+               :target-password "quxx"
+               :target-backoff-budget 999
+               :target-backoff-max-attempt 9
+               :target-backoff-j-range 9
+               :target-backoff-initial 2
 
-           :get-buffer-size 200
-           :batch-timeout 300
-           :cleanup-buffer-size 100
+               :get-buffer-size 200
+               :batch-timeout 300
+               :cleanup-buffer-size 100
 
-           :statement-buffer-size 10000
-           :batch-buffer-size 1000})]
-    (is (= {:get-buffer-size 200,
-            :batch-timeout 300,
-            :statement-buffer-size 10000,
-            :batch-buffer-size 1000,
-            :cleanup-buffer-size 100,
-            :source
-            {:request-config
-             {:url-base "http://0.0.0.0:8082",
-              :xapi-prefix "/xapi2",
-              :username "baz",
-              :password "quxx",
-              :oauth-params
-              {:auth-uri "http://example.com/token",
-               :client-id "foo",
-               :client-secret "bar"}},
-             :get-params {:format "exact"
-                          :limit 100},
-             :poll-interval 3000,
-             :batch-size 100,
-             :backoff-opts
-             {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
-            :target
-            {:request-config
-             {:url-base "http://0.0.0.0:8083",
-              :xapi-prefix "/xapi2",
-              :username "baz",
-              :password "quxx",
-              :oauth-params
-              {:auth-uri "http://example.com/token",
-               :client-id "foo",
-               :client-secret "bar"}},
-             :batch-size 100,
-             :backoff-opts
-             {:budget 999, :max-attempt 9, :j-range 9, :initial 2}},
-            :filter {}}
-           reconfigured))))
+               :statement-buffer-size 10000
+               :batch-buffer-size 1000}))))
+    (testing "Auth change"
+      (is (= {:url-base "http://0.0.0.0:8080",
+              :xapi-prefix "/xapi",
+              :token "foobar"}
+             (-> (reconfigure-with-options
+                  config
+                  {:source-token "foobar"})
+                 (get-in [:source :request-config])))))))

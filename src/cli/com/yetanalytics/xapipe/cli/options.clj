@@ -201,7 +201,10 @@
     (format "%s LRS OAuth client ID" (cs/capitalize tag))]
    [nil
     (format "--%s-client-secret SECRET" tag)
-    (format "%s LRS OAuth client secret" (cs/capitalize tag))]])
+    (format "%s LRS OAuth client secret" (cs/capitalize tag))]
+   [nil
+    (format "--%s-token TOKEN" tag)
+    (format "%s LRS OAuth Bearer token" (cs/capitalize tag))]])
 
 ;; a set for filtering
 (def valid-get-params
