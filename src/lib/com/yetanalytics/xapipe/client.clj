@@ -8,6 +8,7 @@
             [clojure.spec.gen.alpha :as sgen]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
+            [com.yetanalytics.xapipe.client.oauth :as oauth]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
@@ -47,7 +48,8 @@
    :opt-un [::xapi-prefix
             ::username
             ::password
-            ::token]))
+            ::token
+            ::oauth/oauth-params]))
 
 ;; Allow the user to pass in a subset of xAPI params to limit/filter data
 ;;
@@ -136,7 +138,8 @@
            xapi-prefix
            username
            password
-           token]
+           token
+           oauth-params]
     :or   {xapi-prefix "/xapi"}}
    get-params
    & [?more]]
@@ -160,7 +163,11 @@
     ;; support basic auth if provided
     (and (not-empty username)
          (not-empty password))
-    (assoc :basic-auth [username password])))
+    (assoc :basic-auth [username password])
+    ;; If OAuth support is enabled, pass through on a namespaced
+    ;; keyword to be picked up in async-request
+    oauth-params
+    (assoc ::oauth/oauth-params oauth-params)))
 
 (def post-request-base
   {:headers {"x-experience-api-version" "1.0.3"}
@@ -177,7 +184,8 @@
            xapi-prefix
            username
            password
-           token]
+           token
+           oauth-params]
     :or   {xapi-prefix "/xapi"}}
    statements
    attachments]
@@ -198,7 +206,11 @@
           ;; support basic auth if provided
           (and (not-empty username)
                (not-empty password))
-          (assoc :basic-auth [username password])))))
+          (assoc :basic-auth [username password])
+          ;; If OAuth support is enabled, pass through on a namespaced
+          ;; keyword to be picked up in async-request
+          oauth-params
+          (assoc ::oauth/oauth-params oauth-params)))))
 
 (def rate-limit-status?
   #{420 429})
@@ -206,13 +218,20 @@
 (def retryable-error?
   #{502 503 504})
 
+(def retryable-oauth-error?
+  #{401})
+
 (defn retryable-status?
   "Is the HTTP status code one we care to retry?"
-  [status]
+  [status
+   & {:keys [oauth?]
+      :or {oauth? false}}]
   (and status
        (or
         (rate-limit-status? status)
-        (retryable-error? status))))
+        (retryable-error? status)
+        (when oauth?
+          (retryable-oauth-error? status)))))
 
 (defn retryable-exception?
   "Is this a client exception we can retry?"
@@ -268,50 +287,64 @@
       :or {attempt 0
            backoff-opts {:budget 10000
                          :max-attempt 10}}}]
-  (let [ret (or ret-chan (a/promise-chan))
-        req (assoc request
-                   :throw-exceptions false ;; don't throw so we handle resp as data
-                   :async true
-                   :async? true) ;; docs mention this but it is probably not needed
-        ]
-    (client/request
-     req
-     (fn [{:keys [status]
-           :as   resp}]
-       (cond
-         ;; Both our GET and POST expect 200
-         ;; If status is 200, pass the response
-         (= status 200)
-         (a/put! ret [:response resp])
+  (let [ret (or ret-chan (a/promise-chan))]
+    (a/go
+      (let [[oauth-tag oauth-v] (if-let [oauth-params (::oauth/oauth-params request)]
+                                  (a/<! (oauth/get-token! oauth-params))
+                                  [:result nil])]
+        (case oauth-tag
+          :exception
+          (a/put! ret
+                  [:exception
+                   oauth-v])
+          :result
+          (let [req (cond-> (assoc request
+                                   ;; don't throw so we handle resp as data
+                                   :throw-exceptions false
+                                   :async true
+                                   ;; docs mention this but it is probably not needed
+                                   :async? true)
+                      ;; If there is an oauth token result, use it, overwriting
+                      ;; any existing token
+                      oauth-v (assoc :oauth-token oauth-v))]
+            (client/request
+             req
+             (fn [{:keys [status]
+                   :as   resp}]
+               (cond
+                 ;; Both our GET and POST expect 200
+                 ;; If status is 200, pass the response
+                 (= status 200)
+                 (a/put! ret [:response resp])
 
-         ;; Retry based on retryable status
-         (retryable-status? status)
-         (maybe-retry
-          ret
-          reporter
-          req
-          attempt
-          backoff-opts)
+                 ;; Retry based on retryable status
+                 (retryable-status? status :oauth? (some? oauth-v))
+                 (maybe-retry
+                  ret
+                  reporter
+                  req
+                  attempt
+                  backoff-opts)
 
-         :else
-         (a/put!
-          ret
-          [:exception
-           (ex-info "Non-200 Request Status"
-                    {:type     ::request-fail
-                     :response resp})])))
-     (fn [exception]
-       (if (retryable-exception? exception)
-         (maybe-retry
-          ret
-          reporter
-          req
-          attempt
-          backoff-opts
-          exception)
-         (a/put! ret
-                 [:exception
-                  exception]))))
+                 :else
+                 (a/put!
+                  ret
+                  [:exception
+                   (ex-info "Non-200 Request Status"
+                            {:type     ::request-fail
+                             :response resp})])))
+             (fn [exception]
+               (if (retryable-exception? exception)
+                 (maybe-retry
+                  ret
+                  reporter
+                  req
+                  attempt
+                  backoff-opts
+                  exception)
+                 (a/put! ret
+                         [:exception
+                          exception]))))))))
     ret))
 
 (s/def ::poll-interval

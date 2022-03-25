@@ -607,3 +607,46 @@
     (def stop-fn stop))
   (stop-fn)
   )
+
+(comment
+  ;; Use OAuth source LRS
+  (require '[com.yetanalytics.xapipe.store.impl.memory :as mem])
+
+  (def store (mem/new-store))
+
+  (def job-id (str (java.util.UUID/randomUUID)))
+
+  (let [job (job/init-job
+             job-id
+             {:source
+              {:request-config
+               {:url-base    "http://localhost:8080"
+                :xapi-prefix "/xapi"
+                :oauth-params
+                {:auth-uri      "http://0.0.0.0:8081/auth/realms/test/protocol/openid-connect"
+                 :client-id     "lrs_client"
+                 :client-secret "vGxvFpk9CLtfQwGCSJlb9SvUoDByuZjN"}}
+               :get-params     {}
+               :poll-interval  1000
+               :batch-size     50}
+              :target
+              {:request-config {:url-base    "http://localhost:8082"
+                                :xapi-prefix "/xapi"}
+               :batch-size     50}})
+
+
+        {:keys [states]
+         stop :stop-fn} (run-job job)
+
+        store-result
+        (-> states
+            (log-states :info)
+            (store-states store))]
+    (a/go
+      (let [result (a/<! store-result)]
+        (log/infof "store result: %s" result)))
+    (def stop-fn stop))
+
+  (clojure.pprint/pprint (stop-fn))
+
+  )
