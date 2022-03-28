@@ -203,6 +203,9 @@
     (format "--%s-client-secret SECRET" tag)
     (format "%s LRS OAuth client secret" (cs/capitalize tag))]
    [nil
+    (format "--%s-scope SCOPE" tag)
+    (format "%s LRS OAuth scope" (cs/capitalize tag))]
+   [nil
     (format "--%s-token TOKEN" tag)
     (format "%s LRS OAuth Bearer token" (cs/capitalize tag))]])
 

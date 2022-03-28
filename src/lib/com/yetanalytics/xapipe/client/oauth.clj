@@ -24,11 +24,13 @@
 (s/def ::auth-uri string?)
 (s/def ::client-id string?)
 (s/def ::client-secret string?)
+(s/def ::scope string?)
 
 (s/def ::oauth-params
   (s/keys :req-un [::auth-uri
                    ::client-id
-                   ::client-secret]))
+                   ::client-secret]
+          :opt-un [::scope]))
 
 (s/fdef token-request
   :args (s/cat :params ::oauth-params)
@@ -37,11 +39,13 @@
 (defn token-request
   [{:keys [auth-uri
            client-id
-           client-secret]}]
+           client-secret
+           scope]}]
   {:url (token-url auth-uri)
    :method :post
    :basic-auth [client-id client-secret]
-   :form-params {:grant_type "client_credentials"}
+   :form-params (cond-> {:grant_type "client_credentials"}
+                  (not-empty scope) (assoc :scope scope))
    :as :json})
 
 (defonce token-cache
@@ -67,7 +71,8 @@
       assumption that some time has already passed since issuance.
   "
   [{:keys [auth-uri
-           client-id] :as params}
+           client-id
+           scope] :as params}
    & {:keys [bump-exp-ms]
       :or {bump-exp-ms 500}}]
   (let [ret (a/promise-chan)
@@ -113,7 +118,8 @@
                                {:type ::token-non-200-status
                                 :status status
                                 :auth-uri auth-uri
-                                :client-id client-id})])))
+                                :client-id client-id
+                                :scope scope})])))
          ;; Exceptions are wrapped and returned
          (fn [exception]
            (a/put! ret
@@ -121,7 +127,8 @@
                     (ex-info "OAuth Token Exception"
                              {:type ::token-exception
                               :auth-uri auth-uri
-                              :client-id client-id}
+                              :client-id client-id
+                              :scope scope}
                              exception)])))))
     ;; return promise chan
     ret))

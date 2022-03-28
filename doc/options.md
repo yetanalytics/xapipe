@@ -51,6 +51,7 @@ All options:
       --source-auth-uri URI                                   Source LRS OAuth autentication URI
       --source-client-id ID                                   Source LRS OAuth client ID
       --source-client-secret SECRET                           Source LRS OAuth client secret
+      --source-scope SCOPE                                    Source LRS OAuth scope
       --source-token TOKEN                                    Source LRS OAuth Bearer token
       --source-backoff-budget BUDGET    10000                 Source LRS Retry Backoff Budget in ms
       --source-backoff-max-attempt MAX  10                    Source LRS Retry Backoff Max Attempts, set to -1 for no retry
@@ -63,6 +64,7 @@ All options:
       --target-auth-uri URI                                   Target LRS OAuth autentication URI
       --target-client-id ID                                   Target LRS OAuth client ID
       --target-client-secret SECRET                           Target LRS OAuth client secret
+      --target-scope SCOPE                                    Target LRS OAuth scope
       --target-token TOKEN                                    Target LRS OAuth Bearer token
       --target-backoff-budget BUDGET    10000                 Target LRS Retry Backoff Budget in ms
       --target-backoff-max-attempt MAX  10                    Target LRS Retry Backoff Max Attempts, set to -1 for no retry

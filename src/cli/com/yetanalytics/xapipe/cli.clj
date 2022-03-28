@@ -204,6 +204,7 @@
            source-auth-uri
            source-client-id
            source-client-secret
+           source-scope
            source-token
 
            source-backoff-budget
@@ -219,6 +220,7 @@
            target-auth-uri
            target-client-id
            target-client-secret
+           target-scope
            target-token
 
            target-backoff-budget
@@ -257,10 +259,13 @@
                               (and source-auth-uri
                                    source-client-id
                                    source-client-secret)
-                              (assoc :oauth-params
-                                     {:auth-uri      source-auth-uri
-                                      :client-id     source-client-id
-                                      :client-secret source-client-secret})
+                              (assoc
+                               :oauth-params
+                               (cond-> {:auth-uri      source-auth-uri
+                                        :client-id     source-client-id
+                                        :client-secret source-client-secret}
+                                 source-scope
+                                 (assoc :scope source-scope)))
                               ;; Oauth Direct Token
                               source-token
                               (assoc :token source-token))
@@ -285,10 +290,13 @@
                               (and target-auth-uri
                                    target-client-id
                                    target-client-secret)
-                              (assoc :oauth-params
-                                     {:auth-uri      target-auth-uri
-                                      :client-id     target-client-id
-                                      :client-secret target-client-secret})
+                              (assoc
+                               :oauth-params
+                               (cond-> {:auth-uri      target-auth-uri
+                                        :client-id     target-client-id
+                                        :client-secret target-client-secret}
+                                 target-scope
+                                 (assoc :scope target-scope)))
                               ;; Oauth Direct Token
                               target-token
                               (assoc :token target-token))
@@ -415,6 +423,7 @@
            source-auth-uri
            source-client-id
            source-client-secret
+           source-scope
            source-token
 
            source-batch-size
@@ -431,6 +440,7 @@
            target-auth-uri
            target-client-id
            target-client-secret
+           target-scope
            target-token
 
            target-backoff-budget
@@ -483,7 +493,11 @@
           source-client-secret
           (assoc-in
            [:source :request-config :oauth-params :client-secret]
-           source-client-secret))
+           source-client-secret)
+          source-scope
+          (assoc-in
+           [:source :request-config :oauth-params :scope]
+           source-scope))
         (only-auth :source :oauth))
 
     source-token
@@ -578,7 +592,11 @@
           target-client-secret
           (assoc-in
            [:target :request-config :oauth-params :client-secret]
-           target-client-secret))
+           target-client-secret)
+          target-scope
+          (assoc-in
+           [:target :request-config :oauth-params :scope]
+           target-scope))
         (only-auth :target :oauth))
 
     target-token

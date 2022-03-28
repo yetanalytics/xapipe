@@ -20,9 +20,17 @@ bin/run.sh --source-url http://0.0.0.0:8080/xapi \
 
 LRSPipe will connect to the specified auth provider(s) and provide up-to-date tokens for LRS requests as needed.
 
-### Scope Not Supported
+### Scope
 
-Note that the optional OAuth `scope` param is not supported or supplied by LRSPipe. Instead, scope and any other authorization claims should be defined within the identity provider's configuration for the given client.
+According to OAuth 2.0 an optional `scope` parameter can be provided on Client Credentials Grant requests. To set this value for the source/target LRS:
+
+``` shell
+bin/run.sh ... \
+           --source-scope "lrs:read" \
+           --target-scope "lrs:write"
+```
+
+Note that the configuration of claims like scope should be done on the OAuth client itself. This option is provided for backwards compatibility only.
 
 ## Manual Bearer Token Usage
 
