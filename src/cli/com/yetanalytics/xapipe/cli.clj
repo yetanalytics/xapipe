@@ -365,14 +365,10 @@
                    ;; filters are not reconfigurable
                    m
                    ;; All other opts
-                   (if (and v
-                            (not= v (get-in m path)))
-                     (let [m' (assoc-in m path v)]
-                       (if-let [only-auth-args (get auth-options k)]
-                         (apply only-auth m' only-auth-args)
-                         m'))
-                     ;; No change
-                     m))
+                   (let [m' (assoc-in m path v)]
+                     (if-let [only-auth-args (get auth-options k)]
+                       (apply only-auth m' only-auth-args)
+                       m')))
                  ;; ignore unknown
                  m)))
            config
