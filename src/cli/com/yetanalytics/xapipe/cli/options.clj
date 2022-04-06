@@ -377,19 +377,25 @@
           :target ::target-options-args
           :job    ::job-options-args)))
 
+(s/def ::no-defaults boolean?)
+
 (s/fdef args->options
-  :args (s/cat :args (s/spec ::all-args))
+  :args (s/cat :args (s/spec ::all-args)
+               :kwargs (s/keys* :opt-un [::no-defaults]))
   :ret ::all-options)
 
 (defn args->options
-  [args]
+  [args
+   & {:keys [no-defaults]
+      :or {no-defaults false}}]
   (let [{:keys [errors]
          :as ret} (cli/parse-opts args
                                   (concat
                                    common-options
                                    source-options
                                    target-options
-                                   job-options))]
+                                   job-options)
+                                  :no-defaults no-defaults)]
     (if (not-empty errors)
       (throw (ex-info (format "Options Error: %s"
                               (cs/join \, errors))

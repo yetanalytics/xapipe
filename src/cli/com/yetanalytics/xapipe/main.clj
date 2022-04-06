@@ -93,12 +93,19 @@ Delete a Job:
                         (job/reconfigure-job
                          (cli/reconfigure-with-options
                           (:config (or ?from-json ?from-storage))
-                          options)))
+                          ;; reparse the args w/o defaults
+                          (:options
+                           (opts/args->options args
+                                               :no-defaults true)))))
                     ;; Json is provided
                     ?from-json
                     (-> ?from-json
                         job/upgrade-job
-                        (update :config cli/reconfigure-with-options options))
+                        (update :config cli/reconfigure-with-options
+                                ;; reparse args w/o defaults
+                                (:options
+                                 (opts/args->options args
+                                                     :no-defaults true))))
 
                     ;; New from options!
                     :else
