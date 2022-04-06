@@ -213,7 +213,6 @@
 
    ;; Target LRS
    :target-batch-size          [:target :batch-size]
-   :target-poll-interval       [:target :poll-interval]
    :target-username            [:target :request-config :username]
    :target-password            [:target :request-config :password]
    :target-auth-uri            [:target :request-config :oauth-params :auth-uri]
