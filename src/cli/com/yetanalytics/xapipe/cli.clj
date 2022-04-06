@@ -320,6 +320,22 @@
            :token [:username :password :oauth-params]
            :oauth [:username :password :token])))
 
+(def auth-options
+  {:source-username      [:source :basic]
+   :source-password      [:source :basic]
+   :source-auth-uri      [:source :oauth]
+   :source-client-id     [:source :oauth]
+   :source-client-secret [:source :oauth]
+   :source-scope         [:source :oauth]
+   :source-token         [:source :token]
+   :target-username      [:target :basic]
+   :target-password      [:target :basic]
+   :target-auth-uri      [:target :oauth]
+   :target-client-id     [:target :oauth]
+   :target-client-secret [:target :oauth]
+   :target-scope         [:target :oauth]
+   :target-token         [:target :token]})
+
 (s/fdef reconfigure-with-options
   :args (s/cat :config (s/with-gen ::job/config
                          (fn []
@@ -332,235 +348,47 @@
 (defn reconfigure-with-options
   "Given an extant job and CLI options, apply any overriding options"
   [config
-   {:keys [source-url
-           source-username
-           source-password
-           source-auth-uri
-           source-client-id
-           source-client-secret
-           source-scope
-           source-token
+   {:keys [source-batch-size
+           get-params]
+    :as options}]
+  (cond-> (reduce-kv
+           (fn [m k v]
+             (case k
+               :source-url (update-in m
+                                      [:source :request-config]
+                                      merge (parse-lrs-url v))
+               :target-url (update-in m
+                                      [:target :request-config]
+                                      merge (parse-lrs-url v))
+               (if-let [path (get option-paths k)]
+                 (if (= :filter (first path))
+                   ;; filters are not reconfigurable
+                   m
+                   ;; All other opts
+                   (if (and v
+                            (not= v (get-in m path)))
+                     (let [m' (assoc-in m path v)]
+                       (if-let [only-auth-args (get auth-options k)]
+                         (apply only-auth m' only-auth-args)
+                         m'))
+                     ;; No change
+                     m))
+                 ;; ignore unknown
+                 m)))
+           config
+           (dissoc options :get-params :source-batch-size))
 
-           source-batch-size
-           source-poll-interval
-           get-params
-           source-backoff-budget
-           source-backoff-max-attempt
-           source-backoff-j-range
-           source-backoff-initial
-
-           target-url
-           target-username
-           target-password
-           target-auth-uri
-           target-client-id
-           target-client-secret
-           target-scope
-           target-token
-
-           target-backoff-budget
-           target-backoff-max-attempt
-           target-backoff-j-range
-           target-backoff-initial
-
-           target-batch-size
-
-           get-buffer-size
-           batch-timeout
-           cleanup-buffer-size
-
-           statement-buffer-size
-           batch-buffer-size]}]
-  (cond-> config
-    source-url
-    (update-in
-     [:source :request-config]
-     merge (parse-lrs-url source-url))
-
-    (or source-username
-        source-password)
-    (-> (cond->
-          source-username
-          (assoc-in
-           [:source :request-config :username]
-           source-username)
-
-          source-password
-          (assoc-in
-           [:source :request-config :password]
-           source-password))
-        (only-auth :source :basic))
-
-    (or source-auth-uri
-        source-client-id
-        source-client-secret)
-    (-> (cond->
-          source-auth-uri
-          (assoc-in
-           [:source :request-config :oauth-params :auth-uri]
-           source-auth-uri)
-
-          source-client-id
-          (assoc-in
-           [:source :request-config :oauth-params :client-id]
-           source-client-id)
-
-          source-client-secret
-          (assoc-in
-           [:source :request-config :oauth-params :client-secret]
-           source-client-secret)
-          source-scope
-          (assoc-in
-           [:source :request-config :oauth-params :scope]
-           source-scope))
-        (only-auth :source :oauth))
-
-    source-token
-    (-> (assoc-in [:source :request-config :token] source-token)
-        (only-auth :source :token))
-
-    ;; if there's a default, only update on change
+    ;; Special handling
+    ;; get params overwrite if not empty
+    (not-empty get-params)
+    (assoc-in [:source :get-params] get-params)
+    ;; a provided batch size also overwrites limit param
     (and source-batch-size
          (not= source-batch-size
                (get-in config [:source :batch-size])))
-    (assoc-in
-     [:source :batch-size]
-     source-batch-size)
-
-    (not= source-poll-interval
-          (get-in config [:source :poll-interval]))
-    (assoc-in
-     [:source :poll-interval]
-     source-poll-interval)
-
-    ;; With no args, get-params is an empty map, so ignore
-    (and (not-empty get-params)
-         (not= get-params
-               (get-in config [:source :get-params])))
     (->
-     (assoc-in
-      [:source :get-params]
-      get-params)
-     (cond->
-         (and source-batch-size
-              (not= source-batch-size
-                    (get-in config [:source :batch-size])))
-       (assoc-in
-        [:source :get-params :limit]
-        source-batch-size)))
-
-    (not= source-backoff-budget
-          (get-in config [:source :backoff-opts :budget]))
-    (assoc-in
-     [:source :backoff-opts :budget]
-     source-backoff-budget)
-
-    (not= source-backoff-max-attempt
-          (get-in config [:source :backoff-opts :max-attempt]))
-    (assoc-in
-     [:source :backoff-opts :max-attempt]
-     source-backoff-max-attempt)
-
-    source-backoff-j-range
-    (assoc-in
-     [:source :backoff-opts :j-range]
-     source-backoff-j-range)
-
-    source-backoff-initial
-    (assoc-in
-     [:source :backoff-opts :initial]
-     source-backoff-initial)
-
-    target-url
-    (update-in
-     [:target :request-config]
-     merge (parse-lrs-url target-url))
-
-    (or target-username
-        target-password)
-    (-> (cond->
-          target-username
-          (assoc-in
-           [:target :request-config :username]
-           target-username)
-
-          target-password
-          (assoc-in
-           [:target :request-config :password]
-           target-password))
-        (only-auth :target :basic))
-
-    (or target-auth-uri
-        target-client-id
-        target-client-secret)
-    (-> (cond->
-          target-auth-uri
-          (assoc-in
-           [:target :request-config :oauth-params :auth-uri]
-           target-auth-uri)
-
-          target-client-id
-          (assoc-in
-           [:target :request-config :oauth-params :client-id]
-           target-client-id)
-
-          target-client-secret
-          (assoc-in
-           [:target :request-config :oauth-params :client-secret]
-           target-client-secret)
-          target-scope
-          (assoc-in
-           [:target :request-config :oauth-params :scope]
-           target-scope))
-        (only-auth :target :oauth))
-
-    target-token
-    (-> (assoc-in [:target :request-config :token] target-token)
-        (only-auth :target :token))
-
-    target-batch-size
-    (assoc-in
-     [:target :batch-size]
-     target-batch-size)
-
-    (not= target-backoff-budget
-          (get-in config [:target :backoff-opts :budget]))
-    (assoc-in
-     [:target :backoff-opts :budget]
-     target-backoff-budget)
-
-    (not= target-backoff-max-attempt
-          (get-in config [:target :backoff-opts :max-attempt]))
-    (assoc-in
-     [:target :backoff-opts :max-attempt]
-     target-backoff-max-attempt)
-
-    target-backoff-j-range
-    (assoc-in
-     [:target :backoff-opts :j-range]
-     target-backoff-j-range)
-
-    target-backoff-initial
-    (assoc-in
-     [:target :backoff-opts :initial]
-     target-backoff-initial)
-
-    (not= get-buffer-size
-          (get config :get-buffer-size))
-    (assoc :get-buffer-size get-buffer-size)
-
-    (not= batch-timeout
-          (get config :batch-timeout))
-    (assoc :batch-timeout batch-timeout)
-
-    statement-buffer-size
-    (assoc :statement-buffer-size statement-buffer-size)
-
-    batch-buffer-size
-    (assoc :batch-buffer-size batch-buffer-size)
-
-    cleanup-buffer-size
-    (assoc :cleanup-buffer-size cleanup-buffer-size)))
+     (assoc-in [:source :batch-size] source-batch-size)
+     (assoc-in [:source :get-params :limit] source-batch-size))))
 
 (s/fdef list-store-jobs
   :args (s/cat :store :com.yetanalytics.xapipe/store)
