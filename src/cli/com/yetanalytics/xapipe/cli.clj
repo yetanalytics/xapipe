@@ -187,166 +187,82 @@
      (assoc-in [:io-config :io-thread-count]
                conn-io-thread-count))})
 
+(def option-paths
+  {;; root config
+   :get-buffer-size       [:get-buffer-size]
+   :cleanup-buffer-size   [:cleanup-buffer-size]
+   :statement-buffer-size [:statement-buffer-size]
+   :batch-buffer-size     [:batch-buffer-size]
+   :batch-timeout         [:batch-timeout]
+
+   ;; Source LRS
+   :source-batch-size          [:source :batch-size]
+   :source-poll-interval       [:source :poll-interval]
+   :get-params                 [:source :get-params]
+   :source-username            [:source :request-config :username]
+   :source-password            [:source :request-config :password]
+   :source-auth-uri            [:source :request-config :oauth-params :auth-uri]
+   :source-client-id           [:source :request-config :oauth-params :client-id]
+   :source-client-secret       [:source :request-config :oauth-params :client-secret]
+   :source-scope               [:source :request-config :oauth-params :scope]
+   :source-token               [:source :request-config :token]
+   :source-backoff-budget      [:source :backoff-opts :budget]
+   :source-backoff-max-attempt [:source :backoff-opts :max-attempt]
+   :source-backoff-j-range     [:source :backoff-opts :j-range]
+   :source-backoff-initial     [:source :backoff-opts :initial]
+
+   ;; Target LRS
+   :target-batch-size          [:target :batch-size]
+   :target-poll-interval       [:target :poll-interval]
+   :target-username            [:target :request-config :username]
+   :target-password            [:target :request-config :password]
+   :target-auth-uri            [:target :request-config :oauth-params :auth-uri]
+   :target-client-id           [:target :request-config :oauth-params :client-id]
+   :target-client-secret       [:target :request-config :oauth-params :client-secret]
+   :target-scope               [:target :request-config :oauth-params :scope]
+   :target-token               [:target :request-config :token]
+   :target-backoff-budget      [:target :backoff-opts :budget]
+   :target-backoff-max-attempt [:target :backoff-opts :max-attempt]
+   :target-backoff-j-range     [:target :backoff-opts :j-range]
+   :target-backoff-initial     [:target :backoff-opts :initial]
+
+   ;; Filters
+   :filter-template-profile-urls  [:filter :template :profile-urls]
+   :filter-template-ids           [:filter :template :template-ids]
+   :filter-pattern-profile-urls   [:filter :pattern :profile-urls]
+   :filter-pattern-ids            [:filter :pattern :pattern-ids]
+   :filter-ensure-paths           [:filter :path :ensure-paths]
+   :filter-match-paths            [:filter :path :match-paths]
+   :filter-concept-profile-urls   [:filter :concept :profile-urls]
+   :filter-concept-types          [:filter :concept :concept-types]
+   :filter-activity-type-ids      [:filter :concept :activity-type-ids]
+   :filter-verb-ids               [:filter :concept :verb-ids]
+   :filter-attachment-usage-types [:filter :concept :attachment-usage-types]})
+
 (s/fdef options->config
   :args (s/cat :options ::opts/all-options)
   :ret ::job/config)
 
 (defn options->config
-  [{:keys [job-id
-
-           source-url
-
-           source-batch-size
-           source-poll-interval
-           get-params
-           source-username
-           source-password
-           source-auth-uri
-           source-client-id
-           source-client-secret
-           source-scope
-           source-token
-
-           source-backoff-budget
-           source-backoff-max-attempt
-           source-backoff-j-range
-           source-backoff-initial
-
-           target-url
-
-           target-batch-size
-           target-username
-           target-password
-           target-auth-uri
-           target-client-id
-           target-client-secret
-           target-scope
-           target-token
-
-           target-backoff-budget
-           target-backoff-max-attempt
-           target-backoff-j-range
-           target-backoff-initial
-
-           get-buffer-size
-           batch-timeout
-           cleanup-buffer-size
-
-           filter-template-profile-urls
-           filter-template-ids
-           filter-pattern-profile-urls
-           filter-pattern-ids
-           filter-ensure-paths
-           filter-match-paths
-           filter-concept-profile-urls
-           filter-concept-types
-           filter-activity-type-ids
-           filter-verb-ids
-           filter-attachment-usage-types
-
-           statement-buffer-size
-           batch-buffer-size]}]
-  (cond-> {:get-buffer-size get-buffer-size
-           :batch-timeout batch-timeout
-           :source
-           {:request-config (cond-> (parse-lrs-url source-url)
-                              ;; Basic Auth
-                              (and source-username
-                                   source-password)
-                              (assoc :username source-username
-                                     :password source-password)
-                              ;; OAuth
-                              (and source-auth-uri
-                                   source-client-id
-                                   source-client-secret)
-                              (assoc
-                               :oauth-params
-                               (cond-> {:auth-uri      source-auth-uri
-                                        :client-id     source-client-id
-                                        :client-secret source-client-secret}
-                                 source-scope
-                                 (assoc :scope source-scope)))
-                              ;; Oauth Direct Token
-                              source-token
-                              (assoc :token source-token))
-            :get-params     get-params
-            :poll-interval  source-poll-interval
-            :batch-size     source-batch-size
-            :backoff-opts
-            (cond-> {:budget source-backoff-budget
-                     :max-attempt source-backoff-max-attempt}
-              source-backoff-j-range
-              (assoc :j-range source-backoff-j-range)
-              source-backoff-initial
-              (assoc :initial source-backoff-initial))}
-           :target
-           {:request-config (cond-> (parse-lrs-url target-url)
-                              ;; Basic Auth
-                              (and target-username
-                                   target-password)
-                              (assoc :username target-username
-                                     :password target-password)
-                              ;; OAuth
-                              (and target-auth-uri
-                                   target-client-id
-                                   target-client-secret)
-                              (assoc
-                               :oauth-params
-                               (cond-> {:auth-uri      target-auth-uri
-                                        :client-id     target-client-id
-                                        :client-secret target-client-secret}
-                                 target-scope
-                                 (assoc :scope target-scope)))
-                              ;; Oauth Direct Token
-                              target-token
-                              (assoc :token target-token))
-            :batch-size     target-batch-size
-            :backoff-opts
-            (cond-> {:budget target-backoff-budget
-                     :max-attempt target-backoff-max-attempt}
-              target-backoff-j-range
-              (assoc :j-range target-backoff-j-range)
-              target-backoff-initial
-              (assoc :initial target-backoff-initial))}
-           :filter {}}
-    statement-buffer-size
-    (assoc :statement-buffer-size statement-buffer-size)
-
-    batch-buffer-size
-    (assoc :batch-buffer-size batch-buffer-size)
-    cleanup-buffer-size
-    (assoc :cleanup-buffer-size cleanup-buffer-size)
-
-    (not-empty filter-template-profile-urls)
-    (assoc-in [:filter :template] {:profile-urls filter-template-profile-urls
-                                   :template-ids (into []
-                                                       filter-template-ids)})
-
-    (not-empty filter-pattern-profile-urls)
-    (assoc-in [:filter :pattern] {:profile-urls filter-pattern-profile-urls
-                                  :pattern-ids (into []
-                                                     filter-pattern-ids)})
-
-    (not-empty filter-ensure-paths)
-    (assoc-in [:filter :path :ensure-paths] filter-ensure-paths)
-
-    (not-empty filter-match-paths)
-    (assoc-in [:filter :path :match-paths] filter-match-paths)
-
-    (or (not-empty filter-concept-profile-urls)
-        (not-empty filter-activity-type-ids)
-        (not-empty filter-verb-ids)
-        (not-empty filter-attachment-usage-types))
-    (assoc-in [:filter :concept] {:profile-urls
-                                  (into [] filter-concept-profile-urls)
-                                  :concept-types
-                                  (into [] filter-concept-types)
-                                  :activity-type-ids
-                                  (into [] filter-activity-type-ids)
-                                  :verb-ids
-                                  (into [] filter-verb-ids)
-                                  :attachment-usage-types
-                                  (into [] filter-attachment-usage-types)})))
+  [{:keys [source-url
+           target-url]
+    :as options}]
+  (reduce-kv
+   (fn [m k v]
+     (if-let [path (get option-paths k)]
+       (if (= :filter (first path))
+         ;; filters take collections
+         (if (not-empty v)
+           (assoc-in m path v)
+           m)
+         ;; All other opts are scalar
+         (assoc-in m path v))
+       ;; ignore unknown
+       m))
+   {:source {:request-config (parse-lrs-url source-url)}
+    :target {:request-config (parse-lrs-url target-url)}
+    :filter {}}
+   options))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)

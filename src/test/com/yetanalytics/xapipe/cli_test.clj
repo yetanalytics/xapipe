@@ -31,68 +31,80 @@
            :conn-io-thread-count 16}))))
 
 (deftest options->config-test
-  (is (= {:get-buffer-size 100,
-          :batch-timeout 200,
-          :cleanup-buffer-size 100
-          :source
-          {:request-config
-           {:url-base "http://0.0.0.0:8080",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :get-params {},
-           :poll-interval 1000,
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :target
-          {:request-config
-           {:url-base "http://0.0.0.0:8081",
-            :xapi-prefix "/xapi",
-            :username "foo",
-            :password "bar"},
-           :batch-size 50,
-           :backoff-opts
-           {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
-          :filter {},
-          :statement-buffer-size 1000,
-          :batch-buffer-size 100}
-         (options->config
-          {:job-id "foo"
+  (testing "minimal"
+    (is (= {:source
+            {:request-config
+             {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"}},
+            :target
+            {:request-config
+             {:url-base "http://0.0.0.0:8081", :xapi-prefix "/xapi"}},
+            :filter {}}
+           (options->config
+            {:source-url "http://0.0.0.0:8080/xapi"
+             :target-url "http://0.0.0.0:8081/xapi"}))))
+  (testing "complex"
+    (is (= {:get-buffer-size 100,
+            :batch-timeout 200,
+            :cleanup-buffer-size 100
+            :source
+            {:request-config
+             {:url-base "http://0.0.0.0:8080",
+              :xapi-prefix "/xapi",
+              :username "foo",
+              :password "bar"},
+             :get-params {},
+             :poll-interval 1000,
+             :batch-size 50,
+             :backoff-opts
+             {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+            :target
+            {:request-config
+             {:url-base "http://0.0.0.0:8081",
+              :xapi-prefix "/xapi",
+              :username "foo",
+              :password "bar"},
+             :batch-size 50,
+             :backoff-opts
+             {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
+            :filter {},
+            :statement-buffer-size 1000,
+            :batch-buffer-size 100}
+           (options->config
+            {:job-id "foo"
 
-           :source-url "http://0.0.0.0:8080/xapi"
+             :source-url "http://0.0.0.0:8080/xapi"
 
-           :source-batch-size 50
-           :source-poll-interval 1000
-           :get-params {}
-           :source-username "foo"
-           :source-password "bar"
-           :source-backoff-budget 1000
-           :source-backoff-max-attempt 10
-           :source-backoff-j-range 10
-           :source-backoff-initial 1
+             :source-batch-size 50
+             :source-poll-interval 1000
+             :get-params {}
+             :source-username "foo"
+             :source-password "bar"
+             :source-backoff-budget 1000
+             :source-backoff-max-attempt 10
+             :source-backoff-j-range 10
+             :source-backoff-initial 1
 
-           :target-url "http://0.0.0.0:8081/xapi"
+             :target-url "http://0.0.0.0:8081/xapi"
 
-           :target-batch-size 50
-           :target-username "foo"
-           :target-password "bar"
-           :target-backoff-budget 1000
-           :target-backoff-max-attempt 10
-           :target-backoff-j-range 10
-           :target-backoff-initial 1
+             :target-batch-size 50
+             :target-username "foo"
+             :target-password "bar"
+             :target-backoff-budget 1000
+             :target-backoff-max-attempt 10
+             :target-backoff-j-range 10
+             :target-backoff-initial 1
 
-           :get-buffer-size 100
-           :batch-timeout 200
-           :cleanup-buffer-size 100
+             :get-buffer-size 100
+             :batch-timeout 200
+             :cleanup-buffer-size 100
 
-           :filter-template-profile-urls []
-           :filter-template-ids []
-           :filter-pattern-profile-urls []
-           :filter-pattern-ids []
+             :filter-template-profile-urls []
+             :filter-template-ids []
+             :filter-pattern-profile-urls []
+             :filter-pattern-ids []
 
-           :statement-buffer-size 1000
-           :batch-buffer-size 100}))))
+             :statement-buffer-size 1000
+             :batch-buffer-size 100})))))
 
 (deftest create-job-test
   (is (= {:id "foo",
