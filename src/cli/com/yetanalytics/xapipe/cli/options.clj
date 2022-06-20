@@ -191,6 +191,24 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]]])
 
+(defn oauth-opts
+  [tag]
+  [[nil
+    (format "--%s-auth-uri URI" tag)
+    (format "%s LRS OAuth autentication URI" (cs/capitalize tag))]
+   [nil
+    (format "--%s-client-id ID" tag)
+    (format "%s LRS OAuth client ID" (cs/capitalize tag))]
+   [nil
+    (format "--%s-client-secret SECRET" tag)
+    (format "%s LRS OAuth client secret" (cs/capitalize tag))]
+   [nil
+    (format "--%s-scope SCOPE" tag)
+    (format "%s LRS OAuth scope" (cs/capitalize tag))]
+   [nil
+    (format "--%s-token TOKEN" tag)
+    (format "%s LRS OAuth Bearer token" (cs/capitalize tag))]])
+
 ;; a set for filtering
 (def valid-get-params
   #{:agent
@@ -234,7 +252,9 @@
            m)))]
     [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
     [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
-   (backoff-opts "source")))
+   (concat
+    (oauth-opts "source")
+    (backoff-opts "source"))))
 
 (def-option-specs source-options)
 
@@ -247,7 +267,9 @@
           :default 50]
          [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
          [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
-        (backoff-opts "target")))
+        (concat
+         (oauth-opts "target")
+         (backoff-opts "target"))))
 
 (def-option-specs target-options)
 
@@ -355,19 +377,25 @@
           :target ::target-options-args
           :job    ::job-options-args)))
 
+(s/def ::no-defaults boolean?)
+
 (s/fdef args->options
-  :args (s/cat :args (s/spec ::all-args))
+  :args (s/cat :args (s/spec ::all-args)
+               :kwargs (s/keys* :opt-un [::no-defaults]))
   :ret ::all-options)
 
 (defn args->options
-  [args]
+  [args
+   & {:keys [no-defaults]
+      :or {no-defaults false}}]
   (let [{:keys [errors]
          :as ret} (cli/parse-opts args
                                   (concat
                                    common-options
                                    source-options
                                    target-options
-                                   job-options))]
+                                   job-options)
+                                  :no-defaults no-defaults)]
     (if (not-empty errors)
       (throw (ex-info (format "Options Error: %s"
                               (cs/join \, errors))

@@ -301,4 +301,7 @@
     :filter-verb-ids ["http://example.org/profile.jsonld#verb"]
     :filter-attachment-usage-types [ "http://example.org/profile.jsonld#aut"]
     :cleanup-buffer-size 1}
-   []))
+   [])
+  (testing "no defaults"
+    (is (= {}
+           (:options (args->options [] :no-defaults true))))))
