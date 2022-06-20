@@ -147,7 +147,7 @@
           (fn []
             (s/gen per/state-info-map-spec
                    ;; TODO: gen error for pan strings
-                   {:com.yetanalytics.pan.axioms/string
+                   {:com.yetanalytics.pan.axioms/uri
                     (fn [] (s/gen ::xs/iri))})))))
 
 (s/fdef evict-keys

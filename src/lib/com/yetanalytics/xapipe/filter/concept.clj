@@ -2,10 +2,10 @@
   "Functions to apply concept-based filtering to statement streams."
   (:require [com.yetanalytics.persephone.template :as pt]
             [com.yetanalytics.persephone :as p]
-            [com.yetanalytics.pan.objects.concepts.verbs :as v]
-            [com.yetanalytics.pan.objects.concepts.activity-types :as at]
+            [com.yetanalytics.pan.objects.concepts.verb :as v]
+            [com.yetanalytics.pan.objects.concepts.activity-type :as at]
             [com.yetanalytics.pan.objects.template :as t]
-            [com.yetanalytics.pan.objects.concepts.attachment-usage-types :as aut]
+            [com.yetanalytics.pan.objects.concepts.attachment-usage-type :as aut]
             [xapi-schema.spec :as xs]
             [clojure.spec.alpha :as s]))
 
