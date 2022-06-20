@@ -124,11 +124,21 @@ span.build {
             <img alt="Yet LRSPipe Logo" src="img/logo.png"/>
           </div>
         </div>
-        <p><a href='index.html'><- Back to Index</a><h1 id="lrspipe&#95;docker&#95;container">LRSPipe Docker Container</h1></p><p>For ease of deployment, LRSPipe is also distributed as a Docker container available on <a href='https://hub.docker.com/r/yetanalytics/xapipe'>DockerHub</a>.</p><p>The same <a href='options.html'>options</a> as used in the CLI are available as arguments to the container's run command.</p><h2 id="invocation">Invocation</h2><p>Start a job with a persistent volume to store job state:</p><pre><code class="shell">docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe \
-    --source-url http://host.docker.internal:8080/xapi \
-    --target-url http://host.docker.internal:8081/xapi \
-    --job-id myjob
-</code></pre><p>Stop the job with <code>&#94;C</code>. You can then resume it:</p><pre><code class="shell">docker run -v xapipe:/xapipe/store -it yetanalytics/xapipe --job-id myjob
+        <p><a href='index.html'><- Back to Index</a><h1 id="oauth&#95;support">OAuth Support</h1></p><p>LRSPipe supports the use of <a href='https://oauth.net/2/'>OAuth 2.0</a> with LRS endpoints that support it via the <a href='https://tools.ietf.org/html/rfc6749#section-4.4'>Client Credentials Grant</a></p><h2 id="client&#95;credentials&#95;grant">Client Credentials Grant</h2><p>To use OAuth, specify a source/target <code>auth-uri</code>, <code>client-id</code> and <code>client-secret</code>:</p><pre><code class="shell">bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --source-auth-uri http://0.0.0.0:8083/auth/realms/test/protocol/openid-connect \
+           --source-client-id a&#95;client&#95;id \
+           --source-client-secret 1234 \
+           --target-url http://0.0.0.0:8081/xapi \
+           --target-auth-uri http://0.0.0.0:8083/auth/realms/test/protocol/openid-connect \
+           --target-client-id b&#95;client&#95;id \
+           --target-client-secret 1234
+</code></pre><p>LRSPipe will connect to the specified auth provider(s) and provide up-to-date tokens for LRS requests as needed.</p><h3 id="scope">Scope</h3><p>According to OAuth 2.0 an optional <code>scope</code> parameter can be provided on Client Credentials Grant requests. To set this value for the source/target LRS:</p><pre><code class="shell">bin/run.sh ... \
+           --source-scope &quot;lrs:read&quot; \
+           --target-scope &quot;lrs:write&quot;
+</code></pre><p>Note that the configuration of claims like scope should be done on the OAuth client itself. This option is provided for backwards compatibility only.</p><h2 id="manual&#95;bearer&#95;token&#95;usage">Manual Bearer Token Usage</h2><p>If you have a bearer token that will be valid for the duration of your job, you can pass it directly:</p><pre><code class="shell">bin/run.sh --source-url http://0.0.0.0:8080/xapi \
+           --source-token eyJhbGciOi...
+           --target-url http://0.0.0.0:8081/xapi \
+           --target-token eyJhbGciOi...
 </code></pre><p><a href='index.html'><- Back to Index</a></p>
         <div class="footer">
          &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
