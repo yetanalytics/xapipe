@@ -120,9 +120,10 @@
 (def get-request-base
   {:headers      {"x-experience-api-version" "1.0.3"}
    :method       :get
-   :as           :multipart/mixed
+   :as           :json-string-keys ;; :json ;; :multipart/mixed
    :query-params {:ascending   true
-                  :attachments true}})
+                  ;; :attachments true
+                  }})
 
 (s/def ::more string?) ;; more link
 
@@ -414,7 +415,7 @@
                 :response
                 (let [{{consistent-through-h "X-Experience-API-Consistent-Through"}
                        :headers
-                       {{:keys [statements more]} :statement-result}
+                       {:strs [statements more] :as statement-result}
                        :body
                        :keys [request-time]} resp
                       ?last-stored (some-> statements
@@ -430,7 +431,12 @@
                                 (count statements)
                                 ?last-stored)
                     (a/>! out-chan
-                          ret))
+                          [tag (assoc resp :body {:attachments []
+                                                  :statement-result
+                                                  (cond-> {:statements statements
+                                                           }
+                                                    (not-empty more)
+                                                    (assoc :more more))})]))
                   ;; Handle metrics
                   (metrics/histogram reporter
                                      :xapipe/source-request-time
