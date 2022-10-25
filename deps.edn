@@ -15,21 +15,7 @@
          :exclusions [org.clojure/clojurescript]}
         org.clojure/data.json {:mvn/version "2.4.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.324"}
-        ;; Include Jackson to avoid CVE
-        cheshire/cheshire
-        {:mvn/version "5.10.2"
-         :exclusions [com.fasterxml.jackson.core/jackson-core
-                      com.fasterxml.jackson.dataformat/jackson-dataformat-smile
-                      com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
-                      com.fasterxml.jackson.core/jackson-databind]}
-        com.fasterxml.jackson.core/jackson-core
-        {:mvn/version "2.13.2"}
-        com.fasterxml.jackson.dataformat/jackson-dataformat-smile
-        {:mvn/version "2.13.2"}
-        com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
-        {:mvn/version "2.13.2"}
-        com.fasterxml.jackson.core/jackson-databind
-        {:mvn/version "2.13.2.1"}}
+        cheshire/cheshire {:mvn/version "5.11.0"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
