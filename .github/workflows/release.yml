@@ -10,11 +10,16 @@ jobs:
   get_modules:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - id: echo-modules
-        run: echo "::set-output name=modules::$(cat .java_modules)"
+      - name: Checkout project
+        uses: actions/checkout@v3
+
+      - name: List Java modules
+        id: echo-modules
+        run: echo "modules=$(cat .java_modules)" >> $GITHUB_OUTPUT
+
     outputs:
       modules: ${{ steps.echo-modules.outputs.modules }}
+  
   build_jre:
     needs: get_modules
     uses: yetanalytics/runtimer/.github/workflows/runtimer.yml@0.1.2-java-11-temurin
@@ -22,6 +27,7 @@ jobs:
       java-version: '11'
       java-distribution: 'temurin'
       java-modules: ${{ needs.get_modules.outputs.modules }}
+  
   build:
     needs: build_jre
     runs-on: ubuntu-latest
