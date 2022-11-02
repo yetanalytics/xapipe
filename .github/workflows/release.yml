@@ -87,7 +87,7 @@ jobs:
           files: 'xapipe.zip'
 
       - name: Deploy Documentation (Tag Pushes)
-        uses: JamesIves/github-pages-deploy-action@v4.4.1 # TODO: Check for set-output
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
         with:
           branch: gh-pages
           folder: target/bundle/doc
