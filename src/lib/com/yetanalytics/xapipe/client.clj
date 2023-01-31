@@ -12,7 +12,6 @@
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
-            [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]

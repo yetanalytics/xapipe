@@ -4,9 +4,7 @@
             [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.job.config :as config]
             [com.yetanalytics.xapipe.job.state :as state]
-            [com.yetanalytics.xapipe.job.state.errors :as errors]
-            [com.yetanalytics.xapipe.util.time :as t]
-            [xapi-schema.spec :as xs]))
+            [com.yetanalytics.xapipe.util.time :as t]))
 
 (def current-version 0)
 

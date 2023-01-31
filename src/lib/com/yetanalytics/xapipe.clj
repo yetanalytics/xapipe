@@ -1,6 +1,5 @@
 (ns com.yetanalytics.xapipe
   (:require [clojure.core.async :as a]
-            [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
