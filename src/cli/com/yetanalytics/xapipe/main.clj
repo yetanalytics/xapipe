@@ -71,7 +71,8 @@ Delete a Job:
                                  (not= ?job-id-arg
                                        (:id ?from-json)))
                         (throw (ex-info (format "--job-id %s does not match JSON job id %s"
-                                                ?job-id-arg (:id ?from-json))))))
+                                                ?job-id-arg (:id ?from-json))
+                                        {}))))
                   ?job-id (or ?job-id-arg (:id ?from-json))
                   ?from-storage (and ?job-id
                                      (store/read-job
