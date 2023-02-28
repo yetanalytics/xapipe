@@ -41,6 +41,13 @@ jobs:
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
 
+  notify_slack:
+    uses: yetanalytics/workflow-nvd/.github/workflows/notify-slack.yml@c0a8c11eb58fa33e8bef1f7d4240c781d1404a70
+    with:
+      repo-name: 'yetanalytics/xapipe'
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
   docker:
     needs:
       - test
