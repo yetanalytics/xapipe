@@ -35,14 +35,14 @@ jobs:
         run: make test
 
   nvd_scan:
-    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@c0a8c11eb58fa33e8bef1f7d4240c781d1404a70
+    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@c6b3bb949024e7975d18efbcc981fe64cb2039a5
     with:
       nvd-clojure-version: '2.9.0'
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
 
   notify_slack:
-    uses: yetanalytics/workflow-nvd/.github/workflows/notify-slack.yml@c0a8c11eb58fa33e8bef1f7d4240c781d1404a70
+    uses: yetanalytics/workflow-nvd/.github/workflows/notify-slack.yml@c6b3bb949024e7975d18efbcc981fe64cb2039a5
     with:
       repo-name: 'yetanalytics/xapipe'
     env:
