@@ -40,7 +40,7 @@ jobs:
       nvd-clojure-version: '2.9.0'
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
-      slack-notifications: true
+      slack-notification: true
 
   docker:
     needs:
