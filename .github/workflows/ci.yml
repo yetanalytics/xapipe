@@ -35,11 +35,12 @@ jobs:
         run: make test
 
   nvd_scan:
-    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@c6b3bb949024e7975d18efbcc981fe64cb2039a5
+    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@4668c6a452e2ab51a57df164ce5c2dad468803a1
     with:
       nvd-clojure-version: '2.9.0'
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
+      slack-notifications: true
 
   docker:
     needs:
