@@ -35,12 +35,14 @@ jobs:
         run: make test
 
   nvd_scan:
-    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@5bfec810d550b7424d8a353425d87fcfb4991e62
+    uses: yetanalytics/workflow-nvd/.github/workflows/nvd-scan.yml@ad4674a448388f771b76a9b46f2f0ee5bee38bef
     with:
       nvd-clojure-version: '2.9.0'
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
-      slack-notification: true
+      notify-slack: true
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   docker:
     needs:
