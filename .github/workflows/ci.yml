@@ -41,8 +41,8 @@ jobs:
       classpath-command: 'clojure -Spath -A:cli'
       nvd-config-filename: '.nvd/config.json'
       notify-slack: true
-    secrets:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    secrets: inherit
+      # SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   docker:
     needs:
