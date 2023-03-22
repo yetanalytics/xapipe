@@ -8,15 +8,39 @@ __NOTE:__ *This configuration is not one-size-fits-all and you may require a dif
 
 ## Deployment
 
-Deploying the CloudFormation Template only requires a few straightforward steps.
+### (Optional) Redis Persistence
+
+By default the LRSPipe CloudFormation template stores job state on the local disk of the EC2 instance running the LRSPipe process. If the instance is terminated all job state is lost. If you would like to persist job state outside of the instance an optional template is provided to do this with AWS ElastiCache Redis.
+
+To deploy the Redis template:
 
 - Go to AWS CloudFormation Service
 - Choose Create Stack (New Resources)
 - Choose 'Template is Ready' / 'Upload a template file'
-- Upload the Template `dev-resources/templates/lrspipe_ec2.yml`
+- Upload the Template `dev-resources/templates/0_redis.yml`
+- Click 'Next'
+- Choose a stack name and note it down for use in the `RedisStackName` parameter in the next section.
+
+#### Configuration
+
+Configure the Redis template parameters. Leave settings at the default where provided and set the following:
+
+- `Subnets`: Select the AWS VPC subnet(s) in which to run Redis. Note that these must be reachable from the subnet selected for `LrsPipeSubnet` below.
+- `VPCId`: Select the AWS VPC in which to run Redis. Make sure this VPC includes the subnet(s) you just selected and matches the `VPCId` you select in the next section.
+
+Now click 'Next' and proceed to deploy the template. When the template deployment is complete, proceed with the next section.
+
+### LRSPipe Process
+
+Deploy the CloudFormation Template for the LRSPipe process:
+
+- Go to AWS CloudFormation Service
+- Choose Create Stack (New Resources)
+- Choose 'Template is Ready' / 'Upload a template file'
+- Upload the Template `dev-resources/templates/1_lrspipe_ec2.yml`
 - Click 'Next'
 
-### Configuration
+#### Configuration
 
 ![LRSPipe Template Deployment Options](img/template-options.png)
 
@@ -31,6 +55,7 @@ On the next page you will be presented with a number of deployment options. We w
 - `LrsPipeConfig`: This is where you will paste in your LRSPipe JSON job configuration. This is where all of the actual job configuration takes place. See the [JSON-based Job Config](json.md) page for details and instructions on this step.
 - `LrsPipeSubnet`: This field, in conjunction with the `VPCId` determine where in your network the LRSPipe instance is created. This is important as it may impact access to the source and target LRS'. If your LRS' are hosted in the same AWS account make sure this Subnet has access to them. Alternatively if your LRS' are hosted externally, make sure this Subnet has internet access configured.
 - `LrsPipeVersion`: This is the version of LRSPipe software you want to deploy. This can be used to upgrade the version on a running instance as well. For a list of LRSPipe versions visit [releases](https://github.com/yetanalytics/xapipe/releases).
+- `RedisStackName`: If you are using Redis persistence, provide the CloudFormation stack name of the Redis stack you set up previously. Otherwise, leave this blank.
 - `VPCId`: This field controls which Virtual Private Cloud the Instance resides in. Make sure that the chosen VPC contains the Subnet from that previous step.
 
 Now click 'Next' and proceed to deploy the template.
