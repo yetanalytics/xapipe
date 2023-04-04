@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Redis persistence for LRSPipe Jobs
+
+Parameters:
+  # Networking
+  VPCId:
+    Description: VPC in which to run Redis
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Description: Subnets in which to run the Redis Cluster
+    Type: List<AWS::EC2::Subnet::Id>
+
+  # Provisioning
+  CacheNodeType:
+    Description: Type of Elasticache Cluster Instance
+    Type: String
+    Default: cache.t3.micro
+  NumCacheNodes:
+    Type: Number
+    Default: 1
+  EngineVersion:
+    Type: String
+    Default: 5.0.6
+
+Resources:
+  SubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for access to redis
+      SubnetIds: !Ref Subnets
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Redis cache instances
+      VpcId: !Ref VPCId
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      EngineVersion: !Ref EngineVersion
+      CacheNodeType: !Ref CacheNodeType
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      CacheSubnetGroupName: !Ref SubnetGroup
+      NumCacheNodes: !Ref NumCacheNodes
+
+Outputs:
+  EndpointAddress:
+    Description: The redis endpoint
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}:EndpointAddress"
+  EndpointPort:
+    Description: The redis endpoint port
+    Value: !GetAtt RedisCluster.RedisEndpoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}:EndpointPort"
+  SecurityGroupId:
+    Description: The security group for the Redis cluser
+    Value: !Ref RedisSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}:SecurityGroup"
