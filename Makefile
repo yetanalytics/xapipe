@@ -1,7 +1,7 @@
 .phony: test bench clean bundle bundle-help ci
 
 clean:
-	rm -rf target dev-resources/bench/*.json
+	rm -rf target dev-resources/bench/*.json pom.xml
 
 JAVA_MODULES ?= $(shell cat .java_modules)
 
@@ -61,3 +61,7 @@ bundle: target/bundle
 # Run the bundle's help, used for compile-time sanity checks
 bundle-help: target/bundle
 	cd target/bundle; bin/run.sh --help
+
+# Generate a POM for dependency graph resolution
+pom.xml:
+	clojure -Acli -Spom

@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'LRSPipe Application Template'
+
 Parameters:
   # Networking
   VPCId:
@@ -36,22 +37,29 @@ Parameters:
   LrsPipeVersion:
     Description: Version of LRSPipe to download and install (public release versions on GitHub)
     Type: String
-    Default: v0.0.15
+    Default: v0.0.25
 
+  # Logging
   LogRetentionInDays:
     Description: How long to retain Cloudwatch Logs
     Type: Number
     Default: 7
 
+  # Redis Persistence
+  RedisStackName:
+    Description: (Optional) Name of Redis stack to use for persistence. If not provided job state will be stored on the instance
+    Type: String
+    Default: ''
 
 Conditions:
   InstanceKeyNameProvided:
     !Not [!Equals [!Ref InstanceKeyName, '']]
+  RedisStackNameProvided:
+    !Not [!Equals [!Ref RedisStackName, '']]
 
 Resources:
 
   # Logs
-
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -71,6 +79,19 @@ Resources:
         ToPort: 22
         CidrIp: !Ref InstanceSSHCidr
         Description: 'ssh from allowed IP'
+
+  RedisIngress:
+    Condition: RedisStackNameProvided
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId:
+        Fn::ImportValue: !Sub '${RedisStackName}:SecurityGroup'
+      IpProtocol: tcp
+      FromPort:
+        Fn::ImportValue: !Sub '${RedisStackName}:EndpointPort'
+      ToPort:
+        Fn::ImportValue: !Sub '${RedisStackName}:EndpointPort'
+      SourceSecurityGroupId: !Ref PipeInstanceSG
 
   # Policy
   InstancePolicy:
@@ -280,19 +301,29 @@ Resources:
               owner: root
               group: root
             '/lib/systemd/system/xapipe.service':
-              content: !Sub |
-                [Unit]
-                Description=LRSPipe Service
-                [Service]
-                User=root
-                WorkingDirectory=/opt/xapipe
-                ExecStart=/opt/xapipe/bin/run.sh --json-file /etc/xapipe/job-conf.json --file-store-dir /var/lib/xapipe/db
-                SuccessExitStatus=143
-                TimeoutStopSec=10
-                Restart=on-failure
-                RestartSec=5
-                [Install]
-                WantedBy=multi-user.target
+              content: !Sub
+                - |
+                  [Unit]
+                  Description=LRSPipe Service
+                  [Service]
+                  User=root
+                  WorkingDirectory=/opt/xapipe
+                  ExecStart=/opt/xapipe/bin/run.sh -f --json-file /etc/xapipe/job-conf.json ${RunArgs}
+                  SuccessExitStatus=143
+                  TimeoutStopSec=10
+                  Restart=on-failure
+                  RestartSec=5
+                  [Install]
+                  WantedBy=multi-user.target
+                - RunArgs: !If
+                    - RedisStackNameProvided
+                    - !Sub
+                      - '--storage redis --redis-uri redis://${EndpointAddress}:${EndpointPort}'
+                      - EndpointAddress:
+                          Fn::ImportValue: !Sub '${RedisStackName}:EndpointAddress'
+                        EndpointPort:
+                          Fn::ImportValue: !Sub '${RedisStackName}:EndpointPort'
+                    - '--file-store-dir /var/lib/xapipe/db'
               mode: '000755'
               owner: root
               group: root

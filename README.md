@@ -19,14 +19,17 @@ This process is one-way and any statements in the target LRS will not be replica
 LRSPipe is capable of filtering which statements get forwarded. This filtering is performed using the components of provided xAPI Profiles. For more information see the [xAPI Profile Specification](https://github.com/adlnet/xapi-profiles).
 
 #### Full Forwarding
+
 In this mode all statements from the source LRS will be replicated into the target LRS.
 
 #### Statement Template Filtering
+
 In this mode LRSPipe is provided with the location of an xAPI Profile and will only forward statements that match the Statement Templates in the Profile.
 
 This can be made to be even more specific by providing a set of Statement Template Ids, which will cause it to only forward a subset of Statement Templates from a Profile. See [usage](doc/usage.md) for details and examples.
 
 #### Pattern Filtering
+
 In this mode LRSPipe is provided with the location of an xAPI Profile and will attempt to match statements to these Patterns, and will validate and forward matching statements.
 
 Much like Statement Template Filtering, this can also be limited to a set of Pattern Ids if one is provided. See [usage](doc/usage.md) for details and examples.
@@ -53,6 +56,6 @@ Before contributing to this project, please read the [Contribution Guidelines](C
 
 ## License
 
-Copyright © 2021 Yet Analytics, Inc.
+Copyright © 2021-2023 Yet Analytics, Inc.
 
 Distributed under the Apache License version 2.0.
