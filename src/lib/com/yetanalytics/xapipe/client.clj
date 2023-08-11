@@ -117,10 +117,10 @@
                 :related_agents
                 :format]))
 
-(def get-request-base
+(defn get-request-base [json-only?]
   {:headers      {"x-experience-api-version" "1.0.3"}
    :method       :get
-   :as           :json-string-keys ;; :json ;; :multipart/mixed
+   :as           (if json-only? :json :multipart/mixed)
    :query-params {:ascending   true
                   ;; :attachments true
                   }})
@@ -140,19 +140,20 @@
            username
            password
            token
-           oauth-params]
+           oauth-params
+           json-only]
     :or   {xapi-prefix "/xapi"}}
    get-params
    & [?more]]
   (cond-> (if (not-empty ?more)
             ;; Using More Link
-            (-> get-request-base
+            (-> (get-request-base json-only)
                 (assoc :url
                        (format "%s%s"
                                url-base
                                ?more))
                 (dissoc :query-params))
-            (-> get-request-base
+            (-> (get-request-base json-only)
                 (assoc :url
                        (format "%s%s/statements"
                                url-base
@@ -202,7 +203,7 @@
                   (format "multipart/mixed; boundary=%s" boundary))
         (cond->
           ;; support token if provided
-          (not-empty token)
+         (not-empty token)
           (assoc :oauth-token token)
           ;; support basic auth if provided
           (and (not-empty username)
@@ -386,13 +387,14 @@
    poll-interval
    & {:keys [backoff-opts
              conn-opts
-             reporter]
+             reporter
+             json-only]
       :or {reporter (metrics/->NoopReporter)}}]
   (let [backoff-opts (or backoff-opts
                          {:budget 10000
                           :max-attempt 10})
         init-req (get-request
-                  config
+                  (assoc config :json-only json-only)
                   init-params)]
     (a/go
       (loop [req   init-req
@@ -433,8 +435,7 @@
                     (a/>! out-chan
                           [tag (assoc resp :body {:attachments []
                                                   :statement-result
-                                                  (cond-> {:statements statements
-                                                           }
+                                                  (cond-> {:statements statements}
                                                     (not-empty more)
                                                     (assoc :more more))})]))
                   ;; Handle metrics
@@ -451,7 +452,7 @@
                                         more)
                                        (recur
                                         (get-request
-                                         config
+                                         (assoc config :json-only json-only)
                                          {} ;; has no effect with more
                                          more)
                                         next-since))
@@ -476,7 +477,7 @@
                             (a/<! (a/timeout poll-interval))
                             (recur
                              (get-request
-                              config
+                              (assoc config :json-only json-only)
                               ;; Ensure since is updated if it should be
                               (assoc init-params
                                      :since

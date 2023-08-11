@@ -54,12 +54,10 @@
                `boolean?
                :else
                `string?)
-        arg-spec `#{
-                    ~(format "--%s" long-command-name)
+        arg-spec `#{~(format "--%s" long-command-name)
                     ~@(if short-command
                         [short-command]
-                        [])
-                    }]
+                        [])}]
     `(list
       ;; actual key spec
       (s/def ~spec-kw
@@ -282,6 +280,8 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 200]
+   [nil "--json-only?" "Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart"
+    :default false]
    ;; Filter options
    [nil "--template-profile-url URL" "Profile URL/location from which to apply statement template filters"
     :id :filter-template-profile-urls

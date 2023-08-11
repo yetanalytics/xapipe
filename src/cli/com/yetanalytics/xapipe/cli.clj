@@ -132,6 +132,7 @@
   "Actually execute a job, wrapping result
   Redef this when testing for cooler output"
   [store job client-opts reporter]
+  (clojure.pprint/pprint ["testing handle-job" store job client-opts reporter])
   (try
     (let [_ (log/debugf "Running job %s" (:id job))
           {:keys [states]
@@ -143,8 +144,8 @@
       (log/debugf "Adding shutdown hook for job %s" (:id job))
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
-                                 (fn []
-                                   (force-stop-job! stop states))))
+                         (fn []
+                           (force-stop-job! stop states))))
       (let [_ (log/debugf "Waiting for job %s" (:id job))
             {{:keys [status]} :state
              :as job-result} (-> states
@@ -194,6 +195,7 @@
    :statement-buffer-size [:statement-buffer-size]
    :batch-buffer-size     [:batch-buffer-size]
    :batch-timeout         [:batch-timeout]
+   :json-only?            [:json-only]
 
    ;; Source LRS
    :source-batch-size          [:source :batch-size]
@@ -246,22 +248,25 @@
   [{:keys [source-url
            target-url]
     :as options}]
-  (reduce-kv
-   (fn [m k v]
-     (if-let [path (get option-paths k)]
-       (if (= :filter (first path))
+  (clojure.pprint/pprint ["initial opts" options])
+  (let [config (reduce-kv
+                (fn [m k v]
+                  (if-let [path (get option-paths k)]
+                    (if (= :filter (first path))
          ;; filters take collections
-         (if (not-empty v)
-           (assoc-in m path v)
-           m)
+                      (if (not-empty v)
+                        (assoc-in m path v)
+                        m)
          ;; All other opts are scalar
-         (assoc-in m path v))
+                      (assoc-in m path v))
        ;; ignore unknown
-       m))
-   {:source {:request-config (parse-lrs-url source-url)}
-    :target {:request-config (parse-lrs-url target-url)}
-    :filter {}}
-   options))
+                    m))
+                {:source {:request-config (parse-lrs-url source-url)}
+                 :target {:request-config (parse-lrs-url target-url)}
+                 :filter {}}
+                options)
+        _ (clojure.pprint/pprint ["processed config" config])]
+    config))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)
@@ -393,8 +398,8 @@
 (defn list-store-jobs
   [store]
   (doseq [[page batch] (->> (store/list-jobs store)
-                           (partition-all 100)
-                           (map-indexed vector))]
+                            (partition-all 100)
+                            (map-indexed vector))]
     (log/infof "Page %d%s"
                page
                (with-out-str

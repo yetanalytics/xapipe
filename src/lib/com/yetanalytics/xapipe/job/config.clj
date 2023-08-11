@@ -87,7 +87,8 @@
      statement-buffer-size
      batch-buffer-size
      batch-timeout
-     cleanup-buffer-size]
+     cleanup-buffer-size
+     json-only]
     :or
     {get-buffer-size 10
      batch-timeout   200}}]
@@ -114,6 +115,7 @@
      :batch-buffer-size     batch-buffer-size
      :batch-timeout         batch-timeout
      :cleanup-buffer-size   cleanup-buffer-size
+     :json-only             json-only
      :source
      (-> source-config
          (assoc :batch-size get-batch-size
@@ -121,8 +123,8 @@
                 :poll-interval poll-interval)
          (assoc-in [:get-params :limit] get-batch-size)
          (cond->
-             ?since (update-in [:get-params :since] t/normalize-stamp)
-             ?until (update-in [:get-params :until] t/normalize-stamp)))
+          ?since (update-in [:get-params :since] t/normalize-stamp)
+          ?until (update-in [:get-params :until] t/normalize-stamp)))
      :target
      (assoc target-config
             :batch-size post-batch-size
