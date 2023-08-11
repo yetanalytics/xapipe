@@ -8,11 +8,11 @@
             [clojure.spec.gen.alpha :as sgen]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
+            [com.yetanalytics.xapipe.client.json-only :as json-only]
             [com.yetanalytics.xapipe.client.oauth :as oauth]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
-            [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]
@@ -25,6 +25,16 @@
     (multipart/parse-response resp)
     (do
       (log/warnf "Received multipart response with non-200 status %d"
+                 status)
+      (update resp :body slurp))))
+
+;; Add json-only output coercion
+(defmethod client/coerce-response-body :json-only
+  [_ {:keys [status] :as resp}]
+  (if (= 200 status)
+    (json-only/parse-response resp)
+    (do
+      (log/warnf "Received json response with non-200 status %d"
                  status)
       (update resp :body slurp))))
 
@@ -124,7 +134,7 @@
 (defn get-request-base [json-only?]
   {:headers      {"x-experience-api-version" "1.0.3"}
    :method       :get
-   :as           (if json-only? :json :multipart/mixed)
+   :as           (if json-only? :json-only :multipart/mixed)
    :query-params {:ascending   true
                   ;; :attachments true
                   }})
@@ -421,7 +431,7 @@
                 :response
                 (let [{{consistent-through-h "X-Experience-API-Consistent-Through"}
                        :headers
-                       {:strs [statements more] :as statement-result}
+                       {{:keys [statements more]} :statement-result}
                        :body
                        :keys [request-time]} resp
                       ?last-stored (some-> statements
@@ -437,11 +447,7 @@
                                 (count statements)
                                 ?last-stored)
                     (a/>! out-chan
-                          [tag (assoc resp :body {:attachments []
-                                                  :statement-result
-                                                  (cond-> {:statements statements}
-                                                    (not-empty more)
-                                                    (assoc :more more))})]))
+                          ret))
                   ;; Handle metrics
                   (metrics/histogram reporter
                                      :xapipe/source-request-time
