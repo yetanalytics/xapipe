@@ -30,9 +30,9 @@
 
 ;; Add json-only output coercion
 (defmethod client/coerce-response-body :json-only
-  [_ {:keys [status] :as resp}]
+  [req {:keys [status] :as resp}]
   (if (= 200 status)
-    (json-only/parse-response resp)
+    (json-only/parse-response req resp)
     (do
       (log/warnf "Received json response with non-200 status %d"
                  status)

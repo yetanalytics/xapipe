@@ -145,6 +145,7 @@ Delete a Job:
                                :message (format "Wrote job %s to %s"
                                                 job-id ?json-out)})
                 :else (do
+
                         (log/infof
                          (if new?
                            "Starting job %s"
