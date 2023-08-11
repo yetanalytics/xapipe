@@ -132,7 +132,6 @@
   "Actually execute a job, wrapping result
   Redef this when testing for cooler output"
   [store job client-opts reporter]
-  (clojure.pprint/pprint ["testing handle-job" store job client-opts reporter])
   (try
     (let [_ (log/debugf "Running job %s" (:id job))
           {:keys [states]
@@ -248,7 +247,6 @@
   [{:keys [source-url
            target-url]
     :as options}]
-  (clojure.pprint/pprint ["initial opts" options])
   (let [config (reduce-kv
                 (fn [m k v]
                   (if-let [path (get option-paths k)]
@@ -264,8 +262,7 @@
                 {:source {:request-config (parse-lrs-url source-url)}
                  :target {:request-config (parse-lrs-url target-url)}
                  :filter {}}
-                options)
-        _ (clojure.pprint/pprint ["processed config" config])]
+                options)]
     config))
 
 (s/fdef create-job
