@@ -39,6 +39,9 @@
 (s/def ::username string?)
 (s/def ::password string?)
 
+;; json-only mode support
+(s/def ::json-only boolean?)
+
 ;; token support
 (s/def ::token string?)
 
@@ -48,6 +51,7 @@
    :opt-un [::xapi-prefix
             ::username
             ::password
+            ::json-only
             ::token
             ::oauth/oauth-params]))
 
@@ -394,7 +398,7 @@
                          {:budget 10000
                           :max-attempt 10})
         init-req (get-request
-                  (assoc config :json-only json-only)
+                  config
                   init-params)]
     (a/go
       (loop [req   init-req
@@ -452,7 +456,7 @@
                                         more)
                                        (recur
                                         (get-request
-                                         (assoc config :json-only json-only)
+                                         config
                                          {} ;; has no effect with more
                                          more)
                                         next-since))
@@ -477,7 +481,7 @@
                             (a/<! (a/timeout poll-interval))
                             (recur
                              (get-request
-                              (assoc config :json-only json-only)
+                              config
                               ;; Ensure since is updated if it should be
                               (assoc init-params
                                      :since

@@ -312,7 +312,7 @@
            target-backoff-opts :backoff-opts
            :as                 target-config} :target
           filter-config :filter
-          :keys [batch-timeout json-only]} :config
+          :keys [batch-timeout]} :config
          :as                     job-before}
         (update job :config config/ensure-defaults)]
     (case status-before
@@ -381,8 +381,6 @@
                    ;; kwargs
                    :backoff-opts
                    source-backoff-opts
-                   :json-only
-                   json-only
                    :conn-opts
                    {:conn-mgr conn-mgr
                     :http-client source-client}

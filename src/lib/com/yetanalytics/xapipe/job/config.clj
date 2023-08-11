@@ -87,8 +87,7 @@
      statement-buffer-size
      batch-buffer-size
      batch-timeout
-     cleanup-buffer-size
-     json-only]
+     cleanup-buffer-size]
     :or
     {get-buffer-size 10
      batch-timeout   200}}]
@@ -115,7 +114,6 @@
      :batch-buffer-size     batch-buffer-size
      :batch-timeout         batch-timeout
      :cleanup-buffer-size   cleanup-buffer-size
-     :json-only             json-only
      :source
      (-> source-config
          (assoc :batch-size get-batch-size

@@ -249,7 +249,9 @@
                     v))
            m)))]
     [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
-    [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
+    [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]
+    [nil "--json-only" "Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart (for compatibility issues)"
+     :default false]]
    (concat
     (oauth-opts "source")
     (backoff-opts "source"))))
@@ -280,8 +282,6 @@
     :parse-fn #(Long/parseLong %)
     :validate [pos-int? "Must be a positive integer"]
     :default 200]
-   [nil "--json-only?" "Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart"
-    :default false]
    ;; Filter options
    [nil "--template-profile-url URL" "Profile URL/location from which to apply statement template filters"
     :id :filter-template-profile-urls

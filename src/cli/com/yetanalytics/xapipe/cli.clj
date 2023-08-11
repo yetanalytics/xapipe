@@ -194,7 +194,6 @@
    :statement-buffer-size [:statement-buffer-size]
    :batch-buffer-size     [:batch-buffer-size]
    :batch-timeout         [:batch-timeout]
-   :json-only?            [:json-only]
 
    ;; Source LRS
    :source-batch-size          [:source :batch-size]
@@ -202,6 +201,7 @@
    :get-params                 [:source :get-params]
    :source-username            [:source :request-config :username]
    :source-password            [:source :request-config :password]
+   :json-only                  [:source :request-config :json-only]
    :source-auth-uri            [:source :request-config :oauth-params :auth-uri]
    :source-client-id           [:source :request-config :oauth-params :client-id]
    :source-client-secret       [:source :request-config :oauth-params :client-secret]
