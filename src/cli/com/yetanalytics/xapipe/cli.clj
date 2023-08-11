@@ -247,23 +247,22 @@
   [{:keys [source-url
            target-url]
     :as options}]
-  (let [config (reduce-kv
-                (fn [m k v]
-                  (if-let [path (get option-paths k)]
-                    (if (= :filter (first path))
+  (reduce-kv
+   (fn [m k v]
+     (if-let [path (get option-paths k)]
+       (if (= :filter (first path))
          ;; filters take collections
-                      (if (not-empty v)
-                        (assoc-in m path v)
-                        m)
+         (if (not-empty v)
+           (assoc-in m path v)
+           m)
          ;; All other opts are scalar
-                      (assoc-in m path v))
+         (assoc-in m path v))
        ;; ignore unknown
-                    m))
-                {:source {:request-config (parse-lrs-url source-url)}
-                 :target {:request-config (parse-lrs-url target-url)}
-                 :filter {}}
-                options)]
-    config))
+       m))
+   {:source {:request-config (parse-lrs-url source-url)}
+    :target {:request-config (parse-lrs-url target-url)}
+    :filter {}}
+   options))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)
