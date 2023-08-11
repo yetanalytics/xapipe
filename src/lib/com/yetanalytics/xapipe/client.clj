@@ -136,8 +136,7 @@
    :method       :get
    :as           (if json-only? :json-only :multipart/mixed)
    :query-params {:ascending   true
-                  ;; :attachments true
-                  }})
+                  :attachments (not json-only?)}})
 
 (s/def ::more string?) ;; more link
 
