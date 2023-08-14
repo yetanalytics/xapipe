@@ -162,8 +162,7 @@
     :source
     {:request-config
      {:url-base "http://0.0.0.0:8080",
-      :xapi-prefix "/xapi"
-      :json-only false},
+      :xapi-prefix "/xapi"},
      :batch-size 50,
      :backoff-opts {:budget 10000, :max-attempt 10}
      :poll-interval 1000,
@@ -221,7 +220,7 @@
     "--xapi-get-param" "format=exact"
     "--source-username" "foo"
     "--source-password" "bar"
-    "--json-only" "false"
+    "--json-only"
     "--source-backoff-budget" "1"
     "--source-backoff-max-attempt" "1"
     "--source-backoff-j-range" "1"
@@ -282,7 +281,7 @@
     :force-resume true,
     :redis-prefix "my-xapipe",
     :source-backoff-j-range 1,
-    :json-only false,
+    :json-only true,
     :storage :file,
     :get-buffer-size 1,
     :target-backoff-initial 1,
