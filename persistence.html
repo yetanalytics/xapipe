@@ -138,10 +138,10 @@ redis://&#91;:PASSWORD@&#93;HOST&#91;:PORT&#93;&#91;?db=DATABASE&#93;
 redis://HOST&#91;:PORT&#93;/DATABASE&#91;?password=PASSWORD&#93;
 </code></pre><p>If you omit the URI it will default to <code>redis://0.0.0.0:6379</code>.</p><p>Additionally if you wish to provide a custom string such that all LRSPipe keys contain it as a prefix (e.g. in the case of a shared-use Redis server), you can do so with the <code>--redis-prefix</code> flag. If you do not include this argument, all related Redis keys will be prefixed with <code>xapipe</code>.</p><h2 id="in-memory&#95;/&#95;no-op">In-Memory / No-Op</h2><p>If you do not wish to store job status and progress at all, and would like LRSPipe to completely refresh on every restart, you can do so by specifying <code>noop</code> for the <code>--storage</code> flag. Keep in mind this will result in you not being able to resume a job at all and you will lose your progress any time the process is interrupted.</p><p><a href='index.html'><- Back to Index</a></p>
         <div class="footer">
-         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         &copy; 2021-<script>document.write( new Date().getFullYear() );</script> <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
          <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
          Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
-         <span class="build">Build: 038e402858276a194a1961cc6e2f0749a78cb54e</span>
+         <span class="build">Build: 09428251b6fbc51c23a0293b5c36116253e7b28e</span>
         </div>
       </div>
     </body>

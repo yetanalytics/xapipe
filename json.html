@@ -319,10 +319,10 @@ span.build {
 }
 </code></pre><p>Manipulating state in JSON config can become exceptionally complex and dangerous as this is the raw data representation of the running state of a job and out of scope of usage documentation. It is recommended that you simply preserve this section as-is. For resuming jobs this section will be entirely ignored in favor of the stored state. For that reason we will only cover one possibly relevant field here.</p><ul><li><code>cursor</code>: This field tracks the progress of where to load statements (by <code>stored</code> time) from the source LRS. By modifying it you can limit the synchronized statements by stored time. <em>NOTE: This cannot be changed for an existing stored job. Probably the safer way of doing this is to add the <code>since</code> key to <code>get-params</code> to make the source query start later than epoch.</em></li></ul><h2 id="generating&#95;json&#95;config">Generating JSON Config</h2><p>If you would like to convert CLI job args into a config file, for debugging purposes or to help build a working saved config, there is an option to do this. When running LRSPipe from CLI simply add</p><p><code>--json-out &#91;desired file location&#93;</code></p><p>Rather than run the job, LRSPipe will write the JSON equivalent configuration to the filename provided.</p><p><a href='index.html'><- Back to Index</a></p>
         <div class="footer">
-         &copy; 2021 <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
+         &copy; 2021-<script>document.write( new Date().getFullYear() );</script> <a href="https://www.yetanalytics.com" target="_blank">Yet Analytics Inc.</a> |
          <a href="https://github.com/yetanalytics/xapipe/blob/main/LICENSE" target="_blank">Licensed under the Apache 2.0 License</a> |
          Contribute on <a href="https://github.com/yetanalytics/xapipe" target="_blank">GitHub</a>
-         <span class="build">Build: 038e402858276a194a1961cc6e2f0749a78cb54e</span>
+         <span class="build">Build: 09428251b6fbc51c23a0293b5c36116253e7b28e</span>
         </div>
       </div>
     </body>
