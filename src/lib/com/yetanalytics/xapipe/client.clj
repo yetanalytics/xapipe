@@ -400,8 +400,7 @@
    poll-interval
    & {:keys [backoff-opts
              conn-opts
-             reporter
-             json-only]
+             reporter]
       :or {reporter (metrics/->NoopReporter)}}]
   (let [backoff-opts (or backoff-opts
                          {:budget 10000
