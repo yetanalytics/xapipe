@@ -57,6 +57,7 @@
             :source-poll-interval 1000,
             :get-params {},
             :source-backoff-budget 10000,
+            :json-only false
             :source-backoff-max-attempt 10}
            nil
 
@@ -66,6 +67,7 @@
             :source-poll-interval 1000,
             :get-params {},
             :source-backoff-budget 10000,
+            :json-only false
             :source-backoff-max-attempt 10}
            ["Failed to validate \"--source-batch-size 0\": Must be a positive integer"]
 
@@ -80,6 +82,7 @@
             :get-params {:since "2021-10-26T17:51:06.530464Z"
                          :related_agents true},
             :source-backoff-budget 10000,
+            :json-only false
             :source-backoff-max-attempt 10}
            nil))
 
@@ -129,6 +132,7 @@
    :target-backoff-budget 10000,
    :force-resume false,
    :redis-prefix "xapipe",
+   :json-only false
    :storage :file,
    :get-buffer-size 10,
    :target-batch-size 50,
@@ -157,9 +161,10 @@
     :cleanup-buffer-size 50,
     :source
     {:request-config
-     {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"},
+     {:url-base "http://0.0.0.0:8080",
+      :xapi-prefix "/xapi"},
      :batch-size 50,
-     :backoff-opts {:budget 10000, :max-attempt 10},
+     :backoff-opts {:budget 10000, :max-attempt 10}
      :poll-interval 1000,
      :get-params {:limit 50}},
     :target
@@ -215,6 +220,7 @@
     "--xapi-get-param" "format=exact"
     "--source-username" "foo"
     "--source-password" "bar"
+    "--json-only"
     "--source-backoff-budget" "1"
     "--source-backoff-max-attempt" "1"
     "--source-backoff-j-range" "1"
@@ -275,6 +281,7 @@
     :force-resume true,
     :redis-prefix "my-xapipe",
     :source-backoff-j-range 1,
+    :json-only true,
     :storage :file,
     :get-buffer-size 1,
     :target-backoff-initial 1,
@@ -291,15 +298,15 @@
     :metrics-reporter "prometheus"
     :prometheus-push-gateway "localhost:1234"
     :filter-ensure-paths [[["id"]]]
-    :filter-match-paths [[[["verb"]["id"]]
+    :filter-match-paths [[[["verb"] ["id"]]
                           "http://example.com/verb"]
                          [[["actor"]] {"mbox" "mailto:bob@example.com"
                                        "objectType" "Agent"}]]
     :filter-concept-profile-urls ["http://example.org/profile.jsonld"]
     :filter-concept-types ["Verb"]
-    :filter-activity-type-ids [ "http://example.org/profile.jsonld#activity-type"]
+    :filter-activity-type-ids ["http://example.org/profile.jsonld#activity-type"]
     :filter-verb-ids ["http://example.org/profile.jsonld#verb"]
-    :filter-attachment-usage-types [ "http://example.org/profile.jsonld#aut"]
+    :filter-attachment-usage-types ["http://example.org/profile.jsonld#aut"]
     :cleanup-buffer-size 1}
    [])
   (testing "no defaults"

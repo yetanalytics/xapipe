@@ -293,8 +293,7 @@
               target-client-opts]
        :or {conn-mgr-opts {}
             source-client-opts {}
-            target-client-opts {}
-            }} :client-opts
+            target-client-opts {}}} :client-opts
       reporter :reporter
       :or {reporter (metrics/->NoopReporter)}}]
   (let [{:keys [id]
@@ -410,7 +409,7 @@
                           {:state (-> state-before
                                       (cond->
                                           ;; If a job is paused, re-init
-                                          (= :paused (:status state-before))
+                                       (= :paused (:status state-before))
                                         (state/set-status :init))
                                       (assoc :updated init-stamp))})
                    states-chan
@@ -542,9 +541,7 @@
         (log/infof "store result: %s" result)))
     (def stop-fn stop))
 
-  (clojure.pprint/pprint (stop-fn))
-
-  )
+  (clojure.pprint/pprint (stop-fn)))
 
 (comment
   ;; Same as above, but with redis as a store
@@ -605,8 +602,7 @@
       (let [result (a/<! store-result)]
         (log/infof "store result: %s" result)))
     (def stop-fn stop))
-  (stop-fn)
-  )
+  (stop-fn))
 
 (comment
   ;; Use OAuth source LRS
@@ -647,6 +643,4 @@
         (log/infof "store result: %s" result)))
     (def stop-fn stop))
 
-  (clojure.pprint/pprint (stop-fn))
-
-  )
+  (clojure.pprint/pprint (stop-fn)))

@@ -54,12 +54,10 @@
                `boolean?
                :else
                `string?)
-        arg-spec `#{
-                    ~(format "--%s" long-command-name)
+        arg-spec `#{~(format "--%s" long-command-name)
                     ~@(if short-command
                         [short-command]
-                        [])
-                    }]
+                        [])}]
     `(list
       ;; actual key spec
       (s/def ~spec-kw
@@ -251,7 +249,9 @@
                     v))
            m)))]
     [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
-    [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]]
+    [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]
+    [nil "--json-only" "Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart (for compatibility issues)"
+     :default false]]
    (concat
     (oauth-opts "source")
     (backoff-opts "source"))))

@@ -48,6 +48,7 @@ All options:
   -p, --xapi-get-param KEY=VALUE        {}                    xAPI GET Parameters
       --source-username USERNAME                              Source LRS BASIC Auth username
       --source-password PASSWORD                              Source LRS BASIC Auth password
+      --json-only                                             Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart (for compatibility issues)
       --source-auth-uri URI                                   Source LRS OAuth autentication URI
       --source-client-id ID                                   Source LRS OAuth client ID
       --source-client-secret SECRET                           Source LRS OAuth client secret

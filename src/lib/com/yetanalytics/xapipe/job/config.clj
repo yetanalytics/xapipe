@@ -121,8 +121,8 @@
                 :poll-interval poll-interval)
          (assoc-in [:get-params :limit] get-batch-size)
          (cond->
-             ?since (update-in [:get-params :since] t/normalize-stamp)
-             ?until (update-in [:get-params :until] t/normalize-stamp)))
+          ?since (update-in [:get-params :since] t/normalize-stamp)
+          ?until (update-in [:get-params :until] t/normalize-stamp)))
      :target
      (assoc target-config
             :batch-size post-batch-size

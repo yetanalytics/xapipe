@@ -41,8 +41,7 @@ Delete a Job:
             ?json-file     :json-file
             ?json-out      :json-out
             :as            options} :options
-           :keys         [summary]} (opts/args->options args)
-          ]
+           :keys         [summary]} (opts/args->options args)]
       (if help?
         {:status  0
          :message (str
@@ -87,7 +86,7 @@ Delete a Job:
                         job/upgrade-job
                         (cond->
                           ;; If the user has requested force resume we clear
-                          force-resume?
+                         force-resume?
                           (-> (update :state state/clear-errors)
                               (update :state state/set-status :paused)))
                         (job/reconfigure-job
@@ -146,6 +145,7 @@ Delete a Job:
                                :message (format "Wrote job %s to %s"
                                                 job-id ?json-out)})
                 :else (do
+
                         (log/infof
                          (if new?
                            "Starting job %s"

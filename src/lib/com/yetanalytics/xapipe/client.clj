@@ -8,11 +8,11 @@
             [clojure.spec.gen.alpha :as sgen]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
+            [com.yetanalytics.xapipe.client.json-only :as json-only]
             [com.yetanalytics.xapipe.client.oauth :as oauth]
             [com.yetanalytics.xapipe.metrics :as metrics]
             [com.yetanalytics.xapipe.util :as u]
             [xapi-schema.spec :as xs]
-            [xapi-schema.spec.resources :as xsr]
             [com.yetanalytics.xapipe.util.time :as t]
             [com.yetanalytics.xapipe.spec.common :as cspec])
   (:import [org.apache.http.impl.client CloseableHttpClient]
@@ -28,6 +28,16 @@
                  status)
       (update resp :body slurp))))
 
+;; Add json-only output coercion
+(defmethod client/coerce-response-body :json-only
+  [req {:keys [status] :as resp}]
+  (if (= 200 status)
+    (json-only/parse-response req resp)
+    (do
+      (log/warnf "Received json response with non-200 status %d"
+                 status)
+      (update resp :body slurp))))
+
 ;; Config needed for all requests
 (s/def ::url-base
   string?)
@@ -39,6 +49,9 @@
 (s/def ::username string?)
 (s/def ::password string?)
 
+;; json-only mode support
+(s/def ::json-only boolean?)
+
 ;; token support
 (s/def ::token string?)
 
@@ -48,6 +61,7 @@
    :opt-un [::xapi-prefix
             ::username
             ::password
+            ::json-only
             ::token
             ::oauth/oauth-params]))
 
@@ -117,12 +131,12 @@
                 :related_agents
                 :format]))
 
-(def get-request-base
+(defn get-request-base [json-only?]
   {:headers      {"x-experience-api-version" "1.0.3"}
    :method       :get
-   :as           :multipart/mixed
+   :as           (if json-only? :json-only :multipart/mixed)
    :query-params {:ascending   true
-                  :attachments true}})
+                  :attachments (not json-only?)}})
 
 (s/def ::more string?) ;; more link
 
@@ -139,19 +153,20 @@
            username
            password
            token
-           oauth-params]
+           oauth-params
+           json-only]
     :or   {xapi-prefix "/xapi"}}
    get-params
    & [?more]]
   (cond-> (if (not-empty ?more)
             ;; Using More Link
-            (-> get-request-base
+            (-> (get-request-base json-only)
                 (assoc :url
                        (format "%s%s"
                                url-base
                                ?more))
                 (dissoc :query-params))
-            (-> get-request-base
+            (-> (get-request-base json-only)
                 (assoc :url
                        (format "%s%s/statements"
                                url-base
@@ -201,7 +216,7 @@
                   (format "multipart/mixed; boundary=%s" boundary))
         (cond->
           ;; support token if provided
-          (not-empty token)
+         (not-empty token)
           (assoc :oauth-token token)
           ;; support basic auth if provided
           (and (not-empty username)

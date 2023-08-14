@@ -210,9 +210,9 @@
         (-> job
             (assoc :config config)
             (cond->
-                (and
-                 (:pattern filter-cfg)
-                 (not (:pattern filter-state)))
+             (and
+              (:pattern filter-cfg)
+              (not (:pattern filter-state)))
               (assoc-in [:state :filter :pattern] {})))
         (-> job
             (update :state

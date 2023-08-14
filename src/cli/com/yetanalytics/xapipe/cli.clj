@@ -143,8 +143,8 @@
       (log/debugf "Adding shutdown hook for job %s" (:id job))
       (.addShutdownHook (Runtime/getRuntime)
                         (Thread. ^Runnable
-                                 (fn []
-                                   (force-stop-job! stop states))))
+                         (fn []
+                           (force-stop-job! stop states))))
       (let [_ (log/debugf "Waiting for job %s" (:id job))
             {{:keys [status]} :state
              :as job-result} (-> states
@@ -201,6 +201,7 @@
    :get-params                 [:source :get-params]
    :source-username            [:source :request-config :username]
    :source-password            [:source :request-config :password]
+   :json-only                  [:source :request-config :json-only]
    :source-auth-uri            [:source :request-config :oauth-params :auth-uri]
    :source-client-id           [:source :request-config :oauth-params :client-id]
    :source-client-secret       [:source :request-config :oauth-params :client-secret]
@@ -393,8 +394,8 @@
 (defn list-store-jobs
   [store]
   (doseq [[page batch] (->> (store/list-jobs store)
-                           (partition-all 100)
-                           (map-indexed vector))]
+                            (partition-all 100)
+                            (map-indexed vector))]
     (log/infof "Page %d%s"
                page
                (with-out-str
