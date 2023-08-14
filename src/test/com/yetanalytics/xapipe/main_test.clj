@@ -94,7 +94,8 @@
                 {:request-config
                  {:url-base (format "http://0.0.0.0:%s"
                                     (:port source)),
-                  :xapi-prefix "/xapi"},
+                  :xapi-prefix "/xapi"
+                  :json-only false},
                  :get-params
                  {:since "2021-10-25T15:05:00.537746000Z",
                   :until "2021-10-25T15:05:32.595885000Z",
@@ -186,6 +187,7 @@
                 {:request-config
                  {:url-base (format "http://0.0.0.0:%d"
                                     (:port source)),
+                  :json-only false
                   :xapi-prefix "/xapi"},
                  :get-params
                  {:since "2021-10-25T15:05:00.537746000Z",
@@ -359,7 +361,8 @@
                        :source
                        {:request-config
                         {:url-base (format "http://0.0.0.0:%d"
-                                           (:port source)), :xapi-prefix "/xapi"},
+                                           (:port source)), :xapi-prefix "/xapi"
+                         :json-only false},
                         :get-params
                         {:since "2021-10-25T15:05:00.537746000Z",
                          :until "2021-10-25T15:05:32.595885000Z",
