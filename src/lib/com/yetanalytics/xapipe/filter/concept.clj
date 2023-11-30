@@ -1,8 +1,6 @@
 (ns com.yetanalytics.xapipe.filter.concept
   "Functions to apply concept-based filtering to statement streams."
-  (:require [com.yetanalytics.persephone.template :as pt]
-            [com.yetanalytics.persephone :as p]
-            [com.yetanalytics.pan.objects.concepts.verb :as v]
+  (:require [com.yetanalytics.pan.objects.concepts.verb :as v]
             [com.yetanalytics.pan.objects.concepts.activity-type :as at]
             [com.yetanalytics.pan.objects.template :as t]
             [com.yetanalytics.pan.objects.concepts.attachment-usage-type :as aut]

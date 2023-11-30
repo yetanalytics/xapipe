@@ -6,8 +6,7 @@
             [clojure.spec.gen.alpha :as sgen]
             [cognitect.transit :as transit]
             [com.yetanalytics.xapipe.job :as job]
-            [com.yetanalytics.xapipe.job.config :as config]
-            [xapi-schema.spec :as xs])
+            [com.yetanalytics.xapipe.job.config :as config])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream File]))
 
 (s/fdef write-transit-str

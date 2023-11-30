@@ -1,10 +1,8 @@
 (ns com.yetanalytics.xapipe.job.state
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as sgen]
             [com.yetanalytics.xapipe.filter :as filt]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
-            [com.yetanalytics.xapipe.util.time :as t]
-            [xapi-schema.spec :as xs]))
+            [com.yetanalytics.xapipe.util.time :as t]))
 
 ;; Error vectors are stored at 3 levels for the source,
 ;; target, and entire job.

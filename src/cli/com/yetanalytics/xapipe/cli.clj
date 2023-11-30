@@ -19,8 +19,7 @@
             [com.yetanalytics.xapipe.store.impl.file :as file-store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem-store]
             [com.yetanalytics.xapipe.store.impl.noop :as noop-store]
-            [com.yetanalytics.xapipe.store.impl.redis :as redis-store]
-            [xapi-schema.spec.resources :as xsr])
+            [com.yetanalytics.xapipe.store.impl.redis :as redis-store])
   (:import [java.net URL]))
 
 ;; xAPI partial GET params
@@ -81,8 +80,8 @@
                   (.getProtocol parsed)
                   (.getAuthority parsed))
        :xapi-prefix (.getPath parsed)})
-    (catch Exception ex
-      (throw (ex-info (format "Could not parse LRS URL %s" url))))))
+    (catch Exception _
+      (throw (ex-info (format "Could not parse LRS URL %s" url) {})))))
 
 (s/fdef force-stop-job!
   :args (s/cat :stop-fn fn?

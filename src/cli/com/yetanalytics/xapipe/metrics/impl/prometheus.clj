@@ -44,13 +44,13 @@
                   collectors)]
     (reify
       metrics/Reporter
-      (-gauge [this k v]
+      (-gauge [_ k v]
         (pro/set registry k v))
-      (-counter [this k delta]
+      (-counter [_ k delta]
         (pro/inc registry k delta))
-      (-histogram [this k v]
+      (-histogram [_ k v]
         (pro/observe registry k v))
-      (-summary [this k v]
+      (-summary [_ k v]
         (pro/observe registry k v))
-      (-flush! [this]
+      (-flush! [_]
         (pro-exp/push! registry)))))

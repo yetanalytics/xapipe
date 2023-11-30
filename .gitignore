@@ -19,3 +19,10 @@ failures/
 /logs/
 .DS_Store
 /dev-resources/bench/*.json
+
+# VSCode
+.calva/
+.clj-kondo/
+.cljs_node_repl/
+.lsp/
+.vscode/
