@@ -15,9 +15,8 @@
          :exclusions [org.clojure/clojurescript]}
         org.clojure/data.json {:mvn/version "2.4.0"}
         com.cognitect/transit-clj {:mvn/version "1.0.333"
-                                   ;; clears CVE-2023-5072 and CVE-2022-41719
-                                   :exclusions [com.fasterxml.jackson.core/jackson-core
-                                                org.msgpack/msgpack]}
+                                   ;; clears CVE-2022-41719
+                                   :exclusions [org.msgpack/msgpack]}
         cheshire/cheshire {:mvn/version "5.12.0"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
