@@ -18,7 +18,9 @@
                                    ;; clears CVE-2023-5072 and CVE-2022-41719
                                    :exclusions [com.fasterxml.jackson.core/jackson-core
                                                 org.msgpack/msgpack]}
-        cheshire/cheshire {:mvn/version "5.12.0"}}
+        cheshire/cheshire {:mvn/version "5.12.0"
+                           :exclusions [com.fasterxml.jackson.core/jackson-core]}
+        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.16.1"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
