@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <!-- The following FP will be addressed in DependencyCheck v7.4.1 -->
-    <suppress base="true">
-        <notes><![CDATA[
-        FP per issue #5121 - fix for commons
-        ]]></notes>
-        <packageUrl regex="true">^(?!pkg:maven/commons-net/commons-net).*$</packageUrl>
-        <cpe>cpe:/a:apache:commons_net</cpe>
-    </suppress>
     <!-- The following are FPs since the CVE affects java-json which is not a dep -->
     <suppress>
         <notes><![CDATA[
