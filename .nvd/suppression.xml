@@ -59,4 +59,13 @@
         <packageUrl regex="true">^pkg:maven/com\.github\.jsonld\-java/jsonld\-java@.*$</packageUrl>
         <cve>CVE-2022-45688</cve>
     </suppress>
+    <!-- This CVE is valid for Clojure before 1.8.0, but is a FP for other libs -->
+    <suppress>
+        <notes><![CDATA[
+            all packages except for org.clojure/clojure
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven\/(?!org\.clojure\/clojure).*$</packageUrl>
+        <cpe>cpe:/a:clojure:clojure</cpe>
+        <cve>CVE-2017-20189</cve>
+    </suppress>
 </suppressions>
