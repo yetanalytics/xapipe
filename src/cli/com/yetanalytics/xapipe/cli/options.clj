@@ -2,7 +2,6 @@
   "clojure.tools.cli options for xapipe CLI"
   (:require [cheshire.core :as json]
             [clojure.spec.alpha :as s]
-            [clojure.java.io :as io]
             [clojure.string :as cs]
             [clojure.tools.cli :as cli]
             [com.yetanalytics.xapipe :as xapipe]
@@ -10,7 +9,7 @@
             [com.yetanalytics.xapipe.filter.path :as fpath]))
 
 (defn option-spec->spec-def
-  [[short-command long-command desc
+  [[short-command long-command _description
     & {:keys [id
               default
               parse-fn

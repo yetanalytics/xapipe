@@ -2,7 +2,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
             [clojure.tools.logging :as log]
-            [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
             [xapi-schema.spec :as xs]))
 

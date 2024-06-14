@@ -1,14 +1,9 @@
 (ns com.yetanalytics.xapipe.filter
   "Apply profile-based filtering to statement streams."
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as sgen]
             [xapi-schema.spec :as xs]
             [cheshire.core :as json]
             [com.yetanalytics.persephone :as per]
-            [com.yetanalytics.persephone.pattern.fsm :as fsm]
-            [com.yetanalytics.persephone.pattern.fsm-spec :as fsm-spec]
-            [com.yetanalytics.persephone.template :as per-template]
-            [com.yetanalytics.persephone.utils.json :as per-json]
             [com.yetanalytics.pan.objects.pattern :as pat]
             [com.yetanalytics.pan.objects.profile :as prof]
             [com.yetanalytics.pan.objects.template :as template]

@@ -6,8 +6,7 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
             [clojure.string :as cs]
-            [xapi-schema.spec :as xs]
-            [xapi-schema.spec.resources :as xsr])
+            [xapi-schema.spec :as xs])
   (:import
    [java.io
     Writer
