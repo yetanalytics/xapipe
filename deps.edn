@@ -4,6 +4,7 @@
         clj-http/clj-http {:mvn/version "3.12.3"}
         com.taoensso/carmine {:mvn/version "3.4.1"}
         commons-fileupload/commons-fileupload {:mvn/version "1.5"}
+        commons-io/commons-io {:mvn/version "2.14.0"}
         com.yetanalytics/xapi-schema
         {:mvn/version "1.2.0"
          :exclusions [org.clojure/clojure
