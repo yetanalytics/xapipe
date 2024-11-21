@@ -8,8 +8,7 @@
             [clojure.java.io :as io]
             [com.yetanalytics.xapipe.util.time :as tu]
             [java-time :as t]
-            [java-time.seqs :as tseq])
-  (:import [java.time Instant]))
+            [java-time.seqs :as tseq]))
 
 (defn- stamp-seq
   "Create a lazy sequence of timestamps"
@@ -238,15 +237,14 @@
                            (flush)
                            r)))
                  _ (do (print "\n\n") (flush))
-                 ]
-             (let [first-run (first runs)]
-               (merge (dissoc first-run
-                              :s-per-sec
-                              :total-ms)
-                      {:label label
-                       :runs num-runs
-                       :total-ms (maths/mean (map :total-ms runs))
-                       :s-per-sec (maths/mean (map :s-per-sec runs))}))))
+                 first-run (first runs)]
+             (merge (dissoc first-run
+                            :s-per-sec
+                            :total-ms)
+                    {:label label
+                     :runs num-runs
+                     :total-ms (maths/mean (map :total-ms runs))
+                     :s-per-sec (maths/mean (map :s-per-sec runs))})))
          [;; Default tuning args (including calculated)
           {:label "defaults"
            :num-runs 10

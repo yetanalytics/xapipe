@@ -1,6 +1,5 @@
 (ns com.yetanalytics.xapipe.job.state.errors
-  (:require [clojure.spec.alpha :as s]
-            [xapi-schema.spec :as xs]))
+  (:require [clojure.spec.alpha :as s]))
 
 (s/def ::message string?)
 (s/def ::type #{:job :source :target})

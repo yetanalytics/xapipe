@@ -34,6 +34,11 @@ jobs:
       - name: Test Xapipe
         run: make test
 
+  lint:
+    uses: yetanalytics/workflow-linter/.github/workflows/linter.yml@v2023.01.20
+    with:
+      lint-directories: 'src/bench src/build src/cli src/lib src/test'
+
   nvd_scan:
     uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.4
     with:
