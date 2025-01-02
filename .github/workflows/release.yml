@@ -47,21 +47,22 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-deps-
+      
       - name: Build Xapipe
         run: make bundle BUNDLE_RUNTIMES=false
 
       - name: Download ubuntu-latest Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ubuntu-22.04-jre
 
       - name: Download macOS-latest Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos-14-jre
 
       - name: Download windows-latest Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-2022-jre
 
