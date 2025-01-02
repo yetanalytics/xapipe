@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v2
+        uses: yetanalytics/action-setup-env@v2
 
       - name: Cache Deps
         uses: actions/cache@v3
