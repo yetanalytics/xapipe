@@ -6,9 +6,6 @@ on:
       - '*'
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - 'main'
 
 jobs:
   test:
@@ -16,13 +13,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0.0.4
+        uses: yetanalytics/action-setup-env@v2
 
       - name: Cache Deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2
@@ -49,13 +46,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get an env
-        uses: yetanalytics/actions/setup-env@v0.0.4
+        uses: yetanalytics/action-setup-env@v2
 
       - name: Cache Deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.m2

@@ -19,3 +19,5 @@ failures/
 /logs/
 .DS_Store
 /dev-resources/bench/*.json
+.clj-kondo/
+.lsp/
