@@ -6,7 +6,7 @@
         commons-fileupload/commons-fileupload {:mvn/version "1.6.0"}
         commons-io/commons-io {:mvn/version "2.14.0"}
         com.yetanalytics/xapi-schema
-        {:mvn/version "1.2.0"
+        {:mvn/version "1.4.1"
          :exclusions [org.clojure/clojure
                       org.clojure/clojurescript
                       org.clojure/data.json]}
@@ -39,7 +39,7 @@
           io.github.cognitect-labs/test-runner
           {:git/url "https://github.com/cognitect-labs/test-runner"
            :sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
-          com.yetanalytics/lrs {:mvn/version "1.2.11"}
+          com.yetanalytics/lrs {:mvn/version "1.4.0"}
           io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
           ;; Some integration tests use logback
           ch.qos.logback/logback-classic {:mvn/version "1.5.15"

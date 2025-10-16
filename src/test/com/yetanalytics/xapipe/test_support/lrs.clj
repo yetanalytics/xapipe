@@ -10,7 +10,7 @@
 ;; An LRS that accepts statements but does not retain them
 (deftype SinkLRS []
   lrsp/StatementsResource
-  (-store-statements [_ _ statements attachments]
+  (-store-statements [_ _ _ statements attachments]
     {:statement-ids
      (into []
            (map #(ss/normalize-id (get % "id"))
@@ -50,6 +50,7 @@
     (reify
       lrsp/StatementsResource
       (-get-statements [_
+                        _
                         _
                         {:keys [limit]
                          :or {limit 50}}

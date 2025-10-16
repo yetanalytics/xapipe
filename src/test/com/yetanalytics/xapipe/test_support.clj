@@ -134,6 +134,7 @@
              :load           (fn [statements & [attachments]]
                                (lrs/store-statements
                                 lrs
+                                {:com.yetanalytics.lrs/version "1.0.3"}
                                 {}
                                 (into [] statements)
                                 (into [] attachments)))
