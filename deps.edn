@@ -39,7 +39,9 @@
           io.github.cognitect-labs/test-runner
           {:git/url "https://github.com/cognitect-labs/test-runner"
            :sha "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}
-          com.yetanalytics/lrs {:mvn/version "1.4.0"}
+          com.yetanalytics/lrs {:git/sha "5c0cf215746c21da82d0720e4507b682b0d1f85b"
+                                :git/url "https://github.com/yetanalytics/lrs"
+                                #_#_:mvn/version "1.4.0"}
           io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
           ;; Some integration tests use logback
           ch.qos.logback/logback-classic {:mvn/version "1.5.15"
