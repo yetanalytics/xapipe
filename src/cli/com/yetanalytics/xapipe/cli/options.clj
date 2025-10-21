@@ -250,6 +250,9 @@
            m)))]
     [nil "--source-username USERNAME" "Source LRS BASIC Auth username"]
     [nil "--source-password PASSWORD" "Source LRS BASIC Auth password"]
+    [nil "--source-xapi-version VERSION" "Source LRS xAPI Version"
+     :validate [#{"1.0.3" "2.0.0"} "Must be 1.0.3 or 2.0.0"]
+     :default "1.0.3"]
     [nil "--json-only" "Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart (for compatibility issues)"
      :default false]]
    (concat
@@ -266,7 +269,10 @@
           :validate [pos-int? "Must be a positive integer"]
           :default 50]
          [nil "--target-username USERNAME" "Target LRS BASIC Auth username"]
-         [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]]
+         [nil "--target-password PASSWORD" "Target LRS BASIC Auth password"]
+         [nil "--target-xapi-version VERSION" "Target LRS xAPI Version"
+          :validate [#{"1.0.3" "2.0.0"} "Must be 1.0.3 or 2.0.0"]
+          :default "1.0.3"]]
         (concat
          (oauth-opts "target")
          (backoff-opts "target"))))

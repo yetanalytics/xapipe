@@ -90,7 +90,8 @@
   [& {:keys [stream-path
              sink
              seed-path
-             port]}]
+             port
+             xapi-version]}]
   (let [port (or port
                  (get-free-port))
         lrs (cond
@@ -139,7 +140,8 @@
                                 (into [] statements)
                                 (into [] attachments)))
              :request-config {:url-base    (format "http://0.0.0.0:%d" port)
-                              :xapi-prefix "/xapi"}
+                              :xapi-prefix "/xapi"
+                              :xapi-version "1.0.3"} ;; can be overridden
              :type (cond
                      sink :sink
                      stream-path :stream

@@ -57,7 +57,8 @@
 
 (s/def ::request-config
   (s/keys
-   :req-un [::url-base]
+   :req-un [::url-base
+            ::cspec/xapi-version]
    :opt-un [::xapi-prefix
             ::username
             ::password
@@ -132,7 +133,7 @@
                 :format]))
 
 (defn get-request-base [json-only?]
-  {:headers      {"x-experience-api-version" "1.0.3"}
+  {:headers      {}
    :method       :get
    :as           (if json-only? :json-only :multipart/mixed)
    :query-params {:ascending   true
@@ -154,38 +155,43 @@
            password
            token
            oauth-params
-           json-only]
+           json-only
+           xapi-version]
     :or   {xapi-prefix "/xapi"}}
    get-params
    & [?more]]
-  (cond-> (if (not-empty ?more)
-            ;; Using More Link
-            (-> (get-request-base json-only)
-                (assoc :url
-                       (format "%s%s"
-                               url-base
-                               ?more))
-                (dissoc :query-params))
-            (-> (get-request-base json-only)
-                (assoc :url
-                       (format "%s%s/statements"
-                               url-base
-                               xapi-prefix))
-                (update :query-params merge get-params)))
-    ;; support token if provided
-    (not-empty token)
-    (assoc :oauth-token token)
-    ;; support basic auth if provided
-    (and (not-empty username)
-         (not-empty password))
-    (assoc :basic-auth [username password])
-    ;; If OAuth support is enabled, pass through on a namespaced
-    ;; keyword to be picked up in async-request
-    oauth-params
-    (assoc ::oauth/oauth-params oauth-params)))
+  (->
+   (cond-> (if (not-empty ?more)
+             ;; Using More Link
+             (-> (get-request-base json-only)
+                 (assoc :url
+                        (format "%s%s"
+                                url-base
+                                ?more))
+                 (dissoc :query-params))
+             (-> (get-request-base json-only)
+                 (assoc :url
+                        (format "%s%s/statements"
+                                url-base
+                                xapi-prefix))
+                 (update :query-params merge get-params)))
+     ;; support token if provided
+     (not-empty token)
+     (assoc :oauth-token token)
+     ;; support basic auth if provided
+     (and (not-empty username)
+          (not-empty password))
+     (assoc :basic-auth [username password])
+     ;; If OAuth support is enabled, pass through on a namespaced
+     ;; keyword to be picked up in async-request
+     oauth-params
+     (assoc ::oauth/oauth-params oauth-params))
+   (assoc-in
+    [:headers "x-experience-api-version"]
+    xapi-version)))
 
 (def post-request-base
-  {:headers {"x-experience-api-version" "1.0.3"}
+  {:headers {}
    :method  :post})
 
 (s/fdef post-request
@@ -200,12 +206,15 @@
            username
            password
            token
-           oauth-params]
+           oauth-params
+           xapi-version]
     :or   {xapi-prefix "/xapi"}}
    statements
    attachments]
   (let [boundary (multipart/gen-boundary)]
     (-> post-request-base
+        (assoc-in [:headers "x-experience-api-version"]
+                  xapi-version)
         (merge
          {:url  (format "%s%s/statements"
                         url-base

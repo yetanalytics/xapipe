@@ -94,7 +94,7 @@
   :ret job/job-spec)
 
 (defn json->job
-  "Parse a job from JSON"
+  "Parse a job from JSON, possibly updating it to the current version."
   [^String json-str]
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status

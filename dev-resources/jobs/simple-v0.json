@@ -1,6 +1,5 @@
 {
   "id": "foo",
-  "version": 1,
   "config": {
     "get-buffer-size": 10,
     "statement-buffer-size": 500,
@@ -9,8 +8,7 @@
     "source": {
       "request-config": {
         "url-base": "http://0.0.0.0:8080",
-        "xapi-prefix": "/xapi",
-        "xapi-version": "1.0.3"
+        "xapi-prefix": "/xapi"
       },
       "batch-size": 50,
       "backoff-opts": {
@@ -25,8 +23,7 @@
     "target": {
       "request-config": {
         "url-base": "http://0.0.0.0:8081",
-        "xapi-prefix": "/xapi",
-        "xapi-version": "1.0.3"
+        "xapi-prefix": "/xapi"
       },
       "batch-size": 50,
       "backoff-opts": {

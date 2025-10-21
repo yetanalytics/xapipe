@@ -22,12 +22,14 @@
             job-id (.toString (java.util.UUID/randomUUID))
             ;; This test uses a "raw" job from scratch
             job {:id job-id,
+                 :version 1
                  :config
                  {:source
                   {:request-config
                    {:url-base (format "http://0.0.0.0:%d"
                                       (:port source)),
-                    :xapi-prefix "/xapi"},
+                    :xapi-prefix "/xapi",
+                    :xapi-version "1.0.3"},
                    :get-params
                    {:since since
                     :until until}},
@@ -35,7 +37,8 @@
                   {:request-config
                    {:url-base (format "http://0.0.0.0:%d"
                                       (:port target)),
-                    :xapi-prefix "/xapi"}}},
+                    :xapi-prefix "/xapi",
+                    :xapi-version "1.0.3"}}},
                  :state
                  {:status :init,
                   :cursor since,
@@ -91,7 +94,8 @@
       (let [;; Bad source
             config {:source
                     {:request-config {:url-base    "http://localhost:8123"
-                                      :xapi-prefix "/foo"}
+                                      :xapi-prefix "/foo",
+                                      :xapi-version "1.0.3"}
                      :get-params     {}
                      :poll-interval  1000
                      :batch-size     50}
@@ -131,7 +135,8 @@
                      :batch-size     50}
                     :target
                     {:request-config {:url-base    "http://localhost:8123"
-                                      :xapi-prefix "/foo"}
+                                      :xapi-prefix "/foo",
+                                      :xapi-version "1.0.3"}
                      :batch-size     50}}
             {:keys [job-id
                     job

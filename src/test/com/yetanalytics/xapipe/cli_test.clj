@@ -34,10 +34,12 @@
   (testing "minimal"
     (is (= {:source
             {:request-config
-             {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"}},
+             {:url-base "http://0.0.0.0:8080",
+              :xapi-prefix "/xapi"}},
             :target
             {:request-config
-             {:url-base "http://0.0.0.0:8081", :xapi-prefix "/xapi"}},
+             {:url-base "http://0.0.0.0:8081",
+              :xapi-prefix "/xapi"}},
             :filter {}}
            (options->config
             {:source-url "http://0.0.0.0:8080/xapi"
@@ -108,7 +110,7 @@
 
 (deftest create-job-test
   (is (= {:id "foo",
-          :version 0,
+          :version 1,
           :config
           {:get-buffer-size 100,
            :statement-buffer-size 1000,
@@ -119,6 +121,7 @@
            {:request-config
             {:url-base "http://0.0.0.0:8080",
              :xapi-prefix "/xapi",
+             :xapi-version "1.0.3",
              :username "foo",
              :password "bar",
              :oauth-params {:auth-uri "http://example.com/token"
@@ -133,6 +136,7 @@
            {:request-config
             {:url-base "http://0.0.0.0:8081",
              :xapi-prefix "/xapi",
+             :xapi-version "1.0.3",
              :username "foo",
              :password "bar",
              :oauth-params {:auth-uri "http://example.com/token"
@@ -165,6 +169,7 @@
            :source-backoff-max-attempt 10
            :source-backoff-j-range 10
            :source-backoff-initial 1
+           :source-xapi-version "1.0.3"
 
            :target-url "http://0.0.0.0:8081/xapi"
            :target-batch-size 50
@@ -177,6 +182,7 @@
            :target-backoff-max-attempt 10
            :target-backoff-j-range 10
            :target-backoff-initial 1
+           :target-xapi-version "1.0.3"
 
            :get-buffer-size 100
            :batch-timeout 200
@@ -197,7 +203,8 @@
                 :source
                 {:request-config
                  {:url-base "http://0.0.0.0:8080",
-                  :xapi-prefix "/xapi"},
+                  :xapi-prefix "/xapi",
+                  :xapi-version "1.0.3"},
                  :get-params {},
                  :poll-interval 1000,
                  :batch-size 50,
@@ -206,7 +213,8 @@
                 :target
                 {:request-config
                  {:url-base "http://0.0.0.0:8081",
-                  :xapi-prefix "/xapi"},
+                  :xapi-prefix "/xapi",
+                  :xapi-version "1.0.3"},
                  :batch-size 50,
                  :backoff-opts
                  {:budget 1000, :max-attempt 10, :j-range 10, :initial 1}},
@@ -248,6 +256,7 @@
                 {:request-config
                  {:url-base "http://0.0.0.0:8080",
                   :xapi-prefix "/xapi",
+                  :xapi-version "1.0.3",
                   :username "foo",
                   :password "bar"},
                  :get-params {:limit 50},
@@ -259,6 +268,7 @@
                 {:request-config
                  {:url-base "http://0.0.0.0:8081",
                   :xapi-prefix "/xapi",
+                  :xapi-version "1.0.3",
                   :username "foo",
                   :password "bar"},
                  :batch-size 50,
@@ -275,6 +285,7 @@
               {:request-config
                {:url-base "http://0.0.0.0:8082",
                 :xapi-prefix "/xapi2",
+                :xapi-version "1.0.3",
                 :username "baz",
                 :password "quxx"},
                :get-params {:format "exact"
@@ -287,6 +298,7 @@
               {:request-config
                {:url-base "http://0.0.0.0:8083",
                 :xapi-prefix "/xapi2",
+                :xapi-version "1.0.3",
                 :username "baz",
                 :password "quxx"},
                :batch-size 100,
@@ -325,6 +337,7 @@
     (testing "Auth change"
       (is (= {:url-base "http://0.0.0.0:8080",
               :xapi-prefix "/xapi",
+              :xapi-version "1.0.3",
               :token "foobar"}
              (-> (reconfigure-with-options
                   config

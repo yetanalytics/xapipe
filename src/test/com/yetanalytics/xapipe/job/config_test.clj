@@ -7,9 +7,11 @@
 (def minimal-config
   {:source
    {:request-config {:url-base "http://0.0.0.0:8080"
+                     :xapi-version "1.0.3"
                      :xapi-prefix "/xapi"}}
    :target
    {:request-config {:url-base "http://0.0.0.0:8081"
+                     :xapi-version "1.0.3"
                      :xapi-prefix "/xapi"}}})
 
 (deftest minimal-config-test
