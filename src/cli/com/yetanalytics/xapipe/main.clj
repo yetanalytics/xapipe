@@ -40,6 +40,7 @@ Delete a Job:
             ?json          :json
             ?json-file     :json-file
             ?json-out      :json-out
+            upgrade-jobs?  :upgrade-jobs
             :as            options} :options
            :keys         [summary]} (opts/args->options args)]
       (if help?
@@ -83,10 +84,11 @@ Delete a Job:
                     ;; Found in storage
                     ?from-storage
                     (-> ?from-storage
-                        job/upgrade-job
                         (cond->
+                          ;; upgrade retrieved job if desired
+                          upgrade-jobs? job/upgrade-job
                           ;; If the user has requested force resume we clear
-                         force-resume?
+                          force-resume?
                           (-> (update :state state/clear-errors)
                               (update :state state/set-status :paused)))
                         (job/reconfigure-job
@@ -99,7 +101,8 @@ Delete a Job:
                     ;; Json is provided
                     ?from-json
                     (-> ?from-json
-                        job/upgrade-job
+                        (cond->
+                          upgrade-jobs? job/upgrade-job)
                         (update :config cli/reconfigure-with-options
                                 ;; reparse args w/o defaults
                                 (:options

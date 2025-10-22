@@ -91,18 +91,16 @@
 
 (s/fdef json->job
   :args (s/cat :json-str ::job-json)
-  :ret job/job-spec)
+  :ret any? ;; we don't spec this because the job may need an update
+  )
 
 (defn json->job
-  "Parse a job from JSON, possibly updating it to the current version."
-  [^String json-str & {:keys [upgrade]
-                       :or {upgrade true}}]
+  "Parse a job from JSON."
+  [^String json-str]
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status
       keywordize-job-error-types
       (unpack-paths [[:state :filter :pattern]])
-      (cond->
-          upgrade job/upgrade-job)
       (update :config config/ensure-defaults)))
 
 (s/def ::pretty boolean?)
