@@ -156,7 +156,10 @@
                  (-> filepath
                      slurp
                      job-json/json->job))]
-    [nil "--json-out FILE" "Write JOB to a JSON file"]]
+    [nil "--json-out FILE" "Write JOB to a JSON file"]
+    [nil "--[no-]upgrade" "Automatically upgrade jobs to the latest version"
+     :id :upgrade-jobs
+     :default true]]
    (concat storage-options
            metrics-options)))
 

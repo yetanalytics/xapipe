@@ -26,7 +26,8 @@
             :redis-prefix "xapipe"
             :file-store-dir "store"
             :metrics-reporter "noop"
-            :prometheus-push-gateway "0.0.0.0:9091"}
+            :prometheus-push-gateway "0.0.0.0:9091"
+            :upgrade-jobs true}
            nil
 
            ;; Redis store with a custom uri
@@ -40,7 +41,8 @@
             :redis-prefix "xapipe"
             :file-store-dir "store"
             :metrics-reporter "noop"
-            :prometheus-push-gateway "0.0.0.0:9091"}
+            :prometheus-push-gateway "0.0.0.0:9091"
+            :upgrade-jobs true}
            nil))
 
 (deftest source-options-test
@@ -154,7 +156,8 @@
    :filter-verb-ids []
    :filter-attachment-usage-types []
    :source-xapi-version "1.0.3"
-   :target-xapi-version "1.0.3"})
+   :target-xapi-version "1.0.3"
+   :upgrade-jobs true})
 
 ;; Matches the fixture job we have
 (def json-job
@@ -321,7 +324,8 @@
     :filter-attachment-usage-types ["http://example.org/profile.jsonld#aut"]
     :cleanup-buffer-size 1
     :source-xapi-version "2.0.0"
-    :target-xapi-version "2.0.0"}
+    :target-xapi-version "2.0.0"
+    :upgrade-jobs true}
    [])
   (testing "no defaults"
     (is (= {}
