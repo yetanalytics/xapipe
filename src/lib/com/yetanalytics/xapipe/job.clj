@@ -13,7 +13,7 @@
 
 (s/def ::config config/config-spec)
 (s/def ::state state/state-spec)
-(s/def ::version #{0 current-version})
+(s/def ::version #{current-version})
 (s/def ::id (s/and string? not-empty))
 
 (defn valid-get-params-vs-state?

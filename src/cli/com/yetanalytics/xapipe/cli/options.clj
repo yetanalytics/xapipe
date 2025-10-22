@@ -149,15 +149,15 @@
     [nil "--delete-job ID" "Delete the job specified and exit."]
     ["-f" "--force-resume" "If resuming a job, clear any errors and force it to resume."
      :default false]
-    [nil "--json JSON" "Take a job specification as a JSON string"
+    [nil "--json JSON" "Take a job specification as a JSON string (automatically upgrades old jobs)"
      :parse-fn job-json/json->job]
-    [nil "--json-file FILE" "Take a job specification from a JSON file"
+    [nil "--json-file FILE" "Take a job specification from a JSON file (automatically upgrades old jobs)"
      :parse-fn (fn [filepath]
                  (-> filepath
                      slurp
                      job-json/json->job))]
     [nil "--json-out FILE" "Write JOB to a JSON file"]
-    [nil "--[no-]upgrade" "Automatically upgrade jobs to the latest version"
+    [nil "--[no-]upgrade" "Automatically upgrade jobs started from storage to the latest version (jobs started from JSON will always be upgraded)"
      :id :upgrade-jobs
      :default true]]
    (concat storage-options

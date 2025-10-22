@@ -95,11 +95,14 @@
 
 (defn json->job
   "Parse a job from JSON, possibly updating it to the current version."
-  [^String json-str]
+  [^String json-str & {:keys [upgrade]
+                       :or {upgrade true}}]
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status
       keywordize-job-error-types
       (unpack-paths [[:state :filter :pattern]])
+      (cond->
+          upgrade job/upgrade-job)
       (update :config config/ensure-defaults)))
 
 (s/def ::pretty boolean?)

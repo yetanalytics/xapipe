@@ -69,6 +69,7 @@
      poll-interval    :poll-interval
      {?since :since
       ?until :until}  :get-params
+     get-req-config   :request-config
      :as              source-config
      :or              {get-batch-size   50
                        get-backoff-opts {:budget      10000
@@ -77,6 +78,7 @@
     :source
     {post-batch-size   :batch-size
      post-backoff-opts :backoff-opts
+     post-req-config   :request-config
      :as               target-config
      :or               {post-backoff-opts {:budget      10000
                                            :max-attempt 10}}}
@@ -108,27 +110,32 @@
         cleanup-buffer-size
         (or cleanup-buffer-size
             get-batch-size
-            0)]
-    {:get-buffer-size       get-buffer-size
-     :statement-buffer-size statement-buffer-size
-     :batch-buffer-size     batch-buffer-size
-     :batch-timeout         batch-timeout
-     :cleanup-buffer-size   cleanup-buffer-size
-     :source
-     (-> source-config
-         (assoc :batch-size get-batch-size
-                :backoff-opts get-backoff-opts
-                :poll-interval poll-interval)
-         (assoc-in [:get-params :limit] get-batch-size)
-         (cond->
-          ?since (update-in [:get-params :since] t/normalize-stamp)
-          ?until (update-in [:get-params :until] t/normalize-stamp)))
-     :target
-     (assoc target-config
-            :batch-size post-batch-size
-            :backoff-opts post-backoff-opts)
-     :filter
-     (or filter-config {})}))
+            0)
+        source-version (get get-req-config :xapi-version "1.0.3")
+        target-version (get post-req-config :xapi-version "1.0.3")]
+    (->
+     {:get-buffer-size       get-buffer-size
+      :statement-buffer-size statement-buffer-size
+      :batch-buffer-size     batch-buffer-size
+      :batch-timeout         batch-timeout
+      :cleanup-buffer-size   cleanup-buffer-size
+      :source
+      (-> source-config
+          (assoc :batch-size get-batch-size
+                 :backoff-opts get-backoff-opts
+                 :poll-interval poll-interval)
+          (assoc-in [:get-params :limit] get-batch-size)
+          (cond->
+              ?since (update-in [:get-params :since] t/normalize-stamp)
+              ?until (update-in [:get-params :until] t/normalize-stamp)))
+      :target
+      (assoc target-config
+             :batch-size post-batch-size
+             :backoff-opts post-backoff-opts)
+      :filter
+      (or filter-config {})}
+     (assoc-in [:source :request-config :xapi-version] source-version)
+     (assoc-in [:target :request-config :xapi-version] target-version))))
 
 (s/fdef sanitize-req-cfg
   :args (s/cat :rcfg ::client/request-config)
