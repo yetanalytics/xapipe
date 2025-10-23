@@ -1,6 +1,7 @@
 (ns com.yetanalytics.xapipe.xapi
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
+            [clojure.string :as cs]
             [clojure.tools.logging :as log]
             [com.yetanalytics.xapipe.client :as client]
             [com.yetanalytics.xapipe.client.multipart-mixed :as multipart]
@@ -168,3 +169,40 @@
       (log/warnf "Extra attachments for shas %s, cleaning..." (pr-str (keys leftover)))
       (multipart/clean-tempfiles! (mapcat identity (vals leftover))))
     source-statements))
+
+;; Statement version downgrade (from SQL LRS)
+
+(s/fdef ensure-103-timestamp
+  :args (s/cat :timestamp (s/with-gen
+                            string?
+                            (fn []
+                              (binding [xs/*xapi-version* "2.0.0"]
+                                (s/gen ::xs/timestamp)))))
+  :ret ::xs/timestamp)
+
+(defn ensure-103-timestamp
+  "Ensure the timestamp is in the 1.0.3 format."
+  [timestamp]
+  (if (cs/includes? timestamp " ")
+    (cs/replace-first timestamp " " "T")
+    timestamp))
+
+(s/fdef convert-200-to-103
+  :args (s/cat :statement
+               (s/with-gen
+                 map?
+                 (fn []
+                   (binding [xs/*xapi-version* "2.0.0"]
+                     (s/gen ::xs/statement))))))
+
+(defn convert-200-to-103
+  "Convert a Statement from xAPI 2.0.0 to 1.0.3 by removing properties not in
+   the 1.0.3 spec and normalizing timestamp."
+  [statement]
+  (if (= "2.0.0" (get statement "version"))
+    (-> statement
+        (assoc "version" "1.0.0")
+        (update "timestamp" ensure-103-timestamp)
+        (cond-> (get statement "context")
+          (update "context" dissoc "contextAgents" "contextGroups")))
+    statement))
