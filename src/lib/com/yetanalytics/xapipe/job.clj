@@ -6,8 +6,7 @@
             [com.yetanalytics.xapipe.job.state :as state]
             [com.yetanalytics.xapipe.job.state.errors :as errors]
             [com.yetanalytics.xapipe.util.time :as t]
-            [xapi-schema.spec :as xs]
-            [com.yetanalytics.xapipe.job :as job]))
+            [xapi-schema.spec :as xs]))
 
 (def current-version 1)
 
