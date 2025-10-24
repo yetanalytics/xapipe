@@ -354,7 +354,7 @@
                  (a/put!
                   ret
                   [:exception
-                   (ex-info "Non-200 Request Status"
+                   (ex-info (format "Non-200 Request Status %s" status)
                             {:type     ::request-fail
                              :response resp})])))
              (fn [exception]

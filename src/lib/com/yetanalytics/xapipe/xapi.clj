@@ -198,11 +198,21 @@
 (defn convert-200-to-103
   "Convert a Statement from xAPI 2.0.0 to 1.0.3 by removing properties not in
    the 1.0.3 spec and normalizing timestamp."
-  [statement]
+  [{:keys [statement] :as smap}]
   (if (= "2.0.0" (get statement "version"))
-    (-> statement
-        (assoc "version" "1.0.0")
-        (update "timestamp" ensure-103-timestamp)
-        (cond-> (get statement "context")
-          (update "context" dissoc "contextAgents" "contextGroups")))
-    statement))
+    (assoc smap
+           :statement
+           (-> statement
+               (assoc "version" "1.0.0")
+               (update "timestamp" ensure-103-timestamp)
+               (update "stored" ensure-103-timestamp)
+               (cond->
+                 ;; remove new context stuff
+                 (get statement "context")
+                 (update "context"
+                         dissoc "contextAgents" "contextGroups")
+                 ;; from subs
+                 (get-in statement ["object" "context"])
+                 (update-in ["object" "context"]
+                            dissoc "contextAgents" "contextGroups"))))
+    smap))

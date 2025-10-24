@@ -204,44 +204,59 @@
         (a/<! (a/thread (mm/clean-tempfiles! attachments)))
         (recur)))))
 
+(defn- get-xapi-version
+  [config source-or-target]
+  (get-in config [source-or-target :request-config :xapi-version]))
+
 (defn- statement-loop
   "Async loop to break GET batches into statements and handle attachments."
-  [get-chan
+  [config
+   get-chan
    statement-chan
    stop-chan]
-  (a/go-loop []
-    (if-let [[tag x] (a/<! get-chan)]
-      (do
-        (case tag
-          :response
-          (let [{{:keys [attachments]} :body
-                 :as resp} x
-                ;; Wrap errors and threadiness
-                {:keys [statements
-                        error]}
-                (if (not-empty attachments)
-                  ;; We have to do attachments in a thread
-                  (a/<!
-                   (a/thread
-                     (try {:statements (xapi/response->statements resp)}
-                          (catch Throwable ex
-                            {:error ex}))))
-                  (try {:statements (xapi/response->statements resp)}
-                       (catch Throwable ex
-                         {:error ex})))]
-            (if error
-              (a/>! stop-chan
-                    {:status :error
-                     :error {:message (ex-message error)
-                             :type :job}})
-              (a/<! (a/onto-chan! statement-chan statements false))))
-          :exception
-          (a/>! stop-chan
-                {:status :error
-                 :error {:message (ex-message x)
-                         :type :source}}))
-        (recur))
-      (a/close! statement-chan))))
+  (let [source-version     (get-xapi-version config :source)
+        target-version     (get-xapi-version config :target)
+        downgrade-version? (and (= "2.0.0" source-version)
+                                (= "1.0.3" target-version))]
+    (when downgrade-version?
+      (log/warnf "Source version 2.0.0 and target version 1.0.3. Statements will be downgraded."))
+    (a/go-loop []
+      (if-let [[tag x] (a/<! get-chan)]
+        (do
+          (case tag
+            :response
+            (let [{{:keys [attachments]} :body
+                   :as                   resp} x
+                  ;; Wrap errors and threadiness
+                  {:keys [statements
+                          error]}
+                  (if (not-empty attachments)
+                    ;; We have to do attachments in a thread
+                    (a/<!
+                     (a/thread
+                       (try {:statements (xapi/response->statements resp)}
+                            (catch Throwable ex
+                              {:error ex}))))
+                    (try {:statements (xapi/response->statements resp)}
+                         (catch Throwable ex
+                           {:error ex})))]
+              (if error
+                (a/>! stop-chan
+                      {:status :error
+                       :error  {:message (ex-message error)
+                                :type    :job}})
+                (a/<! (a/onto-chan! statement-chan
+                                    (cond->> statements
+                                      downgrade-version?
+                                      (map xapi/convert-200-to-103))
+                                    false))))
+            :exception
+            (a/>! stop-chan
+                  {:status :error
+                   :error  {:message (ex-message x)
+                            :type    :source}}))
+          (recur))
+        (a/close! statement-chan)))))
 
 (defn- init-buffers
   [{{{source-batch-size :batch-size} :source
@@ -291,29 +306,30 @@
               conn-mgr-opts
               source-client-opts
               target-client-opts]
-       :or {conn-mgr-opts {}
-            source-client-opts {}
-            target-client-opts {}}} :client-opts
-      reporter :reporter
-      :or {reporter (metrics/->NoopReporter)}}]
-  (let [{:keys [id]
+       :or   {conn-mgr-opts      {}
+              source-client-opts {}
+              target-client-opts {}}} :client-opts
+      reporter                      :reporter
+      :or                           {reporter (metrics/->NoopReporter)}}]
+  (let [{:keys                                        [id]
          {status-before :status
           cursor-before :cursor
           filter-before :filter
-          :as           state-before}      :state
-         {{:keys [poll-interval]
+          :as           state-before}                 :state
+         {{:keys                     [poll-interval]
            {?query-since :since
-            :as          get-params}    :get-params
-           get-req-config      :request-config
-           source-backoff-opts :backoff-opts
-           :as                 source-config} :source
+            :as          get-params} :get-params
+           get-req-config            :request-config
+           source-backoff-opts       :backoff-opts
+           :as                       source-config} :source
           {target-batch-size   :batch-size
            post-req-config     :request-config
            target-backoff-opts :backoff-opts
-           :as                 target-config} :target
-          filter-config :filter
-          :keys [batch-timeout]} :config
-         :as                     job-before}
+           :as                 target-config}       :target
+          filter-config                             :filter
+          :keys                                     [batch-timeout]
+          :as                                       config} :config
+         :as                                          job-before}
         (update job :config config/ensure-defaults)]
     (case status-before
       :running  (throw (ex-info "Job already running!"
@@ -326,7 +342,7 @@
                                 {:type ::cannot-start-completed
                                  :job  job-before}))
       (let [;; Get a timestamp for the instant before initialization
-            init-stamp (t/now-stamp)
+            init-stamp  (t/now-stamp)
             ;; The states channel emits the job as it runs
             states-chan (a/chan)
 
@@ -336,32 +352,32 @@
                     batch-buffer
                     cleanup-buffer]} (init-buffers job-before)
             ;; Http async conn pool + client
-            conn-mgr (or conn-mgr
-                         (client/init-conn-mgr
-                          conn-mgr-opts))
-            source-client (or http-client
-                              (client/init-client
-                               conn-mgr source-client-opts))
-            target-client (or http-client
-                              (client/init-client
-                               conn-mgr target-client-opts))
+            conn-mgr                 (or conn-mgr
+                                         (client/init-conn-mgr
+                                          conn-mgr-opts))
+            source-client            (or http-client
+                                         (client/init-client
+                                          conn-mgr source-client-opts))
+            target-client            (or http-client
+                                         (client/init-client
+                                          conn-mgr target-client-opts))
 
             stop-chan (a/promise-chan)
             stop-fn   #(a/put! stop-chan {:status :paused})
 
             ;; A channel for get responses
-            get-chan (a/chan get-buffer)
+            get-chan       (a/chan get-buffer)
             ;; A channel that holds statements + attachments
             statement-chan (a/chan statement-buffer)
             ;; A channel for batches of statements to target
-            batch-chan (a/chan batch-buffer)
+            batch-chan     (a/chan batch-buffer)
             ;; A channel to get dropped records
-            cleanup-chan (a/chan cleanup-buffer
-                                 ;; Will only pass records with attachments
-                                 (filter
-                                  (comp
-                                   not-empty
-                                   :attachments)))
+            cleanup-chan   (a/chan cleanup-buffer
+                                   ;; Will only pass records with attachments
+                                   (filter
+                                    (comp
+                                     not-empty
+                                     :attachments)))
 
             ;; Cleanup loop deletes tempfiles from batch + post
             cloop (cleanup-loop cleanup-chan)
@@ -382,12 +398,17 @@
                    :backoff-opts
                    source-backoff-opts
                    :conn-opts
-                   {:conn-mgr conn-mgr
+                   {:conn-mgr    conn-mgr
                     :http-client source-client}
                    :reporter reporter)
 
             ;; Pipeline from get-chan to statement chan
-            sloop (statement-loop get-chan statement-chan stop-chan)
+            ;; Performs transformations when required
+            sloop (statement-loop
+                   config
+                   get-chan
+                   statement-chan
+                   stop-chan)
 
             ;; Batch + filter statements from statement chan to batch chan
             bloop (ua/batch-filter
@@ -409,14 +430,14 @@
                           {:state (-> state-before
                                       (cond->
                                           ;; If a job is paused, re-init
-                                       (= :paused (:status state-before))
+                                          (= :paused (:status state-before))
                                         (state/set-status :init))
                                       (assoc :updated init-stamp))})
                    states-chan
                    stop-chan
                    batch-chan
                    cleanup-chan
-                   {:conn-mgr conn-mgr
+                   {:conn-mgr    conn-mgr
                     :http-client target-client}
                    reporter)]
 
@@ -438,7 +459,7 @@
           (a/close! states-chan))
 
         ;; Return the state emitter and stop fn
-        {:states states-chan
+        {:states  states-chan
          :stop-fn stop-fn}))))
 
 (s/fdef log-states

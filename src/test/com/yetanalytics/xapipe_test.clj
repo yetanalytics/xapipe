@@ -7,14 +7,15 @@
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
             [com.yetanalytics.xapipe.test-support :as sup]
-            [com.yetanalytics.xapipe.util.time :as t])
+            [com.yetanalytics.xapipe.util.time :as t]
+            [xapi-schema.spec :as xs])
   (:import [java.time Instant]))
 
 (use-fixtures :once (sup/instrument-fixture))
 
 (deftest run-job-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe transfers conf test data from source to target"
       (is (= 453 (sup/lrs-count source)))
@@ -124,7 +125,7 @@
 
 (deftest run-job-target-error-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe bails on target error"
       (let [;; Bad source
@@ -162,7 +163,7 @@
 ;; This can be fixed with more stop-chan checks
 (deftest run-job-stop-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe can be stopped by the caller"
       (let [[since until] (sup/lrs-stored-range source)
@@ -194,7 +195,7 @@
 
 (deftest run-job-backpressure-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe only continues when states are taken"
       (let [[since until] (sup/lrs-stored-range source)
@@ -225,7 +226,7 @@
 
 (deftest store-states-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe stores job state in the given state store"
       (let [store (mem/new-store)
@@ -259,7 +260,7 @@
 
 (deftest resume-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe can resume a stopped job"
       (let [store (mem/new-store)
@@ -430,3 +431,54 @@
             {:path
              {:match-paths [[[["id"]]
                              "not-an-id"]]}}}))
+
+(deftest version-downgrade-test
+  (binding [xs/*xapi-version* "2.0.0"]
+    (sup/with-running [source (sup/lrs
+                               :seed-path "dev-resources/lrs/after_conf_v2.edn")
+                       target (sup/lrs)]
+      (testing "xapipe transfers conf test data from 2.0.0 source to 1.0.3 target"
+        (is (= 468 (sup/lrs-count source)))
+        (let [[since until] (sup/lrs-stored-range source)
+              job-id (.toString (java.util.UUID/randomUUID))
+              config {:source
+                      {:request-config
+                       {:url-base (format "http://0.0.0.0:%d"
+                                          (:port source)),
+                        :xapi-prefix "/xapi",
+                        :xapi-version "2.0.0"},
+                       :get-params
+                       {:since since
+                        :until until}},
+                      :target
+                      {:request-config
+                       {:url-base (format "http://0.0.0.0:%d"
+                                          (:port target)),
+                        :xapi-prefix "/xapi",
+                        :xapi-version "1.0.3"}}}
+              ;; Run the job
+              {:keys [job-id
+                      job
+                      states]} (init-run-job config)
+
+              ;; Get all the states
+              all-states (a/<!! (a/into [] states))
+              {{:keys [status
+                       cursor]} :state} (last all-states)]
+          ;; At this point we're done or have errored.
+          (when (= status :error)
+            (log/error "Job Error" job))
+          (testing "successful completion"
+            (is (= :complete status)))
+          (testing "all statements transferred except empty ref"
+            (is (= 467 (sup/lrs-count target))))
+          (testing "read up to end"
+            (is (= (Instant/parse until) (Instant/parse cursor))))
+          (testing "matching statement ids and order"
+            (let [source-idset (into #{} (sup/lrs-ids source))]
+              (is (every? #(contains? source-idset %)
+                          (sup/lrs-ids target)))))
+          (testing "all states are timestamped"
+            (is (every?
+                 #(get-in % [:state :updated])
+                 all-states))))))))
