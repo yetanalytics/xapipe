@@ -49,6 +49,7 @@ For releases and release notes, see the [Releases](https://github.com/yetanalyti
 - [Docker Container](doc/docker.md)
 - [Demo](doc/demo.md)
 - [Sample AWS Deployment](doc/aws.md)
+- [xAPI Version Support](doc/xapi_version.md)
 
 ## Contribution
 
