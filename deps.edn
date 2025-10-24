@@ -42,7 +42,7 @@
           com.yetanalytics/lrs {:mvn/version "1.4.1"}
           io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
           ;; Some integration tests use logback
-          ch.qos.logback/logback-classic {:mvn/version "1.5.15"
+          ch.qos.logback/logback-classic {:mvn/version "1.5.19"
                                           :exclusions [org.slf4j/slf4j-api]}
           org.slf4j/slf4j-api {:mvn/version "2.0.12"}
           org.slf4j/jul-to-slf4j {:mvn/version "2.0.12"}
