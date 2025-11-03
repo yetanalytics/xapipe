@@ -36,7 +36,7 @@ All options:
       --json JSON                                             Take a job specification as a JSON string
       --json-file FILE                                        Take a job specification from a JSON file
       --json-out FILE                                         Write JOB to a JSON file
-      --[no-]upgrade                                          Automatically upgrade jobs to the latest version
+      --[no-]upgrade                                          Automatically upgrade jobs to the latest version (defaults to true)
   -s, --storage STORAGE                 :file                 Select storage backend, file (default), redis or noop, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
       --redis-prefix PREFIX             xapipe                Redis key prefix
