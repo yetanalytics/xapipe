@@ -216,10 +216,8 @@
    stop-chan]
   (let [source-version     (get-xapi-version config :source)
         target-version     (get-xapi-version config :target)
-        downgrade-version? (and (= "2.0.0" source-version)
-                                (= "1.0.3" target-version))]
-    (when downgrade-version?
-      (log/warnf "Source version 2.0.0 and target version 1.0.3. Statements will be downgraded."))
+        ;; downgrade all statements to 1.0.0
+        downgrade-version? (= "1.0.3" target-version)]
     (a/go-loop []
       (if-let [[tag x] (a/<! get-chan)]
         (do
