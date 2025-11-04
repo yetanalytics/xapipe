@@ -83,7 +83,7 @@
       (store/write-job store (last tail-states))
       (is (= {job-id
               {:id job-id,
-               :version 0,
+               :version 1,
                :config
                {:get-buffer-size 10,
                 :statement-buffer-size 500,
@@ -95,6 +95,7 @@
                  {:url-base (format "http://0.0.0.0:%s"
                                     (:port source)),
                   :xapi-prefix "/xapi"
+                  :xapi-version "1.0.3",
                   :json-only false},
                  :get-params
                  {:since "2021-10-25T15:05:00.537746000Z",
@@ -107,7 +108,8 @@
                 {:request-config
                  {:url-base (format "http://0.0.0.0:%d"
                                     (:port target)),
-                  :xapi-prefix "/xapi"},
+                  :xapi-prefix "/xapi",
+                  :xapi-version "1.0.3"},
                  :batch-size 50,
                  :backoff-opts {:budget 10000, :max-attempt 10}},
                 :filter {}},
@@ -176,7 +178,7 @@
       (store/write-job store (last tail-states))
       (is (= {job-id
               {:id job-id,
-               :version 0,
+               :version 1,
                :config
                {:get-buffer-size 10,
                 :statement-buffer-size 500,
@@ -187,6 +189,7 @@
                 {:request-config
                  {:url-base (format "http://0.0.0.0:%d"
                                     (:port source)),
+                  :xapi-version "1.0.3"
                   :json-only false
                   :xapi-prefix "/xapi"},
                  :get-params
@@ -198,7 +201,9 @@
                  :backoff-opts {:budget 10000, :max-attempt 10}},
                 :target
                 {:request-config
-                 {:url-base "http://0.0.0.0:1234", :xapi-prefix "/xapi"},
+                 {:url-base "http://0.0.0.0:1234",
+                  :xapi-version "1.0.3"
+                  :xapi-prefix "/xapi"},
                  :batch-size 50,
                  :backoff-opts {:budget 10000, :max-attempt 10}},
                 :filter {}},
@@ -351,7 +356,7 @@
                                             "--file-store-dir" ".test_store")]
               (is (= 0 status))
               (is (= {:id "foo",
-                      :version 0,
+                      :version 1,
                       :config
                       {:get-buffer-size 10,
                        :statement-buffer-size 500,
@@ -361,7 +366,9 @@
                        :source
                        {:request-config
                         {:url-base (format "http://0.0.0.0:%d"
-                                           (:port source)), :xapi-prefix "/xapi"
+                                           (:port source)),
+                         :xapi-prefix "/xapi",
+                         :xapi-version "1.0.3",
                          :json-only false},
                         :get-params
                         {:since "2021-10-25T15:05:00.537746000Z",
@@ -374,7 +381,8 @@
                        {:request-config
                         {:url-base (format "http://0.0.0.0:%d"
                                            (:port target)),
-                         :xapi-prefix "/xapi"},
+                         :xapi-prefix "/xapi",
+                         :xapi-version "1.0.3"},
                         :batch-size 50,
                         :backoff-opts {:budget 10000, :max-attempt 10}},
                        :filter {}},

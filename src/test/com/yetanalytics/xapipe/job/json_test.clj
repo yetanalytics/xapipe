@@ -20,6 +20,7 @@
 
 (def complex-job
   {:id "foo",
+   :version 1
    :config
    {:get-buffer-size 10,
     :statement-buffer-size 500,
@@ -28,14 +29,18 @@
     :cleanup-buffer-size 50,
     :source
     {:request-config
-     {:url-base "http://0.0.0.0:8080", :xapi-prefix "/xapi"},
+     {:url-base "http://0.0.0.0:8080",
+      :xapi-prefix "/xapi",
+      :xapi-version "1.0.3"},
      :batch-size 50,
      :backoff-opts {:budget 10000, :max-attempt 10},
      :poll-interval 1000,
      :get-params {:limit 50}},
     :target
     {:request-config
-     {:url-base "http://0.0.0.0:8081", :xapi-prefix "/xapi"},
+     {:url-base "http://0.0.0.0:8081",
+      :xapi-prefix "/xapi",
+      :xapi-version "1.0.3"},
      :batch-size 50,
      :backoff-opts {:budget 10000, :max-attempt 10}},
     :filter

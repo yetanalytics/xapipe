@@ -26,7 +26,8 @@
             :redis-prefix "xapipe"
             :file-store-dir "store"
             :metrics-reporter "noop"
-            :prometheus-push-gateway "0.0.0.0:9091"}
+            :prometheus-push-gateway "0.0.0.0:9091"
+            :upgrade-jobs true}
            nil
 
            ;; Redis store with a custom uri
@@ -40,7 +41,8 @@
             :redis-prefix "xapipe"
             :file-store-dir "store"
             :metrics-reporter "noop"
-            :prometheus-push-gateway "0.0.0.0:9091"}
+            :prometheus-push-gateway "0.0.0.0:9091"
+            :upgrade-jobs true}
            nil))
 
 (deftest source-options-test
@@ -58,7 +60,8 @@
             :get-params {},
             :source-backoff-budget 10000,
             :json-only false
-            :source-backoff-max-attempt 10}
+            :source-backoff-max-attempt 10,
+            :source-xapi-version "1.0.3"}
            nil
 
            ;; invalid batch size
@@ -68,7 +71,8 @@
             :get-params {},
             :source-backoff-budget 10000,
             :json-only false
-            :source-backoff-max-attempt 10}
+            :source-backoff-max-attempt 10,
+            :source-xapi-version "1.0.3"}
            ["Failed to validate \"--source-batch-size 0\": Must be a positive integer"]
 
            ;; xAPI Params
@@ -83,13 +87,15 @@
                          :related_agents true},
             :source-backoff-budget 10000,
             :json-only false
-            :source-backoff-max-attempt 10}
+            :source-backoff-max-attempt 10,
+            :source-xapi-version "1.0.3"}
            nil))
 
 (deftest target-options-test
   (is (= {:options {:target-batch-size 50
                     :target-backoff-budget 10000
-                    :target-backoff-max-attempt 10}
+                    :target-backoff-max-attempt 10
+                    :target-xapi-version "1.0.3"}
           :errors nil}
          (select-keys
           (cli/parse-opts [] target-options)
@@ -148,11 +154,15 @@
    :filter-concept-types []
    :filter-activity-type-ids []
    :filter-verb-ids []
-   :filter-attachment-usage-types []})
+   :filter-attachment-usage-types []
+   :source-xapi-version "1.0.3"
+   :target-xapi-version "1.0.3"
+   :upgrade-jobs true})
 
 ;; Matches the fixture job we have
 (def json-job
   {:id "foo",
+   :version 1,
    :config
    {:get-buffer-size 10,
     :statement-buffer-size 500,
@@ -162,14 +172,17 @@
     :source
     {:request-config
      {:url-base "http://0.0.0.0:8080",
-      :xapi-prefix "/xapi"},
+      :xapi-prefix "/xapi",
+      :xapi-version "1.0.3"},
      :batch-size 50,
      :backoff-opts {:budget 10000, :max-attempt 10}
      :poll-interval 1000,
      :get-params {:limit 50}},
     :target
     {:request-config
-     {:url-base "http://0.0.0.0:8081", :xapi-prefix "/xapi"},
+     {:url-base "http://0.0.0.0:8081",
+      :xapi-prefix "/xapi",
+      :xapi-version "1.0.3"},
      :batch-size 50,
      :backoff-opts {:budget 10000, :max-attempt 10}},
     :filter {}},
@@ -225,6 +238,7 @@
     "--source-backoff-max-attempt" "1"
     "--source-backoff-j-range" "1"
     "--source-backoff-initial" "1"
+    "--source-xapi-version" "2.0.0"
     "--target-url" "http://0.0.0.0:8081/xapi"
     "--target-batch-size" "1"
     "--target-username" "foo"
@@ -233,6 +247,7 @@
     "--target-backoff-max-attempt" "1"
     "--target-backoff-j-range" "1"
     "--target-backoff-initial" "1"
+    "--target-xapi-version" "2.0.0"
     "--get-buffer-size" "1"
     "--batch-timeout" "1"
     "--template-profile-url" "http://example.org/profile.jsonld"
@@ -307,7 +322,10 @@
     :filter-activity-type-ids ["http://example.org/profile.jsonld#activity-type"]
     :filter-verb-ids ["http://example.org/profile.jsonld#verb"]
     :filter-attachment-usage-types ["http://example.org/profile.jsonld#aut"]
-    :cleanup-buffer-size 1}
+    :cleanup-buffer-size 1
+    :source-xapi-version "2.0.0"
+    :target-xapi-version "2.0.0"
+    :upgrade-jobs true}
    [])
   (testing "no defaults"
     (is (= {}

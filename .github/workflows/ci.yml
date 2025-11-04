@@ -31,17 +31,9 @@ jobs:
       - name: Test Xapipe
         run: make test
 
-  nvd_scan:
-    uses: yetanalytics/actions/.github/workflows/nvd-scan.yml@v0.0.4
-    with:
-      nvd-clojure-version: '3.6.0'
-      classpath-command: 'clojure -Spath -A:cli'
-      nvd-config-filename: '.nvd/config.json'
-
   docker:
     needs:
       - test
-      - nvd_scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

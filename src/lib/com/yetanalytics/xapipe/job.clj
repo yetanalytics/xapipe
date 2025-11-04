@@ -8,7 +8,7 @@
             [com.yetanalytics.xapipe.util.time :as t]
             [xapi-schema.spec :as xs]))
 
-(def current-version 0)
+(def current-version 1)
 
 (s/def ::config config/config-spec)
 (s/def ::state state/state-spec)
@@ -32,8 +32,8 @@
   (s/keys
    :req-un [::id
             ::config
-            ::state]
-   :opt-un [::version]))
+            ::state
+            ::version]))
 
 (def job-spec
   (s/with-gen
@@ -60,7 +60,8 @@
   "Upgrade a job to the next version up.
   Breaking changes to the job spec require implementations of this to be
   upgradeable."
-  (fn [{:keys [version]}]
+  (fn [{:keys [version]
+        :or {version 0}}]
     [version (inc version)]))
 
 (defmethod inc-version :default
@@ -74,18 +75,37 @@
                :version version
                :next-version next-version}))))
 
+;; Version 0 -> 1: ensure xapi-version is set in source/target request-config
+(defn- vpath [k]
+  [:config k :request-config :xapi-version])
+
+(defmethod inc-version [0 1]
+  [job]
+  ;; ensure source/target xapi-version is set
+  (let [?source-version (get-in job (vpath :source))
+        ?target-version (get-in job (vpath :target))]
+    (-> job
+        (assoc :version 1)
+        (cond->
+         (nil? ?source-version)
+          (assoc-in (vpath :source) "1.0.3")
+
+          (nil? ?target-version)
+          (assoc-in (vpath :target) "1.0.3")))))
+
 (s/fdef upgrade-job
-  :args (s/cat :job job-spec)
+  :args (s/cat :job (s/with-gen map?
+                      (fn [] (s/gen job-spec)))) ;; may need coercion
   :ret job-spec)
 
 (defn upgrade-job
   "Attempt to upgrade a job to the current version or throw.
-  Assumes no version to be the latest version."
+  Assumes no version to be version zero."
   [{:keys [version]
     :as job
-    :or {version current-version}}]
+    :or {version 0}}]
   (cond
-    (= current-version version) (assoc job :version version)
+    (= current-version version) job
     (< current-version version) (throw
                                  (ex-info (format "Unknown version %d"
                                                   version)

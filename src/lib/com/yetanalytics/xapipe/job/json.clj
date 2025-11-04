@@ -91,10 +91,11 @@
 
 (s/fdef json->job
   :args (s/cat :json-str ::job-json)
-  :ret job/job-spec)
+  :ret any? ;; we don't spec this because the job may need an update
+  )
 
 (defn json->job
-  "Parse a job from JSON"
+  "Parse a job from JSON."
   [^String json-str]
   (-> (json/parse-string json-str (partial keyword nil))
       keywordize-status

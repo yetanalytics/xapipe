@@ -7,14 +7,15 @@
             [com.yetanalytics.xapipe.store :as store]
             [com.yetanalytics.xapipe.store.impl.memory :as mem]
             [com.yetanalytics.xapipe.test-support :as sup]
-            [com.yetanalytics.xapipe.util.time :as t])
+            [com.yetanalytics.xapipe.util.time :as t]
+            [xapi-schema.spec :as xs])
   (:import [java.time Instant]))
 
 (use-fixtures :once (sup/instrument-fixture))
 
 (deftest run-job-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe transfers conf test data from source to target"
       (is (= 453 (sup/lrs-count source)))
@@ -22,12 +23,14 @@
             job-id (.toString (java.util.UUID/randomUUID))
             ;; This test uses a "raw" job from scratch
             job {:id job-id,
+                 :version 1
                  :config
                  {:source
                   {:request-config
                    {:url-base (format "http://0.0.0.0:%d"
                                       (:port source)),
-                    :xapi-prefix "/xapi"},
+                    :xapi-prefix "/xapi",
+                    :xapi-version "1.0.3"},
                    :get-params
                    {:since since
                     :until until}},
@@ -35,7 +38,8 @@
                   {:request-config
                    {:url-base (format "http://0.0.0.0:%d"
                                       (:port target)),
-                    :xapi-prefix "/xapi"}}},
+                    :xapi-prefix "/xapi",
+                    :xapi-version "1.0.3"}}},
                  :state
                  {:status :init,
                   :cursor since,
@@ -91,7 +95,8 @@
       (let [;; Bad source
             config {:source
                     {:request-config {:url-base    "http://localhost:8123"
-                                      :xapi-prefix "/foo"}
+                                      :xapi-prefix "/foo",
+                                      :xapi-version "1.0.3"}
                      :get-params     {}
                      :poll-interval  1000
                      :batch-size     50}
@@ -120,7 +125,7 @@
 
 (deftest run-job-target-error-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe bails on target error"
       (let [;; Bad source
@@ -131,7 +136,8 @@
                      :batch-size     50}
                     :target
                     {:request-config {:url-base    "http://localhost:8123"
-                                      :xapi-prefix "/foo"}
+                                      :xapi-prefix "/foo",
+                                      :xapi-version "1.0.3"}
                      :batch-size     50}}
             {:keys [job-id
                     job
@@ -157,7 +163,7 @@
 ;; This can be fixed with more stop-chan checks
 (deftest run-job-stop-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe can be stopped by the caller"
       (let [[since until] (sup/lrs-stored-range source)
@@ -189,7 +195,7 @@
 
 (deftest run-job-backpressure-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe only continues when states are taken"
       (let [[since until] (sup/lrs-stored-range source)
@@ -220,7 +226,7 @@
 
 (deftest store-states-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe stores job state in the given state store"
       (let [store (mem/new-store)
@@ -254,7 +260,7 @@
 
 (deftest resume-test
   (sup/with-running [source (sup/lrs
-                             :seed-path "dev-resources/lrs/after_conf.edn")
+                             :seed-path "dev-resources/lrs/after_conf_v1.edn")
                      target (sup/lrs)]
     (testing "xapipe can resume a stopped job"
       (let [store (mem/new-store)
@@ -425,3 +431,93 @@
             {:path
              {:match-paths [[[["id"]]
                              "not-an-id"]]}}}))
+
+(deftest version-downgrade-test
+  (binding [xs/*xapi-version* "2.0.0"]
+    (sup/art
+     [testing-tag
+      seed-path
+      source-version
+      target-version
+      source-count
+      target-count]
+     (testing testing-tag
+       (sup/with-running [source (sup/lrs
+                                  :seed-path seed-path)
+                          target (sup/lrs)]
+         (is (= source-count (sup/lrs-count source)))
+         (let [[since until] (sup/lrs-stored-range source)
+               job-id (.toString (java.util.UUID/randomUUID))
+               config {:source
+                       {:request-config
+                        {:url-base (format "http://0.0.0.0:%d"
+                                           (:port source)),
+                         :xapi-prefix "/xapi",
+                         :xapi-version source-version},
+                        :get-params
+                        {:since since
+                         :until until}},
+                       :target
+                       {:request-config
+                        {:url-base (format "http://0.0.0.0:%d"
+                                           (:port target)),
+                         :xapi-prefix "/xapi",
+                         :xapi-version target-version}}}
+               ;; Run the job
+               {:keys [job-id
+                       job
+                       states]} (init-run-job config)
+
+               ;; Get all the states
+               all-states (a/<!! (a/into [] states))
+               {{:keys [status
+                        cursor]} :state} (last all-states)]
+           ;; At this point we're done or have errored.
+           (when (= status :error)
+             (log/error "Job Error" job))
+           (testing "successful completion"
+             (is (= :complete status)))
+           (testing "all statements transferred except empty ref"
+             (is (= target-count (sup/lrs-count target))))
+           (testing "read up to end"
+             (is (= (Instant/parse until) (Instant/parse cursor))))
+           (testing "matching statement ids and order"
+             (let [source-idset (into #{} (sup/lrs-ids source))]
+               (is (every? #(contains? source-idset %)
+                           (sup/lrs-ids target)))))
+           (testing "all states are timestamped"
+             (is (every?
+                  #(get-in % [:state :updated])
+                  all-states))))))
+     ;; Downgrade required, using 2.0.0
+     "xapipe transfers 2.0.0 conf test data from 2.0.0 source to 1.0.3 target"
+     "dev-resources/lrs/after_conf_v2.edn"
+     "2.0.0" "1.0.3"
+     468 467
+
+     ;; Downgrade required, using 1.0.3
+     "xapipe transfers 2.0.0 conf test data from 1.0.3 source to 1.0.3 target"
+     "dev-resources/lrs/after_conf_v2.edn"
+     "1.0.3" "1.0.3"
+     468 467
+
+     ;; No Downgrade required
+     "xapipe transfers 1.0.3 conf test data from 1.0.3 source to 1.0.3 target"
+     "dev-resources/lrs/after_conf_v1.edn"
+     "1.0.3" "1.0.3"
+     453 452
+
+     "xapipe transfers 1.0.3 conf test data from 1.0.3 source to 2.0.0 target"
+     "dev-resources/lrs/after_conf_v1.edn"
+     "1.0.3" "2.0.0"
+     453 452
+
+     "xapipe transfers 1.0.3 conf test data from 2.0.0 source to 2.0.0 target"
+     "dev-resources/lrs/after_conf_v1.edn"
+     "2.0.0" "2.0.0"
+     453 452
+
+     "xapipe transfers 2.0.0 conf test data from 2.0.0 source to 2.0.0 target"
+     "dev-resources/lrs/after_conf_v2.edn"
+     "2.0.0" "2.0.0"
+     468 467)))

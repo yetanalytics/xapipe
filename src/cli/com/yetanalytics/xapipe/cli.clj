@@ -211,6 +211,7 @@
    :source-backoff-max-attempt [:source :backoff-opts :max-attempt]
    :source-backoff-j-range     [:source :backoff-opts :j-range]
    :source-backoff-initial     [:source :backoff-opts :initial]
+   :source-xapi-version        [:source :request-config :xapi-version]
 
    ;; Target LRS
    :target-batch-size          [:target :batch-size]
@@ -225,6 +226,7 @@
    :target-backoff-max-attempt [:target :backoff-opts :max-attempt]
    :target-backoff-j-range     [:target :backoff-opts :j-range]
    :target-backoff-initial     [:target :backoff-opts :initial]
+   :target-xapi-version        [:target :request-config :xapi-version]
 
    ;; Filters
    :filter-template-profile-urls  [:filter :template :profile-urls]

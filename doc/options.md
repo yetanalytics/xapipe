@@ -36,6 +36,7 @@ All options:
       --json JSON                                             Take a job specification as a JSON string
       --json-file FILE                                        Take a job specification from a JSON file
       --json-out FILE                                         Write JOB to a JSON file
+      --[no-]upgrade                                          Automatically upgrade jobs to the latest version (defaults to true)
   -s, --storage STORAGE                 :file                 Select storage backend, file (default), redis or noop, mem is for testing only
       --redis-uri URI                   redis://0.0.0.0:6379  Redis Connection URI
       --redis-prefix PREFIX             xapipe                Redis key prefix
@@ -48,6 +49,7 @@ All options:
   -p, --xapi-get-param KEY=VALUE        {}                    xAPI GET Parameters
       --source-username USERNAME                              Source LRS BASIC Auth username
       --source-password PASSWORD                              Source LRS BASIC Auth password
+      --source-xapi-version VERSION     1.0.3                 Source LRS xAPI Version
       --json-only                                             Only operate in JSON statement mode for data transfer, ignoring Attachments/multipart (for compatibility issues)
       --source-auth-uri URI                                   Source LRS OAuth autentication URI
       --source-client-id ID                                   Source LRS OAuth client ID
@@ -62,6 +64,7 @@ All options:
       --target-batch-size SIZE          50                    Target LRS POST desired batch size
       --target-username USERNAME                              Target LRS BASIC Auth username
       --target-password PASSWORD                              Target LRS BASIC Auth password
+      --target-xapi-version VERSION     1.0.3                 Target LRS xAPI Version
       --target-auth-uri URI                                   Target LRS OAuth autentication URI
       --target-client-id ID                                   Target LRS OAuth client ID
       --target-client-secret SECRET                           Target LRS OAuth client secret
