@@ -43,6 +43,7 @@ For releases and release notes, see the [Releases](https://github.com/yetanalyti
 - [Installation](doc/install.md)
 - [Usage](doc/usage.md)
 - [Persistence Config](doc/persistence.md)
+- [OAuth Support](doc/oauth.md)
 - [All Options](doc/options.md)
 - [JSON Config](doc/json.md)
 - [Metrics](doc/metrics.md)
