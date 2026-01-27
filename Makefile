@@ -1,4 +1,4 @@
-.phony: test bench clean bundle bundle-help ci sbom sbom-csv
+.phony: test bench clean bundle bundle-help ci sbom sbom-csv runtime-info
 
 clean:
 	rm -rf target dev-resources/bench/*.json pom.xml
@@ -75,3 +75,10 @@ sbom: pom.xml
 
 sbom-csv: sbom
 	jq -r -f ./dev-resources/sbom/sbom_flat.jq ./target/xapipe.json > ./target/xapipe-sbom.csv
+
+target/runtime-info.txt: bundle Dockerfile
+	mkdir -p target
+	docker build -t xapipe:local .
+	docker run --rm --entrypoint sh xapipe:local -c 'set -e; echo "== OS =="; cat /etc/os-release; echo; echo "== Kernel =="; uname -a; echo; echo "== Java =="; /xapipe/runtimes/linux/bin/java -version 2>&1; echo; echo "== Packages =="; apk info -vv' > target/runtime-info.txt
+
+runtime-info: target/runtime-info.txt
