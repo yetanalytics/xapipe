@@ -1,4 +1,4 @@
-.phony: test bench clean bundle bundle-help ci
+.phony: test bench clean bundle bundle-help ci sbom sbom-csv
 
 clean:
 	rm -rf target dev-resources/bench/*.json pom.xml
@@ -65,3 +65,13 @@ bundle-help: target/bundle
 # Generate a POM for dependency graph resolution
 pom.xml:
 	clojure -Acli -Spom
+
+sbom: pom.xml
+	mvn -q org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom \
+	  -DoutputFormat=json \
+	  -DoutputName=xapipe \
+	  -DschemaVersion=1.6 \
+	  -DprojectType=application
+
+sbom-csv: sbom
+	jq -r -f ./dev-resources/sbom/sbom_flat.jq ./target/xapipe.json > ./target/xapipe-sbom.csv
