@@ -2,7 +2,9 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.2"}
         org.clojure/core.async {:mvn/version "1.3.618"}
         clj-http/clj-http {:mvn/version "3.12.3"}
-        com.taoensso/carmine {:mvn/version "3.4.1"}
+        com.taoensso/carmine {:mvn/version "3.4.1"
+                              :exclusions [io.airlift/aircompressor]}
+        io.airlift/aircompressor {:mvn/version "2.0.3"}
         commons-fileupload/commons-fileupload {:mvn/version "1.6.0"}
         commons-io/commons-io {:mvn/version "2.14.0"}
         com.yetanalytics/xapi-schema
@@ -18,12 +20,12 @@
         com.cognitect/transit-clj {:mvn/version "1.0.333"
                                    ;; clears CVE-2022-41719
                                    :exclusions [org.msgpack/msgpack]}
-        cheshire/cheshire {:mvn/version "5.12.0"}}
+        cheshire/cheshire {:mvn/version "6.2.0"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
                      ch.qos.logback/logback-classic
-                     {:mvn/version "1.5.19"
+                     {:mvn/version "1.5.25"
                       :exclusions [org.slf4j/slf4j-api]}
                      org.slf4j/slf4j-api {:mvn/version "2.0.12"}
                      org.slf4j/jul-to-slf4j {:mvn/version "2.0.12"}
@@ -42,7 +44,7 @@
           com.yetanalytics/lrs {:mvn/version "1.4.1"}
           io.pedestal/pedestal.jetty {:mvn/version "0.5.9"}
           ;; Some integration tests use logback
-          ch.qos.logback/logback-classic {:mvn/version "1.5.19"
+          ch.qos.logback/logback-classic {:mvn/version "1.5.25"
                                           :exclusions [org.slf4j/slf4j-api]}
           org.slf4j/slf4j-api {:mvn/version "2.0.12"}
           org.slf4j/jul-to-slf4j {:mvn/version "2.0.12"}
