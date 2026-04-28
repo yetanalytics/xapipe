@@ -20,7 +20,7 @@
         com.cognitect/transit-clj {:mvn/version "1.0.333"
                                    ;; clears CVE-2022-41719
                                    :exclusions [org.msgpack/msgpack]}
-        cheshire/cheshire {:mvn/version "5.12.0"}}
+        cheshire/cheshire {:mvn/version "6.2.0"}}
  :aliases
  {:cli {:extra-paths ["src/cli"]
         :extra-deps {org.clojure/tools.cli {:mvn/version "1.0.206"}
