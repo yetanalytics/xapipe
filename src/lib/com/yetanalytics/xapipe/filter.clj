@@ -112,8 +112,8 @@
   (s/every ::profile-url))
 
 (s/def ::template
-  (s/keys :req-un [::profile-urls
-                   ::template-ids]))
+  (s/keys :req-un [::profile-urls]
+          :opt-un [::template-ids]))
 
 (s/fdef template-filter-pred
   :args (s/cat :template-cfg ::template)
@@ -178,8 +178,8 @@
 
 ;; Pattern filter config
 (s/def ::pattern
-  (s/keys :req-un [::profile-urls
-                   ::pattern-ids]))
+  (s/keys :req-un [::profile-urls]
+          :opt-un [::pattern-ids]))
 
 (s/fdef pattern-filter-pred
   :args (s/cat :pattern-cfg ::pattern)
