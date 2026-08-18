@@ -15,6 +15,43 @@
 
 (use-fixtures :once (sup/instrument-fixture))
 
+(deftest profile-filter-without-id-test
+  (doseq [[filter-type profile-option profile-url]
+          [["template"
+            "--template-profile-url"
+            "dev-resources/profiles/calibration_a.jsonld"]
+           ["pattern"
+            "--pattern-profile-url"
+            "dev-resources/profiles/calibration_strict_pattern.jsonld"]]]
+    (testing (format "%s filter without an explicit ID" filter-type)
+      (let [{:keys [status message]}
+            (main* "-s" "noop"
+                   "--source-url" "http://0.0.0.0:8080/xapi"
+                   "--target-url" "http://0.0.0.0:8081/xapi"
+                   "--job-id" "profile-filter-without-id-test"
+                   profile-option profile-url
+                   "--show-job")]
+        (is (= 0 status) message)))))
+
+(deftest concept-filter-with-optional-arguments-test
+  (doseq [[description filter-args]
+          [["profile without explicit concept types or IDs"
+            ["--concept-profile-url"
+             "dev-resources/profiles/calibration_concept.jsonld"]]
+           ["explicit verb ID without a profile"
+            ["--verb-id" "https://example.org/verb"]]]]
+    (testing description
+      (let [{:keys [status message]}
+            (apply main*
+                   (concat
+                    ["-s" "noop"
+                     "--source-url" "http://0.0.0.0:8080/xapi"
+                     "--target-url" "http://0.0.0.0:8081/xapi"
+                     "--job-id" "concept-filter-with-optional-arguments-test"]
+                    filter-args
+                    ["--show-job"]))]
+        (is (= 0 status) message)))))
+
 (deftest backoff-no-retry-config-test
   (doseq [[lrs-type max-attempt-option]
           [["source" "--source-backoff-max-attempt"]

@@ -249,22 +249,40 @@
   [{:keys [source-url
            target-url]
     :as options}]
-  (reduce-kv
-   (fn [m k v]
-     (if-let [path (get option-paths k)]
-       (if (= :filter (first path))
-         ;; filters take collections
-         (if (not-empty v)
-           (assoc-in m path v)
-           m)
-         ;; All other opts are scalar
-         (assoc-in m path v))
-       ;; ignore unknown
-       m))
-   {:source {:request-config (parse-lrs-url source-url)}
-    :target {:request-config (parse-lrs-url target-url)}
-    :filter {}}
-   options))
+  (let [config (reduce-kv
+                (fn [m k v]
+                  (if-let [path (get option-paths k)]
+                    (if (= :filter (first path))
+                      ;; filters take collections
+                      (if (not-empty v)
+                        (assoc-in m path v)
+                        m)
+                      ;; All other opts are scalar
+                      (assoc-in m path v))
+                    ;; ignore unknown
+                    m))
+                {:source {:request-config (parse-lrs-url source-url)}
+                 :target {:request-config (parse-lrs-url target-url)}
+                 :filter {}}
+                options)]
+    ;; Required filter collections are normalized as empty []
+    (cond-> config
+      (get-in config [:filter :template])
+      (update-in [:filter :template]
+                 #(merge {:template-ids []} %))
+
+      (get-in config [:filter :pattern])
+      (update-in [:filter :pattern]
+                 #(merge {:pattern-ids []} %))
+
+      (get-in config [:filter :concept])
+      (update-in [:filter :concept]
+                 #(merge {:profile-urls []
+                          :concept-types []
+                          :activity-type-ids []
+                          :verb-ids []
+                          :attachment-usage-types []}
+                         %)))))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)
