@@ -15,6 +15,20 @@
 
 (use-fixtures :once (sup/instrument-fixture))
 
+(deftest backoff-no-retry-config-test
+  (doseq [[lrs-type max-attempt-option]
+          [["source" "--source-backoff-max-attempt"]
+           ["target" "--target-backoff-max-attempt"]]]
+    (testing (format "%s backoff with retries disabled" lrs-type)
+      (let [{:keys [status message]}
+            (main* "-s" "noop"
+                   "--source-url" "http://0.0.0.0:8080/xapi"
+                   "--target-url" "http://0.0.0.0:8081/xapi"
+                   "--job-id" "backoff-no-retry-config-test"
+                   max-attempt-option "-1"
+                   "--show-job")]
+        (is (= 0 status) message)))))
+
 (deftest start-test
   (sup/with-running [source (sup/lrs
                              :seed-path
