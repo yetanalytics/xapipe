@@ -265,7 +265,7 @@
                  :target {:request-config (parse-lrs-url target-url)}
                  :filter {}}
                 options)]
-    ;; filter template and profile ids lists are normalized as empty []
+    ;; Required filter collections are normalized as empty []
     (cond-> config
       (get-in config [:filter :template])
       (update-in [:filter :template]
@@ -273,7 +273,16 @@
 
       (get-in config [:filter :pattern])
       (update-in [:filter :pattern]
-                 #(merge {:pattern-ids []} %)))))
+                 #(merge {:pattern-ids []} %))
+
+      (get-in config [:filter :concept])
+      (update-in [:filter :concept]
+                 #(merge {:profile-urls []
+                          :concept-types []
+                          :activity-type-ids []
+                          :verb-ids []
+                          :attachment-usage-types []}
+                         %)))))
 
 (s/fdef create-job
   :args (s/cat :options ::opts/all-options)

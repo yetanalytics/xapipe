@@ -33,6 +33,25 @@
                    "--show-job")]
         (is (= 0 status) message)))))
 
+(deftest concept-filter-with-optional-arguments-test
+  (doseq [[description filter-args]
+          [["profile without explicit concept types or IDs"
+            ["--concept-profile-url"
+             "dev-resources/profiles/calibration_concept.jsonld"]]
+           ["explicit verb ID without a profile"
+            ["--verb-id" "https://example.org/verb"]]]]
+    (testing description
+      (let [{:keys [status message]}
+            (apply main*
+                   (concat
+                    ["-s" "noop"
+                     "--source-url" "http://0.0.0.0:8080/xapi"
+                     "--target-url" "http://0.0.0.0:8081/xapi"
+                     "--job-id" "concept-filter-with-optional-arguments-test"]
+                    filter-args
+                    ["--show-job"]))]
+        (is (= 0 status) message)))))
+
 (deftest start-test
   (sup/with-running [source (sup/lrs
                              :seed-path
