@@ -15,6 +15,24 @@
 
 (use-fixtures :once (sup/instrument-fixture))
 
+(deftest profile-filter-without-id-test
+  (doseq [[filter-type profile-option profile-url]
+          [["template"
+            "--template-profile-url"
+            "dev-resources/profiles/calibration_a.jsonld"]
+           ["pattern"
+            "--pattern-profile-url"
+            "dev-resources/profiles/calibration_strict_pattern.jsonld"]]]
+    (testing (format "%s filter without an explicit ID" filter-type)
+      (let [{:keys [status message]}
+            (main* "-s" "noop"
+                   "--source-url" "http://0.0.0.0:8080/xapi"
+                   "--target-url" "http://0.0.0.0:8081/xapi"
+                   "--job-id" "profile-filter-without-id-test"
+                   profile-option profile-url
+                   "--show-job")]
+        (is (= 0 status) message)))))
+
 (deftest start-test
   (sup/with-running [source (sup/lrs
                              :seed-path
